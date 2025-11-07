@@ -9,137 +9,70 @@ import (
 
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
+	"github.com/james-w/gomatchers/showcase/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
-type CommentSpec struct {
-	ID        testgen.Maybe[string]
-	Post      testgen.Maybe[showcase.BlogPost]
-	Author    testgen.Maybe[showcase.User]
-	Content   testgen.Maybe[string]
-	CreatedAt testgen.Maybe[time.Time]
+// CommentRecipe provides a fluent API for building Comment instances.
+type CommentRecipe struct {
+	opts []testgen.Opt[spec.CommentSpec]
 }
 
-func NewCommentSpec() CommentSpec { return CommentSpec{} }
-
-func NewCommentFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Comment, CommentSpec] {
-	return testgen.NewSpecFactory(p, NewCommentSpec, BuildComment)
-}
-
-// Defaults (simple heuristics).
-var (
-	CommentDefaultID        = func(p testgen.Primitives) string { return p.ID() }
-	CommentDefaultPost      = testgen.FromSpec(BuildBlogPost, NewBlogPostSpec)
-	CommentDefaultAuthor    = testgen.FromSpec(BuildUser, NewUserSpec)
-	CommentDefaultContent   = func(p testgen.Primitives) string { return p.StringWith("content_") }
-	CommentDefaultCreatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-)
-
-func BuildComment(p testgen.Primitives, s CommentSpec) showcase.Comment {
-	iD := s.ID.Get(p, CommentDefaultID)
-	post := s.Post.Get(p, CommentDefaultPost)
-	author := s.Author.Get(p, CommentDefaultAuthor)
-	content := s.Content.Get(p, CommentDefaultContent)
-	createdAt := s.CreatedAt.Get(p, CommentDefaultCreatedAt)
-	return showcase.Comment{
-		ID:        iD,
-		Post:      post,
-		Author:    author,
-		Content:   content,
-		CreatedAt: createdAt,
-	}
-}
-
-func WithCommentID(v string) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[string]) { s.ID = m }, v)
-}
-
-func WithCommentPost(v showcase.BlogPost) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[showcase.BlogPost]) { s.Post = m }, v)
-}
-
-func WithCommentPostFromRecipe(rec BlogPostRecipe) testgen.Opt[CommentSpec] {
-	return testgen.SetWith(
-		func(s *CommentSpec, m testgen.Maybe[showcase.BlogPost]) { s.Post = m },
-		rec.Provider(),
-	)
-}
-
-func WithCommentAuthor(v showcase.User) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[showcase.User]) { s.Author = m }, v)
-}
-
-func WithCommentAuthorFromRecipe(rec UserRecipe) testgen.Opt[CommentSpec] {
-	return testgen.SetWith(
-		func(s *CommentSpec, m testgen.Maybe[showcase.User]) { s.Author = m },
-		rec.Provider(),
-	)
-}
-
-func WithCommentContent(v string) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[string]) { s.Content = m }, v)
-}
-
-func WithCommentCreatedAt(v time.Time) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type CommentRecipe struct{ opts []testgen.Opt[CommentSpec] }
-
+// Comment creates a new CommentRecipe for building Comment instances.
 func Comment() CommentRecipe { return CommentRecipe{} }
 
+// ID sets the ID field.
 func (r CommentRecipe) ID(v string) CommentRecipe {
-	r.opts = append(r.opts, WithCommentID(v))
+	r.opts = append(r.opts, spec.WithCommentID(v))
 	return r
 }
 
+// Post sets the Post field.
 func (r CommentRecipe) Post(v showcase.BlogPost) CommentRecipe {
-	r.opts = append(r.opts, WithCommentPost(v))
+	r.opts = append(r.opts, spec.WithCommentPost(v))
 	return r
 }
 
+// PostFromRecipe sets the Post field using another Recipe (creates unique instances).
 func (r CommentRecipe) PostFromRecipe(v BlogPostRecipe) CommentRecipe {
-	r.opts = append(r.opts, WithCommentPostFromRecipe(v))
+	r.opts = append(r.opts, spec.WithCommentPostFromProvider(v.Provider()))
 	return r
 }
 
+// Author sets the Author field.
 func (r CommentRecipe) Author(v showcase.User) CommentRecipe {
-	r.opts = append(r.opts, WithCommentAuthor(v))
+	r.opts = append(r.opts, spec.WithCommentAuthor(v))
 	return r
 }
 
+// AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
 func (r CommentRecipe) AuthorFromRecipe(v UserRecipe) CommentRecipe {
-	r.opts = append(r.opts, WithCommentAuthorFromRecipe(v))
+	r.opts = append(r.opts, spec.WithCommentAuthorFromProvider(v.Provider()))
 	return r
 }
 
+// Content sets the Content field.
 func (r CommentRecipe) Content(v string) CommentRecipe {
-	r.opts = append(r.opts, WithCommentContent(v))
+	r.opts = append(r.opts, spec.WithCommentContent(v))
 	return r
 }
 
+// CreatedAt sets the CreatedAt field.
 func (r CommentRecipe) CreatedAt(v time.Time) CommentRecipe {
-	r.opts = append(r.opts, WithCommentCreatedAt(v))
+	r.opts = append(r.opts, spec.WithCommentCreatedAt(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r CommentRecipe) Provider() testgen.Provider[showcase.Comment] {
-	return testgen.FromSpec(BuildComment, NewCommentSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildComment, spec.NewCommentSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single Comment instance.
 func (r CommentRecipe) Build(p testgen.Primitives) showcase.Comment {
-	return NewCommentFactory(p).Make(r.opts...)
+	return spec.NewCommentFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple Comment instances with unique generated values.
 func (r CommentRecipe) Many(n int, p testgen.Primitives) []showcase.Comment {
-	return NewCommentFactory(p).Many(n, r.opts...)
+	return spec.NewCommentFactory(p).Many(n, r.opts...)
 }

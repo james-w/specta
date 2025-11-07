@@ -9,151 +9,74 @@ import (
 
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
+	"github.com/james-w/gomatchers/showcase/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
+// OrderRecipe provides a fluent API for building Order instances.
+type OrderRecipe struct{ opts []testgen.Opt[spec.OrderSpec] }
 
-type OrderSpec struct {
-	ID        testgen.Maybe[string]
-	User      testgen.Maybe[showcase.User]
-	Items     testgen.Maybe[[]showcase.OrderItem]
-	Total     testgen.Maybe[float64]
-	Status    testgen.Maybe[string]
-	CreatedAt testgen.Maybe[time.Time]
-	UpdatedAt testgen.Maybe[time.Time]
-}
-
-func NewOrderSpec() OrderSpec { return OrderSpec{} }
-
-func NewOrderFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Order, OrderSpec] {
-	return testgen.NewSpecFactory(p, NewOrderSpec, BuildOrder)
-}
-
-// Defaults (simple heuristics).
-var (
-	OrderDefaultID        = func(p testgen.Primitives) string { return p.ID() }
-	OrderDefaultUser      = testgen.FromSpec(BuildUser, NewUserSpec)
-	OrderDefaultItems     = func(p testgen.Primitives) []showcase.OrderItem { var zero []showcase.OrderItem; return zero }
-	OrderDefaultTotal     = func(p testgen.Primitives) float64 { return p.Float64() }
-	OrderDefaultStatus    = func(p testgen.Primitives) string { return p.StringWith("status_") }
-	OrderDefaultCreatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-	OrderDefaultUpdatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-)
-
-func BuildOrder(p testgen.Primitives, s OrderSpec) showcase.Order {
-	iD := s.ID.Get(p, OrderDefaultID)
-	user := s.User.Get(p, OrderDefaultUser)
-	items := s.Items.Get(p, OrderDefaultItems)
-	total := s.Total.Get(p, OrderDefaultTotal)
-	status := s.Status.Get(p, OrderDefaultStatus)
-	createdAt := s.CreatedAt.Get(p, OrderDefaultCreatedAt)
-	updatedAt := s.UpdatedAt.Get(p, OrderDefaultUpdatedAt)
-	return showcase.Order{
-		ID:        iD,
-		User:      user,
-		Items:     items,
-		Total:     total,
-		Status:    status,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-	}
-}
-
-func WithOrderID(v string) testgen.Opt[OrderSpec] {
-	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[string]) { s.ID = m }, v)
-}
-
-func WithOrderUser(v showcase.User) testgen.Opt[OrderSpec] {
-	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[showcase.User]) { s.User = m }, v)
-}
-
-func WithOrderUserFromRecipe(rec UserRecipe) testgen.Opt[OrderSpec] {
-	return testgen.SetWith(
-		func(s *OrderSpec, m testgen.Maybe[showcase.User]) { s.User = m },
-		rec.Provider(),
-	)
-}
-
-func WithOrderItems(v []showcase.OrderItem) testgen.Opt[OrderSpec] {
-	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[[]showcase.OrderItem]) { s.Items = m }, v)
-}
-
-func WithOrderTotal(v float64) testgen.Opt[OrderSpec] {
-	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[float64]) { s.Total = m }, v)
-}
-
-func WithOrderStatus(v string) testgen.Opt[OrderSpec] {
-	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[string]) { s.Status = m }, v)
-}
-
-func WithOrderCreatedAt(v time.Time) testgen.Opt[OrderSpec] {
-	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
-}
-
-func WithOrderUpdatedAt(v time.Time) testgen.Opt[OrderSpec] {
-	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[time.Time]) { s.UpdatedAt = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type OrderRecipe struct{ opts []testgen.Opt[OrderSpec] }
-
+// Order creates a new OrderRecipe for building Order instances.
 func Order() OrderRecipe { return OrderRecipe{} }
 
+// ID sets the ID field.
 func (r OrderRecipe) ID(v string) OrderRecipe {
-	r.opts = append(r.opts, WithOrderID(v))
+	r.opts = append(r.opts, spec.WithOrderID(v))
 	return r
 }
 
+// User sets the User field.
 func (r OrderRecipe) User(v showcase.User) OrderRecipe {
-	r.opts = append(r.opts, WithOrderUser(v))
+	r.opts = append(r.opts, spec.WithOrderUser(v))
 	return r
 }
 
+// UserFromRecipe sets the User field using another Recipe (creates unique instances).
 func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
-	r.opts = append(r.opts, WithOrderUserFromRecipe(v))
+	r.opts = append(r.opts, spec.WithOrderUserFromProvider(v.Provider()))
 	return r
 }
 
+// Items sets the Items field.
 func (r OrderRecipe) Items(v []showcase.OrderItem) OrderRecipe {
-	r.opts = append(r.opts, WithOrderItems(v))
+	r.opts = append(r.opts, spec.WithOrderItems(v))
 	return r
 }
 
+// Total sets the Total field.
 func (r OrderRecipe) Total(v float64) OrderRecipe {
-	r.opts = append(r.opts, WithOrderTotal(v))
+	r.opts = append(r.opts, spec.WithOrderTotal(v))
 	return r
 }
 
+// Status sets the Status field.
 func (r OrderRecipe) Status(v string) OrderRecipe {
-	r.opts = append(r.opts, WithOrderStatus(v))
+	r.opts = append(r.opts, spec.WithOrderStatus(v))
 	return r
 }
 
+// CreatedAt sets the CreatedAt field.
 func (r OrderRecipe) CreatedAt(v time.Time) OrderRecipe {
-	r.opts = append(r.opts, WithOrderCreatedAt(v))
+	r.opts = append(r.opts, spec.WithOrderCreatedAt(v))
 	return r
 }
 
+// UpdatedAt sets the UpdatedAt field.
 func (r OrderRecipe) UpdatedAt(v time.Time) OrderRecipe {
-	r.opts = append(r.opts, WithOrderUpdatedAt(v))
+	r.opts = append(r.opts, spec.WithOrderUpdatedAt(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r OrderRecipe) Provider() testgen.Provider[showcase.Order] {
-	return testgen.FromSpec(BuildOrder, NewOrderSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildOrder, spec.NewOrderSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single Order instance.
 func (r OrderRecipe) Build(p testgen.Primitives) showcase.Order {
-	return NewOrderFactory(p).Make(r.opts...)
+	return spec.NewOrderFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple Order instances with unique generated values.
 func (r OrderRecipe) Many(n int, p testgen.Primitives) []showcase.Order {
-	return NewOrderFactory(p).Many(n, r.opts...)
+	return spec.NewOrderFactory(p).Many(n, r.opts...)
 }

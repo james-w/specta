@@ -9,126 +9,64 @@ import (
 
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
+	"github.com/james-w/gomatchers/showcase/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
-type ProductSpec struct {
-	ID          testgen.Maybe[string]
-	Name        testgen.Maybe[string]
-	Description testgen.Maybe[string]
-	Price       testgen.Maybe[float64]
-	InStock     testgen.Maybe[bool]
-	CreatedAt   testgen.Maybe[time.Time]
+// ProductRecipe provides a fluent API for building Product instances.
+type ProductRecipe struct {
+	opts []testgen.Opt[spec.ProductSpec]
 }
 
-func NewProductSpec() ProductSpec { return ProductSpec{} }
-
-func NewProductFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Product, ProductSpec] {
-	return testgen.NewSpecFactory(p, NewProductSpec, BuildProduct)
-}
-
-// Defaults (simple heuristics).
-var (
-	ProductDefaultID          = func(p testgen.Primitives) string { return p.ID() }
-	ProductDefaultName        = func(p testgen.Primitives) string { return p.StringWith("name_") }
-	ProductDefaultDescription = func(p testgen.Primitives) string { return p.StringWith("description_") }
-	ProductDefaultPrice       = func(p testgen.Primitives) float64 { return p.Float64() }
-	ProductDefaultInStock     = func(p testgen.Primitives) bool { return p.Bool() }
-	ProductDefaultCreatedAt   = func(p testgen.Primitives) time.Time { return p.Time() }
-)
-
-func BuildProduct(p testgen.Primitives, s ProductSpec) showcase.Product {
-	iD := s.ID.Get(p, ProductDefaultID)
-	name := s.Name.Get(p, ProductDefaultName)
-	description := s.Description.Get(p, ProductDefaultDescription)
-	price := s.Price.Get(p, ProductDefaultPrice)
-	inStock := s.InStock.Get(p, ProductDefaultInStock)
-	createdAt := s.CreatedAt.Get(p, ProductDefaultCreatedAt)
-	return showcase.Product{
-		ID:          iD,
-		Name:        name,
-		Description: description,
-		Price:       price,
-		InStock:     inStock,
-		CreatedAt:   createdAt,
-	}
-}
-
-func WithProductID(v string) testgen.Opt[ProductSpec] {
-	return testgen.SetLit(func(s *ProductSpec, m testgen.Maybe[string]) { s.ID = m }, v)
-}
-
-func WithProductName(v string) testgen.Opt[ProductSpec] {
-	return testgen.SetLit(func(s *ProductSpec, m testgen.Maybe[string]) { s.Name = m }, v)
-}
-
-func WithProductDescription(v string) testgen.Opt[ProductSpec] {
-	return testgen.SetLit(func(s *ProductSpec, m testgen.Maybe[string]) { s.Description = m }, v)
-}
-
-func WithProductPrice(v float64) testgen.Opt[ProductSpec] {
-	return testgen.SetLit(func(s *ProductSpec, m testgen.Maybe[float64]) { s.Price = m }, v)
-}
-
-func WithProductInStock(v bool) testgen.Opt[ProductSpec] {
-	return testgen.SetLit(func(s *ProductSpec, m testgen.Maybe[bool]) { s.InStock = m }, v)
-}
-
-func WithProductCreatedAt(v time.Time) testgen.Opt[ProductSpec] {
-	return testgen.SetLit(func(s *ProductSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type ProductRecipe struct{ opts []testgen.Opt[ProductSpec] }
-
+// Product creates a new ProductRecipe for building Product instances.
 func Product() ProductRecipe { return ProductRecipe{} }
 
+// ID sets the ID field.
 func (r ProductRecipe) ID(v string) ProductRecipe {
-	r.opts = append(r.opts, WithProductID(v))
+	r.opts = append(r.opts, spec.WithProductID(v))
 	return r
 }
 
+// Name sets the Name field.
 func (r ProductRecipe) Name(v string) ProductRecipe {
-	r.opts = append(r.opts, WithProductName(v))
+	r.opts = append(r.opts, spec.WithProductName(v))
 	return r
 }
 
+// Description sets the Description field.
 func (r ProductRecipe) Description(v string) ProductRecipe {
-	r.opts = append(r.opts, WithProductDescription(v))
+	r.opts = append(r.opts, spec.WithProductDescription(v))
 	return r
 }
 
+// Price sets the Price field.
 func (r ProductRecipe) Price(v float64) ProductRecipe {
-	r.opts = append(r.opts, WithProductPrice(v))
+	r.opts = append(r.opts, spec.WithProductPrice(v))
 	return r
 }
 
+// InStock sets the InStock field.
 func (r ProductRecipe) InStock(v bool) ProductRecipe {
-	r.opts = append(r.opts, WithProductInStock(v))
+	r.opts = append(r.opts, spec.WithProductInStock(v))
 	return r
 }
 
+// CreatedAt sets the CreatedAt field.
 func (r ProductRecipe) CreatedAt(v time.Time) ProductRecipe {
-	r.opts = append(r.opts, WithProductCreatedAt(v))
+	r.opts = append(r.opts, spec.WithProductCreatedAt(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r ProductRecipe) Provider() testgen.Provider[showcase.Product] {
-	return testgen.FromSpec(BuildProduct, NewProductSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildProduct, spec.NewProductSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single Product instance.
 func (r ProductRecipe) Build(p testgen.Primitives) showcase.Product {
-	return NewProductFactory(p).Make(r.opts...)
+	return spec.NewProductFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple Product instances with unique generated values.
 func (r ProductRecipe) Many(n int, p testgen.Primitives) []showcase.Product {
-	return NewProductFactory(p).Many(n, r.opts...)
+	return spec.NewProductFactory(p).Many(n, r.opts...)
 }

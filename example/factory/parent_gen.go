@@ -7,73 +7,40 @@ package factory
 import (
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/example"
+	"github.com/james-w/gomatchers/example/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
-type ParentSpec struct {
-	Child testgen.Maybe[example.UserView]
+// ParentRecipe provides a fluent API for building Parent instances.
+type ParentRecipe struct {
+	opts []testgen.Opt[spec.ParentSpec]
 }
 
-func NewParentSpec() ParentSpec { return ParentSpec{} }
-
-func NewParentFactory(p testgen.Primitives) *testgen.SpecFactory[example.Parent, ParentSpec] {
-	return testgen.NewSpecFactory(p, NewParentSpec, BuildParent)
-}
-
-// Defaults (simple heuristics).
-var (
-	ParentDefaultChild = testgen.FromSpec(BuildUserView, NewUserViewSpec)
-)
-
-func BuildParent(p testgen.Primitives, s ParentSpec) example.Parent {
-	child := s.Child.Get(p, ParentDefaultChild)
-	return example.Parent{
-		Child: child,
-	}
-}
-
-func WithParentChild(v example.UserView) testgen.Opt[ParentSpec] {
-	return testgen.SetLit(func(s *ParentSpec, m testgen.Maybe[example.UserView]) { s.Child = m }, v)
-}
-
-func WithParentChildFromRecipe(rec UserViewRecipe) testgen.Opt[ParentSpec] {
-	return testgen.SetWith(
-		func(s *ParentSpec, m testgen.Maybe[example.UserView]) { s.Child = m },
-		rec.Provider(),
-	)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type ParentRecipe struct{ opts []testgen.Opt[ParentSpec] }
-
+// Parent creates a new ParentRecipe for building Parent instances.
 func Parent() ParentRecipe { return ParentRecipe{} }
 
+// Child sets the Child field.
 func (r ParentRecipe) Child(v example.UserView) ParentRecipe {
-	r.opts = append(r.opts, WithParentChild(v))
+	r.opts = append(r.opts, spec.WithParentChild(v))
 	return r
 }
 
+// ChildFromRecipe sets the Child field using another Recipe (creates unique instances).
 func (r ParentRecipe) ChildFromRecipe(v UserViewRecipe) ParentRecipe {
-	r.opts = append(r.opts, WithParentChildFromRecipe(v))
+	r.opts = append(r.opts, spec.WithParentChildFromProvider(v.Provider()))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r ParentRecipe) Provider() testgen.Provider[example.Parent] {
-	return testgen.FromSpec(BuildParent, NewParentSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildParent, spec.NewParentSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single Parent instance.
 func (r ParentRecipe) Build(p testgen.Primitives) example.Parent {
-	return NewParentFactory(p).Make(r.opts...)
+	return spec.NewParentFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple Parent instances with unique generated values.
 func (r ParentRecipe) Many(n int, p testgen.Primitives) []example.Parent {
-	return NewParentFactory(p).Many(n, r.opts...)
+	return spec.NewParentFactory(p).Many(n, r.opts...)
 }

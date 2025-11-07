@@ -7,100 +7,52 @@ package factory
 import (
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/example"
+	"github.com/james-w/gomatchers/example/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
-type UserViewSpec struct {
-	ID     testgen.Maybe[string]
-	Name   testgen.Maybe[string]
-	Active testgen.Maybe[bool]
-	Score  testgen.Maybe[int]
+// UserViewRecipe provides a fluent API for building UserView instances.
+type UserViewRecipe struct {
+	opts []testgen.Opt[spec.UserViewSpec]
 }
 
-func NewUserViewSpec() UserViewSpec { return UserViewSpec{} }
-
-func NewUserViewFactory(p testgen.Primitives) *testgen.SpecFactory[example.UserView, UserViewSpec] {
-	return testgen.NewSpecFactory(p, NewUserViewSpec, BuildUserView)
-}
-
-// Defaults (simple heuristics).
-var (
-	UserViewDefaultID     = func(p testgen.Primitives) string { return p.ID() }
-	UserViewDefaultName   = func(p testgen.Primitives) string { return p.StringWith("name_") }
-	UserViewDefaultActive = func(p testgen.Primitives) bool { return p.Bool() }
-	UserViewDefaultScore  = func(p testgen.Primitives) int { return p.Int() }
-)
-
-func BuildUserView(p testgen.Primitives, s UserViewSpec) example.UserView {
-	iD := s.ID.Get(p, UserViewDefaultID)
-	name := s.Name.Get(p, UserViewDefaultName)
-	active := s.Active.Get(p, UserViewDefaultActive)
-	score := s.Score.Get(p, UserViewDefaultScore)
-	return example.UserView{
-		ID:     iD,
-		Name:   name,
-		Active: active,
-		Score:  score,
-	}
-}
-
-func WithUserViewID(v string) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[string]) { s.ID = m }, v)
-}
-
-func WithUserViewName(v string) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[string]) { s.Name = m }, v)
-}
-
-func WithUserViewActive(v bool) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[bool]) { s.Active = m }, v)
-}
-
-func WithUserViewScore(v int) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[int]) { s.Score = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type UserViewRecipe struct{ opts []testgen.Opt[UserViewSpec] }
-
+// UserView creates a new UserViewRecipe for building UserView instances.
 func UserView() UserViewRecipe { return UserViewRecipe{} }
 
+// ID sets the ID field.
 func (r UserViewRecipe) ID(v string) UserViewRecipe {
-	r.opts = append(r.opts, WithUserViewID(v))
+	r.opts = append(r.opts, spec.WithUserViewID(v))
 	return r
 }
 
+// Name sets the Name field.
 func (r UserViewRecipe) Name(v string) UserViewRecipe {
-	r.opts = append(r.opts, WithUserViewName(v))
+	r.opts = append(r.opts, spec.WithUserViewName(v))
 	return r
 }
 
+// Active sets the Active field.
 func (r UserViewRecipe) Active(v bool) UserViewRecipe {
-	r.opts = append(r.opts, WithUserViewActive(v))
+	r.opts = append(r.opts, spec.WithUserViewActive(v))
 	return r
 }
 
+// Score sets the Score field.
 func (r UserViewRecipe) Score(v int) UserViewRecipe {
-	r.opts = append(r.opts, WithUserViewScore(v))
+	r.opts = append(r.opts, spec.WithUserViewScore(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r UserViewRecipe) Provider() testgen.Provider[example.UserView] {
-	return testgen.FromSpec(BuildUserView, NewUserViewSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildUserView, spec.NewUserViewSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single UserView instance.
 func (r UserViewRecipe) Build(p testgen.Primitives) example.UserView {
-	return NewUserViewFactory(p).Make(r.opts...)
+	return spec.NewUserViewFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple UserView instances with unique generated values.
 func (r UserViewRecipe) Many(n int, p testgen.Primitives) []example.UserView {
-	return NewUserViewFactory(p).Many(n, r.opts...)
+	return spec.NewUserViewFactory(p).Many(n, r.opts...)
 }

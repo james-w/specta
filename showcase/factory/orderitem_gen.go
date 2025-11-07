@@ -7,99 +7,52 @@ package factory
 import (
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
+	"github.com/james-w/gomatchers/showcase/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
-type OrderItemSpec struct {
-	Product  testgen.Maybe[showcase.Product]
-	Quantity testgen.Maybe[int]
-	Price    testgen.Maybe[float64]
+// OrderItemRecipe provides a fluent API for building OrderItem instances.
+type OrderItemRecipe struct {
+	opts []testgen.Opt[spec.OrderItemSpec]
 }
 
-func NewOrderItemSpec() OrderItemSpec { return OrderItemSpec{} }
-
-func NewOrderItemFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.OrderItem, OrderItemSpec] {
-	return testgen.NewSpecFactory(p, NewOrderItemSpec, BuildOrderItem)
-}
-
-// Defaults (simple heuristics).
-var (
-	OrderItemDefaultProduct  = testgen.FromSpec(BuildProduct, NewProductSpec)
-	OrderItemDefaultQuantity = func(p testgen.Primitives) int { return p.Int() }
-	OrderItemDefaultPrice    = func(p testgen.Primitives) float64 { return p.Float64() }
-)
-
-func BuildOrderItem(p testgen.Primitives, s OrderItemSpec) showcase.OrderItem {
-	product := s.Product.Get(p, OrderItemDefaultProduct)
-	quantity := s.Quantity.Get(p, OrderItemDefaultQuantity)
-	price := s.Price.Get(p, OrderItemDefaultPrice)
-	return showcase.OrderItem{
-		Product:  product,
-		Quantity: quantity,
-		Price:    price,
-	}
-}
-
-func WithOrderItemProduct(v showcase.Product) testgen.Opt[OrderItemSpec] {
-	return testgen.SetLit(func(s *OrderItemSpec, m testgen.Maybe[showcase.Product]) { s.Product = m }, v)
-}
-
-func WithOrderItemProductFromRecipe(rec ProductRecipe) testgen.Opt[OrderItemSpec] {
-	return testgen.SetWith(
-		func(s *OrderItemSpec, m testgen.Maybe[showcase.Product]) { s.Product = m },
-		rec.Provider(),
-	)
-}
-
-func WithOrderItemQuantity(v int) testgen.Opt[OrderItemSpec] {
-	return testgen.SetLit(func(s *OrderItemSpec, m testgen.Maybe[int]) { s.Quantity = m }, v)
-}
-
-func WithOrderItemPrice(v float64) testgen.Opt[OrderItemSpec] {
-	return testgen.SetLit(func(s *OrderItemSpec, m testgen.Maybe[float64]) { s.Price = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type OrderItemRecipe struct{ opts []testgen.Opt[OrderItemSpec] }
-
+// OrderItem creates a new OrderItemRecipe for building OrderItem instances.
 func OrderItem() OrderItemRecipe { return OrderItemRecipe{} }
 
+// Product sets the Product field.
 func (r OrderItemRecipe) Product(v showcase.Product) OrderItemRecipe {
-	r.opts = append(r.opts, WithOrderItemProduct(v))
+	r.opts = append(r.opts, spec.WithOrderItemProduct(v))
 	return r
 }
 
+// ProductFromRecipe sets the Product field using another Recipe (creates unique instances).
 func (r OrderItemRecipe) ProductFromRecipe(v ProductRecipe) OrderItemRecipe {
-	r.opts = append(r.opts, WithOrderItemProductFromRecipe(v))
+	r.opts = append(r.opts, spec.WithOrderItemProductFromProvider(v.Provider()))
 	return r
 }
 
+// Quantity sets the Quantity field.
 func (r OrderItemRecipe) Quantity(v int) OrderItemRecipe {
-	r.opts = append(r.opts, WithOrderItemQuantity(v))
+	r.opts = append(r.opts, spec.WithOrderItemQuantity(v))
 	return r
 }
 
+// Price sets the Price field.
 func (r OrderItemRecipe) Price(v float64) OrderItemRecipe {
-	r.opts = append(r.opts, WithOrderItemPrice(v))
+	r.opts = append(r.opts, spec.WithOrderItemPrice(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r OrderItemRecipe) Provider() testgen.Provider[showcase.OrderItem] {
-	return testgen.FromSpec(BuildOrderItem, NewOrderItemSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildOrderItem, spec.NewOrderItemSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single OrderItem instance.
 func (r OrderItemRecipe) Build(p testgen.Primitives) showcase.OrderItem {
-	return NewOrderItemFactory(p).Make(r.opts...)
+	return spec.NewOrderItemFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple OrderItem instances with unique generated values.
 func (r OrderItemRecipe) Many(n int, p testgen.Primitives) []showcase.OrderItem {
-	return NewOrderItemFactory(p).Many(n, r.opts...)
+	return spec.NewOrderItemFactory(p).Many(n, r.opts...)
 }

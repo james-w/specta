@@ -96,12 +96,12 @@ func processTarget(tgt struct {
 		}
 		fields := collectFields(pkg, st, typeNames)
 
-		// Output to factory/ subdirectory
+		// Output to factory/ and factory/spec/ subdirectories
 		factoryDir := filepath.Join(filepath.Dir(pkg.GoFiles[0]), "factory")
-		if err := os.MkdirAll(factoryDir, 0755); err != nil {
-			return fmt.Errorf("mkdir factory: %w", err)
+		specDir := filepath.Join(factoryDir, "spec")
+		if err := os.MkdirAll(specDir, 0755); err != nil {
+			return fmt.Errorf("mkdir factory/spec: %w", err)
 		}
-		out := filepath.Join(factoryDir, strings.ToLower(typeName)+"_gen.go")
 
 		d := data{
 			Package:        "factory",
@@ -114,8 +114,16 @@ func processTarget(tgt struct {
 			ImportTime:     anyHas(fields, "time.Time") || anyHas(fields, "time.Duration"),
 			ImportTestgen:  "github.com/james-w/gomatchers",
 		}
-		if err := render(out, d); err != nil { return err }
-		log.Printf("wrote %s", out)
+
+		// Generate spec file (low-level API)
+		specOut := filepath.Join(specDir, strings.ToLower(typeName)+"_gen.go")
+		if err := renderSpec(specOut, d); err != nil { return err }
+		log.Printf("wrote %s", specOut)
+
+		// Generate recipe file (high-level API)
+		recipeOut := filepath.Join(factoryDir, strings.ToLower(typeName)+"_gen.go")
+		if err := renderRecipe(recipeOut, d); err != nil { return err }
+		log.Printf("wrote %s", recipeOut)
 	}
 	return nil
 }
@@ -178,10 +186,10 @@ func anyHas(fields []field, typ string) bool {
 	return false
 }
 
-func render(out string, d data) error {
+func renderSpec(out string, d data) error {
 	os.MkdirAll(filepath.Dir(out), 0o755)
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, d); err != nil { return err }
+	if err := specTmpl.Execute(&buf, d); err != nil { return err }
 	src, err := format.Source(buf.Bytes())
 	if err != nil {
 		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
@@ -190,7 +198,19 @@ func render(out string, d data) error {
 	return os.WriteFile(out, src, 0644)
 }
 
-var tmpl = template.Must(template.New("gen").Funcs(template.FuncMap{
+func renderRecipe(out string, d data) error {
+	os.MkdirAll(filepath.Dir(out), 0o755)
+	var buf bytes.Buffer
+	if err := recipeTmpl.Execute(&buf, d); err != nil { return err }
+	src, err := format.Source(buf.Bytes())
+	if err != nil {
+		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
+		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
+	}
+	return os.WriteFile(out, src, 0644)
+}
+
+var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
 	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
 	"qualifiedType": func(pkg string, f field) string {
@@ -215,7 +235,7 @@ var tmpl = template.Must(template.New("gen").Funcs(template.FuncMap{
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
-package {{.Package}}
+package spec
 
 import (
 {{- if .ImportTime }}
@@ -225,29 +245,30 @@ import (
 	"{{.ParentImport}}"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
+// {{.SpecName}} is the low-level specification for building {{.TypeName}} instances.
+// Most users should use {{.TypeName}}Recipe from the parent factory package instead.
 type {{.SpecName}} struct {
 	{{- range .Fields}}
 	{{.Name}} testgen.Maybe[{{qualifiedType $.ParentPackage .}}]
 	{{- end}}
 }
 
+// New{{.SpecName}} creates a new {{.SpecName}} with all fields unset.
 func New{{.SpecName}}() {{.SpecName}} { return {{.SpecName}}{} }
 
+// New{{.TypeName}}Factory creates a new SpecFactory for {{.TypeName}}.
 func New{{.TypeName}}Factory(p testgen.Primitives) *testgen.SpecFactory[{{$.ParentPackage}}.{{.TypeName}}, {{.SpecName}}] {
 	return testgen.NewSpecFactory(p, New{{.SpecName}}, Build{{.TypeName}})
 }
 
-// Defaults (simple heuristics).
+// Default field providers.
 var (
 	{{- range .Fields}}
 	{{$.TypeName}}Default{{.Name}} = {{ defaultProvider $.ParentPackage . }}
 	{{- end}}
 )
 
+// Build{{.TypeName}} constructs a {{.TypeName}} from a {{.SpecName}}.
 func Build{{.TypeName}}(p testgen.Primitives, s {{.SpecName}}) {{$.ParentPackage}}.{{.TypeName}} {
 	{{- range .Fields}}
 	{{lower .Name}} := s.{{.Name}}.Get(p, {{$.TypeName}}Default{{.Name}})
@@ -260,52 +281,91 @@ func Build{{.TypeName}}(p testgen.Primitives, s {{.SpecName}}) {{$.ParentPackage
 }
 
 {{range .Fields}}
+// With{{$.TypeName}}{{.Name}} sets the {{.Name}} field to a literal value.
 func With{{$.TypeName}}{{.Name}}(v {{qualifiedType $.ParentPackage .}}) testgen.Opt[{{$.SpecName}}] {
 	return testgen.SetLit(func(s *{{$.SpecName}}, m testgen.Maybe[{{qualifiedType $.ParentPackage .}}]) { s.{{.Name}} = m }, v)
 }
 {{if .IsCustomType}}
-func With{{$.TypeName}}{{.Name}}FromRecipe(rec {{.RecipeName}}) testgen.Opt[{{$.SpecName}}] {
+// With{{$.TypeName}}{{.Name}}FromProvider sets the {{.Name}} field using a Provider (evaluated lazily).
+func With{{$.TypeName}}{{.Name}}FromProvider(prov testgen.Provider[{{qualifiedType $.ParentPackage .}}]) testgen.Opt[{{$.SpecName}}] {
 	return testgen.SetWith(
 		func(s *{{$.SpecName}}, m testgen.Maybe[{{qualifiedType $.ParentPackage .}}]) { s.{{.Name}} = m },
-		rec.Provider(),
+		prov,
 	)
 }
 {{end}}
 {{end}}
+`))
 
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
+var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
+	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
+	"qualifiedType": func(pkg string, f field) string {
+		// Handle slice of custom type
+		if strings.HasPrefix(f.TypeExpr, "[]") {
+			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
+			// Check if this is a known primitive type
+			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
+				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
+				elemType == "time.Time" || elemType == "time.Duration"
+			if !isPrimitive {
+				return "[]" + pkg + "." + elemType
+			}
+		}
+		// Handle custom type
+		if f.IsCustomType && !strings.HasPrefix(f.TypeExpr, "[]") {
+			return pkg + "." + f.TypeExpr
+		}
+		return f.TypeExpr
+	},
+}).Parse(`// Code generated by testgen-gen; DO NOT EDIT.
+//go:build !ignore_testgen
+// +build !ignore_testgen
 
-type {{.RecipeName}} struct{ opts []testgen.Opt[{{.SpecName}}] }
+package factory
 
+import (
+{{- if .ImportTime }}
+	"time"
+{{end}}
+	testgen "{{.ImportTestgen}}"
+	"{{.ParentImport}}"
+	"{{.ParentImport}}/factory/spec"
+)
+
+// {{.RecipeName}} provides a fluent API for building {{.TypeName}} instances.
+type {{.RecipeName}} struct{ opts []testgen.Opt[spec.{{.SpecName}}] }
+
+// {{.TypeName}} creates a new {{.RecipeName}} for building {{.TypeName}} instances.
 func {{.TypeName}}() {{.RecipeName}} { return {{.RecipeName}}{} }
 
 {{range .Fields}}
+// {{.Name}} sets the {{.Name}} field.
 func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedType $.ParentPackage .}}) {{$.RecipeName}} {
-	r.opts = append(r.opts, With{{$.TypeName}}{{.Name}}(v))
+	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}(v))
 	return r
 }
 {{if .IsCustomType}}
+// {{.Name}}FromRecipe sets the {{.Name}} field using another Recipe (creates unique instances).
 func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.RecipeName}}) {{$.RecipeName}} {
-	r.opts = append(r.opts, With{{$.TypeName}}{{.Name}}FromRecipe(v))
+	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(v.Provider()))
 	return r
 }
 {{end}}
 {{end}}
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r {{.RecipeName}}) Provider() testgen.Provider[{{.ParentPackage}}.{{.TypeName}}] {
-	return testgen.FromSpec(Build{{.TypeName}}, New{{.SpecName}}, r.opts...)
+	return testgen.FromSpec(spec.Build{{.TypeName}}, spec.New{{.SpecName}}, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single {{.TypeName}} instance.
 func (r {{.RecipeName}}) Build(p testgen.Primitives) {{.ParentPackage}}.{{.TypeName}} {
-	return New{{.TypeName}}Factory(p).Make(r.opts...)
+	return spec.New{{.TypeName}}Factory(p).Make(r.opts...)
 }
 
+// Many creates multiple {{.TypeName}} instances with unique generated values.
 func (r {{.RecipeName}}) Many(n int, p testgen.Primitives) []{{.ParentPackage}}.{{.TypeName}} {
-	return New{{.TypeName}}Factory(p).Many(n, r.opts...)
+	return spec.New{{.TypeName}}Factory(p).Many(n, r.opts...)
 }
 `))
 

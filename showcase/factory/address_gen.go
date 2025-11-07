@@ -7,113 +7,58 @@ package factory
 import (
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
+	"github.com/james-w/gomatchers/showcase/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
-type AddressSpec struct {
-	Street  testgen.Maybe[string]
-	City    testgen.Maybe[string]
-	State   testgen.Maybe[string]
-	ZipCode testgen.Maybe[string]
-	Country testgen.Maybe[string]
+// AddressRecipe provides a fluent API for building Address instances.
+type AddressRecipe struct {
+	opts []testgen.Opt[spec.AddressSpec]
 }
 
-func NewAddressSpec() AddressSpec { return AddressSpec{} }
-
-func NewAddressFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Address, AddressSpec] {
-	return testgen.NewSpecFactory(p, NewAddressSpec, BuildAddress)
-}
-
-// Defaults (simple heuristics).
-var (
-	AddressDefaultStreet  = func(p testgen.Primitives) string { return p.StringWith("street_") }
-	AddressDefaultCity    = func(p testgen.Primitives) string { return p.StringWith("city_") }
-	AddressDefaultState   = func(p testgen.Primitives) string { return p.StringWith("state_") }
-	AddressDefaultZipCode = func(p testgen.Primitives) string { return p.StringWith("zipcode_") }
-	AddressDefaultCountry = func(p testgen.Primitives) string { return p.StringWith("country_") }
-)
-
-func BuildAddress(p testgen.Primitives, s AddressSpec) showcase.Address {
-	street := s.Street.Get(p, AddressDefaultStreet)
-	city := s.City.Get(p, AddressDefaultCity)
-	state := s.State.Get(p, AddressDefaultState)
-	zipCode := s.ZipCode.Get(p, AddressDefaultZipCode)
-	country := s.Country.Get(p, AddressDefaultCountry)
-	return showcase.Address{
-		Street:  street,
-		City:    city,
-		State:   state,
-		ZipCode: zipCode,
-		Country: country,
-	}
-}
-
-func WithAddressStreet(v string) testgen.Opt[AddressSpec] {
-	return testgen.SetLit(func(s *AddressSpec, m testgen.Maybe[string]) { s.Street = m }, v)
-}
-
-func WithAddressCity(v string) testgen.Opt[AddressSpec] {
-	return testgen.SetLit(func(s *AddressSpec, m testgen.Maybe[string]) { s.City = m }, v)
-}
-
-func WithAddressState(v string) testgen.Opt[AddressSpec] {
-	return testgen.SetLit(func(s *AddressSpec, m testgen.Maybe[string]) { s.State = m }, v)
-}
-
-func WithAddressZipCode(v string) testgen.Opt[AddressSpec] {
-	return testgen.SetLit(func(s *AddressSpec, m testgen.Maybe[string]) { s.ZipCode = m }, v)
-}
-
-func WithAddressCountry(v string) testgen.Opt[AddressSpec] {
-	return testgen.SetLit(func(s *AddressSpec, m testgen.Maybe[string]) { s.Country = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type AddressRecipe struct{ opts []testgen.Opt[AddressSpec] }
-
+// Address creates a new AddressRecipe for building Address instances.
 func Address() AddressRecipe { return AddressRecipe{} }
 
+// Street sets the Street field.
 func (r AddressRecipe) Street(v string) AddressRecipe {
-	r.opts = append(r.opts, WithAddressStreet(v))
+	r.opts = append(r.opts, spec.WithAddressStreet(v))
 	return r
 }
 
+// City sets the City field.
 func (r AddressRecipe) City(v string) AddressRecipe {
-	r.opts = append(r.opts, WithAddressCity(v))
+	r.opts = append(r.opts, spec.WithAddressCity(v))
 	return r
 }
 
+// State sets the State field.
 func (r AddressRecipe) State(v string) AddressRecipe {
-	r.opts = append(r.opts, WithAddressState(v))
+	r.opts = append(r.opts, spec.WithAddressState(v))
 	return r
 }
 
+// ZipCode sets the ZipCode field.
 func (r AddressRecipe) ZipCode(v string) AddressRecipe {
-	r.opts = append(r.opts, WithAddressZipCode(v))
+	r.opts = append(r.opts, spec.WithAddressZipCode(v))
 	return r
 }
 
+// Country sets the Country field.
 func (r AddressRecipe) Country(v string) AddressRecipe {
-	r.opts = append(r.opts, WithAddressCountry(v))
+	r.opts = append(r.opts, spec.WithAddressCountry(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r AddressRecipe) Provider() testgen.Provider[showcase.Address] {
-	return testgen.FromSpec(BuildAddress, NewAddressSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildAddress, spec.NewAddressSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single Address instance.
 func (r AddressRecipe) Build(p testgen.Primitives) showcase.Address {
-	return NewAddressFactory(p).Make(r.opts...)
+	return spec.NewAddressFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple Address instances with unique generated values.
 func (r AddressRecipe) Many(n int, p testgen.Primitives) []showcase.Address {
-	return NewAddressFactory(p).Many(n, r.opts...)
+	return spec.NewAddressFactory(p).Many(n, r.opts...)
 }

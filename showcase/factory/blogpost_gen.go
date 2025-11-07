@@ -9,164 +9,82 @@ import (
 
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
+	"github.com/james-w/gomatchers/showcase/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
-
-type BlogPostSpec struct {
-	ID          testgen.Maybe[string]
-	Title       testgen.Maybe[string]
-	Content     testgen.Maybe[string]
-	Author      testgen.Maybe[showcase.User]
-	Published   testgen.Maybe[bool]
-	PublishedAt testgen.Maybe[time.Time]
-	CreatedAt   testgen.Maybe[time.Time]
-	UpdatedAt   testgen.Maybe[time.Time]
+// BlogPostRecipe provides a fluent API for building BlogPost instances.
+type BlogPostRecipe struct {
+	opts []testgen.Opt[spec.BlogPostSpec]
 }
 
-func NewBlogPostSpec() BlogPostSpec { return BlogPostSpec{} }
-
-func NewBlogPostFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.BlogPost, BlogPostSpec] {
-	return testgen.NewSpecFactory(p, NewBlogPostSpec, BuildBlogPost)
-}
-
-// Defaults (simple heuristics).
-var (
-	BlogPostDefaultID          = func(p testgen.Primitives) string { return p.ID() }
-	BlogPostDefaultTitle       = func(p testgen.Primitives) string { return p.StringWith("title_") }
-	BlogPostDefaultContent     = func(p testgen.Primitives) string { return p.StringWith("content_") }
-	BlogPostDefaultAuthor      = testgen.FromSpec(BuildUser, NewUserSpec)
-	BlogPostDefaultPublished   = func(p testgen.Primitives) bool { return p.Bool() }
-	BlogPostDefaultPublishedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-	BlogPostDefaultCreatedAt   = func(p testgen.Primitives) time.Time { return p.Time() }
-	BlogPostDefaultUpdatedAt   = func(p testgen.Primitives) time.Time { return p.Time() }
-)
-
-func BuildBlogPost(p testgen.Primitives, s BlogPostSpec) showcase.BlogPost {
-	iD := s.ID.Get(p, BlogPostDefaultID)
-	title := s.Title.Get(p, BlogPostDefaultTitle)
-	content := s.Content.Get(p, BlogPostDefaultContent)
-	author := s.Author.Get(p, BlogPostDefaultAuthor)
-	published := s.Published.Get(p, BlogPostDefaultPublished)
-	publishedAt := s.PublishedAt.Get(p, BlogPostDefaultPublishedAt)
-	createdAt := s.CreatedAt.Get(p, BlogPostDefaultCreatedAt)
-	updatedAt := s.UpdatedAt.Get(p, BlogPostDefaultUpdatedAt)
-	return showcase.BlogPost{
-		ID:          iD,
-		Title:       title,
-		Content:     content,
-		Author:      author,
-		Published:   published,
-		PublishedAt: publishedAt,
-		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
-	}
-}
-
-func WithBlogPostID(v string) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[string]) { s.ID = m }, v)
-}
-
-func WithBlogPostTitle(v string) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[string]) { s.Title = m }, v)
-}
-
-func WithBlogPostContent(v string) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[string]) { s.Content = m }, v)
-}
-
-func WithBlogPostAuthor(v showcase.User) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[showcase.User]) { s.Author = m }, v)
-}
-
-func WithBlogPostAuthorFromRecipe(rec UserRecipe) testgen.Opt[BlogPostSpec] {
-	return testgen.SetWith(
-		func(s *BlogPostSpec, m testgen.Maybe[showcase.User]) { s.Author = m },
-		rec.Provider(),
-	)
-}
-
-func WithBlogPostPublished(v bool) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[bool]) { s.Published = m }, v)
-}
-
-func WithBlogPostPublishedAt(v time.Time) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[time.Time]) { s.PublishedAt = m }, v)
-}
-
-func WithBlogPostCreatedAt(v time.Time) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
-}
-
-func WithBlogPostUpdatedAt(v time.Time) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[time.Time]) { s.UpdatedAt = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type BlogPostRecipe struct{ opts []testgen.Opt[BlogPostSpec] }
-
+// BlogPost creates a new BlogPostRecipe for building BlogPost instances.
 func BlogPost() BlogPostRecipe { return BlogPostRecipe{} }
 
+// ID sets the ID field.
 func (r BlogPostRecipe) ID(v string) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostID(v))
+	r.opts = append(r.opts, spec.WithBlogPostID(v))
 	return r
 }
 
+// Title sets the Title field.
 func (r BlogPostRecipe) Title(v string) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostTitle(v))
+	r.opts = append(r.opts, spec.WithBlogPostTitle(v))
 	return r
 }
 
+// Content sets the Content field.
 func (r BlogPostRecipe) Content(v string) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostContent(v))
+	r.opts = append(r.opts, spec.WithBlogPostContent(v))
 	return r
 }
 
+// Author sets the Author field.
 func (r BlogPostRecipe) Author(v showcase.User) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostAuthor(v))
+	r.opts = append(r.opts, spec.WithBlogPostAuthor(v))
 	return r
 }
 
+// AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
 func (r BlogPostRecipe) AuthorFromRecipe(v UserRecipe) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostAuthorFromRecipe(v))
+	r.opts = append(r.opts, spec.WithBlogPostAuthorFromProvider(v.Provider()))
 	return r
 }
 
+// Published sets the Published field.
 func (r BlogPostRecipe) Published(v bool) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostPublished(v))
+	r.opts = append(r.opts, spec.WithBlogPostPublished(v))
 	return r
 }
 
+// PublishedAt sets the PublishedAt field.
 func (r BlogPostRecipe) PublishedAt(v time.Time) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostPublishedAt(v))
+	r.opts = append(r.opts, spec.WithBlogPostPublishedAt(v))
 	return r
 }
 
+// CreatedAt sets the CreatedAt field.
 func (r BlogPostRecipe) CreatedAt(v time.Time) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostCreatedAt(v))
+	r.opts = append(r.opts, spec.WithBlogPostCreatedAt(v))
 	return r
 }
 
+// UpdatedAt sets the UpdatedAt field.
 func (r BlogPostRecipe) UpdatedAt(v time.Time) BlogPostRecipe {
-	r.opts = append(r.opts, WithBlogPostUpdatedAt(v))
+	r.opts = append(r.opts, spec.WithBlogPostUpdatedAt(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r BlogPostRecipe) Provider() testgen.Provider[showcase.BlogPost] {
-	return testgen.FromSpec(BuildBlogPost, NewBlogPostSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildBlogPost, spec.NewBlogPostSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single BlogPost instance.
 func (r BlogPostRecipe) Build(p testgen.Primitives) showcase.BlogPost {
-	return NewBlogPostFactory(p).Make(r.opts...)
+	return spec.NewBlogPostFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple BlogPost instances with unique generated values.
 func (r BlogPostRecipe) Many(n int, p testgen.Primitives) []showcase.BlogPost {
-	return NewBlogPostFactory(p).Many(n, r.opts...)
+	return spec.NewBlogPostFactory(p).Many(n, r.opts...)
 }

@@ -9,164 +9,80 @@ import (
 
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
+	"github.com/james-w/gomatchers/showcase/factory/spec"
 )
 
-// ============================================================================
-// Low-level API: Spec, Build, and Options
-// ============================================================================
+// UserRecipe provides a fluent API for building User instances.
+type UserRecipe struct{ opts []testgen.Opt[spec.UserSpec] }
 
-type UserSpec struct {
-	ID        testgen.Maybe[string]
-	Email     testgen.Maybe[string]
-	FirstName testgen.Maybe[string]
-	LastName  testgen.Maybe[string]
-	Active    testgen.Maybe[bool]
-	Address   testgen.Maybe[showcase.Address]
-	CreatedAt testgen.Maybe[time.Time]
-	UpdatedAt testgen.Maybe[time.Time]
-}
-
-func NewUserSpec() UserSpec { return UserSpec{} }
-
-func NewUserFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.User, UserSpec] {
-	return testgen.NewSpecFactory(p, NewUserSpec, BuildUser)
-}
-
-// Defaults (simple heuristics).
-var (
-	UserDefaultID        = func(p testgen.Primitives) string { return p.ID() }
-	UserDefaultEmail     = func(p testgen.Primitives) string { return p.StringWith("email_") }
-	UserDefaultFirstName = func(p testgen.Primitives) string { return p.StringWith("firstname_") }
-	UserDefaultLastName  = func(p testgen.Primitives) string { return p.StringWith("lastname_") }
-	UserDefaultActive    = func(p testgen.Primitives) bool { return p.Bool() }
-	UserDefaultAddress   = testgen.FromSpec(BuildAddress, NewAddressSpec)
-	UserDefaultCreatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-	UserDefaultUpdatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-)
-
-func BuildUser(p testgen.Primitives, s UserSpec) showcase.User {
-	iD := s.ID.Get(p, UserDefaultID)
-	email := s.Email.Get(p, UserDefaultEmail)
-	firstName := s.FirstName.Get(p, UserDefaultFirstName)
-	lastName := s.LastName.Get(p, UserDefaultLastName)
-	active := s.Active.Get(p, UserDefaultActive)
-	address := s.Address.Get(p, UserDefaultAddress)
-	createdAt := s.CreatedAt.Get(p, UserDefaultCreatedAt)
-	updatedAt := s.UpdatedAt.Get(p, UserDefaultUpdatedAt)
-	return showcase.User{
-		ID:        iD,
-		Email:     email,
-		FirstName: firstName,
-		LastName:  lastName,
-		Active:    active,
-		Address:   address,
-		CreatedAt: createdAt,
-		UpdatedAt: updatedAt,
-	}
-}
-
-func WithUserID(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.ID = m }, v)
-}
-
-func WithUserEmail(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.Email = m }, v)
-}
-
-func WithUserFirstName(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.FirstName = m }, v)
-}
-
-func WithUserLastName(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.LastName = m }, v)
-}
-
-func WithUserActive(v bool) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[bool]) { s.Active = m }, v)
-}
-
-func WithUserAddress(v showcase.Address) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[showcase.Address]) { s.Address = m }, v)
-}
-
-func WithUserAddressFromRecipe(rec AddressRecipe) testgen.Opt[UserSpec] {
-	return testgen.SetWith(
-		func(s *UserSpec, m testgen.Maybe[showcase.Address]) { s.Address = m },
-		rec.Provider(),
-	)
-}
-
-func WithUserCreatedAt(v time.Time) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
-}
-
-func WithUserUpdatedAt(v time.Time) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[time.Time]) { s.UpdatedAt = m }, v)
-}
-
-// ============================================================================
-// High-level Recipe API
-// ============================================================================
-
-type UserRecipe struct{ opts []testgen.Opt[UserSpec] }
-
+// User creates a new UserRecipe for building User instances.
 func User() UserRecipe { return UserRecipe{} }
 
+// ID sets the ID field.
 func (r UserRecipe) ID(v string) UserRecipe {
-	r.opts = append(r.opts, WithUserID(v))
+	r.opts = append(r.opts, spec.WithUserID(v))
 	return r
 }
 
+// Email sets the Email field.
 func (r UserRecipe) Email(v string) UserRecipe {
-	r.opts = append(r.opts, WithUserEmail(v))
+	r.opts = append(r.opts, spec.WithUserEmail(v))
 	return r
 }
 
+// FirstName sets the FirstName field.
 func (r UserRecipe) FirstName(v string) UserRecipe {
-	r.opts = append(r.opts, WithUserFirstName(v))
+	r.opts = append(r.opts, spec.WithUserFirstName(v))
 	return r
 }
 
+// LastName sets the LastName field.
 func (r UserRecipe) LastName(v string) UserRecipe {
-	r.opts = append(r.opts, WithUserLastName(v))
+	r.opts = append(r.opts, spec.WithUserLastName(v))
 	return r
 }
 
+// Active sets the Active field.
 func (r UserRecipe) Active(v bool) UserRecipe {
-	r.opts = append(r.opts, WithUserActive(v))
+	r.opts = append(r.opts, spec.WithUserActive(v))
 	return r
 }
 
+// Address sets the Address field.
 func (r UserRecipe) Address(v showcase.Address) UserRecipe {
-	r.opts = append(r.opts, WithUserAddress(v))
+	r.opts = append(r.opts, spec.WithUserAddress(v))
 	return r
 }
 
+// AddressFromRecipe sets the Address field using another Recipe (creates unique instances).
 func (r UserRecipe) AddressFromRecipe(v AddressRecipe) UserRecipe {
-	r.opts = append(r.opts, WithUserAddressFromRecipe(v))
+	r.opts = append(r.opts, spec.WithUserAddressFromProvider(v.Provider()))
 	return r
 }
 
+// CreatedAt sets the CreatedAt field.
 func (r UserRecipe) CreatedAt(v time.Time) UserRecipe {
-	r.opts = append(r.opts, WithUserCreatedAt(v))
+	r.opts = append(r.opts, spec.WithUserCreatedAt(v))
 	return r
 }
 
+// UpdatedAt sets the UpdatedAt field.
 func (r UserRecipe) UpdatedAt(v time.Time) UserRecipe {
-	r.opts = append(r.opts, WithUserUpdatedAt(v))
+	r.opts = append(r.opts, spec.WithUserUpdatedAt(v))
 	return r
 }
 
-// Provider for nesting into parents (defers evaluation; consumes Primitives later)
+// Provider returns a Provider for lazy evaluation in parent factories.
 func (r UserRecipe) Provider() testgen.Provider[showcase.User] {
-	return testgen.FromSpec(BuildUser, NewUserSpec, r.opts...)
+	return testgen.FromSpec(spec.BuildUser, spec.NewUserSpec, r.opts...)
 }
 
-// Build now if you need a concrete value (rare in composing tests)
+// Build creates a single User instance.
 func (r UserRecipe) Build(p testgen.Primitives) showcase.User {
-	return NewUserFactory(p).Make(r.opts...)
+	return spec.NewUserFactory(p).Make(r.opts...)
 }
 
+// Many creates multiple User instances with unique generated values.
 func (r UserRecipe) Many(n int, p testgen.Primitives) []showcase.User {
-	return NewUserFactory(p).Many(n, r.opts...)
+	return spec.NewUserFactory(p).Many(n, r.opts...)
 }
