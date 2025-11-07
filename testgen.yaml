@@ -1,0 +1,35 @@
+version: 1
+targets:
+  - package: ./example
+    types:
+      include: [UserView, Parent]
+    file_suffix: _testgen_gen.go
+
+defaults:
+  primitives:
+    string: "StringWith('${field_lc}_')"
+    int: "Int()"
+    int64: "Int64()"
+    uint64: "Uint64()"
+    bool: "Bool()"
+    float64: "Float64()"
+    "time.Time": "Time()"
+    "time.Duration": "Duration()"
+
+  field_overrides:
+    - match: ".*(^|_)id$"
+      type: string
+      provider: "ID()"
+
+  nested:
+    struct:
+      use_generated_if_available: true
+      fallback: literal
+    pointer:
+      use_generated_if_available: true
+      fallback: literal
+    slice:
+      use_generated_if_available: true
+      default_count: 2
+      element_strategy: generated
+
