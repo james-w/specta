@@ -1,0 +1,29 @@
+version: 1
+targets:
+  - package: .
+    types:
+      include:
+        - Address
+        - User
+        - Product
+        - OrderItem
+        - Order
+        - BlogPost
+        - Comment
+    file_suffix: _gen.go
+
+defaults:
+  primitives:
+    string: "StringWith('${field_lc}_')"
+    int: "Int()"
+    int64: "Int64()"
+    uint64: "Uint64()"
+    bool: "Bool()"
+    float64: "Float64()"
+    "time.Time": "Time()"
+    "time.Duration": "Duration()"
+
+  field_overrides:
+    - match: ".*(^|_)id$"
+      type: string
+      provider: "ID()"

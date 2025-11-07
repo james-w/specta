@@ -10,14 +10,16 @@ import (
 func TestFoo(t *testing.T) {
     p := gomatchers.New()
 
-	child := factory.User().Name("foo").Build(p)
+	child := factory.UserView().Name("foo").Build(p)
 
     fmt.Printf("%+v\n", child)
 
+	// Test nested with recipe - each parent gets unique child
 	fmt.Printf("%+v\n", factory.Parent().ChildFromRecipe(
-		factory.ActiveUser().Name("bar"),
+		factory.UserView().Active(true).Name("bar"),
 	).Many(2, p))
 
+	// Test nested with literal - same child reused
 	fmt.Printf("%+v\n", factory.Parent().Child(child).Many(2, p))
 }
 
