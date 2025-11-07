@@ -62,3 +62,39 @@ func (r AddressRecipe) Build(p testgen.Primitives) showcase.Address {
 func (r AddressRecipe) Many(n int, p testgen.Primitives) []showcase.Address {
 	return spec.NewAddressFactory(p).Many(n, r.opts...)
 }
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r AddressRecipe) AsEqualMatcher() testgen.Matcher[showcase.Address] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewAddressSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := AddressMatches()
+	if s.Street.IsSet() {
+		m = m.Street(testgen.DeepEqual(s.Street.Value(p)))
+	}
+	if s.City.IsSet() {
+		m = m.City(testgen.DeepEqual(s.City.Value(p)))
+	}
+	if s.State.IsSet() {
+		m = m.State(testgen.DeepEqual(s.State.Value(p)))
+	}
+	if s.ZipCode.IsSet() {
+		m = m.ZipCode(testgen.DeepEqual(s.ZipCode.Value(p)))
+	}
+	if s.Country.IsSet() {
+		m = m.Country(testgen.DeepEqual(s.Country.Value(p)))
+	}
+
+	return m.Matcher()
+}

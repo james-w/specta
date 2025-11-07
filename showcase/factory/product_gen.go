@@ -70,3 +70,42 @@ func (r ProductRecipe) Build(p testgen.Primitives) showcase.Product {
 func (r ProductRecipe) Many(n int, p testgen.Primitives) []showcase.Product {
 	return spec.NewProductFactory(p).Many(n, r.opts...)
 }
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r ProductRecipe) AsEqualMatcher() testgen.Matcher[showcase.Product] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewProductSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := ProductMatches()
+	if s.ID.IsSet() {
+		m = m.ID(testgen.DeepEqual(s.ID.Value(p)))
+	}
+	if s.Name.IsSet() {
+		m = m.Name(testgen.DeepEqual(s.Name.Value(p)))
+	}
+	if s.Description.IsSet() {
+		m = m.Description(testgen.DeepEqual(s.Description.Value(p)))
+	}
+	if s.Price.IsSet() {
+		m = m.Price(testgen.DeepEqual(s.Price.Value(p)))
+	}
+	if s.InStock.IsSet() {
+		m = m.InStock(testgen.DeepEqual(s.InStock.Value(p)))
+	}
+	if s.CreatedAt.IsSet() {
+		m = m.CreatedAt(testgen.DeepEqual(s.CreatedAt.Value(p)))
+	}
+
+	return m.Matcher()
+}

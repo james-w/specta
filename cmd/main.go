@@ -316,6 +316,7 @@ func With{{$.TypeName}}{{.Name}}FromProvider(prov testgen.Provider[{{qualifiedTy
 
 var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
+	"hasPrefix": strings.HasPrefix,
 	"qualifiedType": func(pkg string, f field) string {
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
@@ -350,7 +351,16 @@ import (
 )
 
 // {{.RecipeName}} provides a fluent API for building {{.TypeName}} instances.
-type {{.RecipeName}} struct{ opts []testgen.Opt[spec.{{.SpecName}}] }
+type {{.RecipeName}} struct{
+	opts []testgen.Opt[spec.{{.SpecName}}]
+	{{- range .Fields}}
+	{{- if .IsCustomType}}
+	{{- if not (hasPrefix .TypeExpr "[]")}}
+	{{lower .Name}}Recipe *{{.TypeExpr}}Recipe
+	{{- end}}
+	{{- end}}
+	{{- end}}
+}
 
 // {{.TypeName}} creates a new {{.RecipeName}} for building {{.TypeName}} instances.
 func {{.TypeName}}() {{.RecipeName}} { return {{.RecipeName}}{} }
@@ -359,14 +369,22 @@ func {{.TypeName}}() {{.RecipeName}} { return {{.RecipeName}}{} }
 // {{.Name}} sets the {{.Name}} field.
 func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedType $.ParentPackage .}}) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}(v))
+	{{- if .IsCustomType}}
+	{{- if not (hasPrefix .TypeExpr "[]")}}
+	r.{{lower .Name}}Recipe = nil
+	{{- end}}
+	{{- end}}
 	return r
 }
 {{if .IsCustomType}}
+{{- if not (hasPrefix .TypeExpr "[]")}}
 // {{.Name}}FromRecipe sets the {{.Name}} field using another Recipe (creates unique instances).
-func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.RecipeName}}) {{$.RecipeName}} {
+func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(v.Provider()))
+	r.{{lower .Name}}Recipe = &v
 	return r
 }
+{{- end}}
 {{end}}
 {{end}}
 
@@ -383,6 +401,45 @@ func (r {{.RecipeName}}) Build(p testgen.Primitives) {{.ParentPackage}}.{{.TypeN
 // Many creates multiple {{.TypeName}} instances with unique generated values.
 func (r {{.RecipeName}}) Many(n int, p testgen.Primitives) []{{.ParentPackage}}.{{.TypeName}} {
 	return spec.New{{.TypeName}}Factory(p).Many(n, r.opts...)
+}
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.TypeName}}] {
+	// Apply opts to a spec to see what was set
+	s := spec.New{{.SpecName}}()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := {{.TypeName}}Matches()
+	{{- range .Fields}}
+	if s.{{.Name}}.IsSet() {
+		{{- if .IsCustomType}}
+		{{- if not (hasPrefix .TypeExpr "[]")}}
+		// Check if we have a nested recipe for partial matching
+		if r.{{lower .Name}}Recipe != nil {
+			m = m.{{.Name}}(r.{{lower .Name}}Recipe.AsEqualMatcher())
+		} else {
+			m = m.{{.Name}}(testgen.DeepEqual(s.{{.Name}}.Value(p)))
+		}
+		{{- else}}
+		m = m.{{.Name}}(testgen.DeepEqual(s.{{.Name}}.Value(p)))
+		{{- end}}
+		{{- else}}
+		m = m.{{.Name}}(testgen.DeepEqual(s.{{.Name}}.Value(p)))
+		{{- end}}
+	}
+	{{- end}}
+
+	return m.Matcher()
 }
 `))
 

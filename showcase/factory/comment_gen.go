@@ -14,7 +14,9 @@ import (
 
 // CommentRecipe provides a fluent API for building Comment instances.
 type CommentRecipe struct {
-	opts []testgen.Opt[spec.CommentSpec]
+	opts         []testgen.Opt[spec.CommentSpec]
+	postRecipe   *BlogPostRecipe
+	authorRecipe *UserRecipe
 }
 
 // Comment creates a new CommentRecipe for building Comment instances.
@@ -29,24 +31,28 @@ func (r CommentRecipe) ID(v string) CommentRecipe {
 // Post sets the Post field.
 func (r CommentRecipe) Post(v showcase.BlogPost) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentPost(v))
+	r.postRecipe = nil
 	return r
 }
 
 // PostFromRecipe sets the Post field using another Recipe (creates unique instances).
 func (r CommentRecipe) PostFromRecipe(v BlogPostRecipe) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentPostFromProvider(v.Provider()))
+	r.postRecipe = &v
 	return r
 }
 
 // Author sets the Author field.
 func (r CommentRecipe) Author(v showcase.User) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentAuthor(v))
+	r.authorRecipe = nil
 	return r
 }
 
 // AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
 func (r CommentRecipe) AuthorFromRecipe(v UserRecipe) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentAuthorFromProvider(v.Provider()))
+	r.authorRecipe = &v
 	return r
 }
 
@@ -75,4 +81,50 @@ func (r CommentRecipe) Build(p testgen.Primitives) showcase.Comment {
 // Many creates multiple Comment instances with unique generated values.
 func (r CommentRecipe) Many(n int, p testgen.Primitives) []showcase.Comment {
 	return spec.NewCommentFactory(p).Many(n, r.opts...)
+}
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r CommentRecipe) AsEqualMatcher() testgen.Matcher[showcase.Comment] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewCommentSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := CommentMatches()
+	if s.ID.IsSet() {
+		m = m.ID(testgen.DeepEqual(s.ID.Value(p)))
+	}
+	if s.Post.IsSet() {
+		// Check if we have a nested recipe for partial matching
+		if r.postRecipe != nil {
+			m = m.Post(r.postRecipe.AsEqualMatcher())
+		} else {
+			m = m.Post(testgen.DeepEqual(s.Post.Value(p)))
+		}
+	}
+	if s.Author.IsSet() {
+		// Check if we have a nested recipe for partial matching
+		if r.authorRecipe != nil {
+			m = m.Author(r.authorRecipe.AsEqualMatcher())
+		} else {
+			m = m.Author(testgen.DeepEqual(s.Author.Value(p)))
+		}
+	}
+	if s.Content.IsSet() {
+		m = m.Content(testgen.DeepEqual(s.Content.Value(p)))
+	}
+	if s.CreatedAt.IsSet() {
+		m = m.CreatedAt(testgen.DeepEqual(s.CreatedAt.Value(p)))
+	}
+
+	return m.Matcher()
 }

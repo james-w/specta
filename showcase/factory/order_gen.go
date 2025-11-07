@@ -13,7 +13,10 @@ import (
 )
 
 // OrderRecipe provides a fluent API for building Order instances.
-type OrderRecipe struct{ opts []testgen.Opt[spec.OrderSpec] }
+type OrderRecipe struct {
+	opts       []testgen.Opt[spec.OrderSpec]
+	userRecipe *UserRecipe
+}
 
 // Order creates a new OrderRecipe for building Order instances.
 func Order() OrderRecipe { return OrderRecipe{} }
@@ -27,12 +30,14 @@ func (r OrderRecipe) ID(v string) OrderRecipe {
 // User sets the User field.
 func (r OrderRecipe) User(v showcase.User) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderUser(v))
+	r.userRecipe = nil
 	return r
 }
 
 // UserFromRecipe sets the User field using another Recipe (creates unique instances).
 func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderUserFromProvider(v.Provider()))
+	r.userRecipe = &v
 	return r
 }
 
@@ -79,4 +84,51 @@ func (r OrderRecipe) Build(p testgen.Primitives) showcase.Order {
 // Many creates multiple Order instances with unique generated values.
 func (r OrderRecipe) Many(n int, p testgen.Primitives) []showcase.Order {
 	return spec.NewOrderFactory(p).Many(n, r.opts...)
+}
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r OrderRecipe) AsEqualMatcher() testgen.Matcher[showcase.Order] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewOrderSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := OrderMatches()
+	if s.ID.IsSet() {
+		m = m.ID(testgen.DeepEqual(s.ID.Value(p)))
+	}
+	if s.User.IsSet() {
+		// Check if we have a nested recipe for partial matching
+		if r.userRecipe != nil {
+			m = m.User(r.userRecipe.AsEqualMatcher())
+		} else {
+			m = m.User(testgen.DeepEqual(s.User.Value(p)))
+		}
+	}
+	if s.Items.IsSet() {
+		m = m.Items(testgen.DeepEqual(s.Items.Value(p)))
+	}
+	if s.Total.IsSet() {
+		m = m.Total(testgen.DeepEqual(s.Total.Value(p)))
+	}
+	if s.Status.IsSet() {
+		m = m.Status(testgen.DeepEqual(s.Status.Value(p)))
+	}
+	if s.CreatedAt.IsSet() {
+		m = m.CreatedAt(testgen.DeepEqual(s.CreatedAt.Value(p)))
+	}
+	if s.UpdatedAt.IsSet() {
+		m = m.UpdatedAt(testgen.DeepEqual(s.UpdatedAt.Value(p)))
+	}
+
+	return m.Matcher()
 }

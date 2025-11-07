@@ -14,7 +14,8 @@ import (
 
 // BlogPostRecipe provides a fluent API for building BlogPost instances.
 type BlogPostRecipe struct {
-	opts []testgen.Opt[spec.BlogPostSpec]
+	opts         []testgen.Opt[spec.BlogPostSpec]
+	authorRecipe *UserRecipe
 }
 
 // BlogPost creates a new BlogPostRecipe for building BlogPost instances.
@@ -41,12 +42,14 @@ func (r BlogPostRecipe) Content(v string) BlogPostRecipe {
 // Author sets the Author field.
 func (r BlogPostRecipe) Author(v showcase.User) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostAuthor(v))
+	r.authorRecipe = nil
 	return r
 }
 
 // AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
 func (r BlogPostRecipe) AuthorFromRecipe(v UserRecipe) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostAuthorFromProvider(v.Provider()))
+	r.authorRecipe = &v
 	return r
 }
 
@@ -87,4 +90,54 @@ func (r BlogPostRecipe) Build(p testgen.Primitives) showcase.BlogPost {
 // Many creates multiple BlogPost instances with unique generated values.
 func (r BlogPostRecipe) Many(n int, p testgen.Primitives) []showcase.BlogPost {
 	return spec.NewBlogPostFactory(p).Many(n, r.opts...)
+}
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r BlogPostRecipe) AsEqualMatcher() testgen.Matcher[showcase.BlogPost] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewBlogPostSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := BlogPostMatches()
+	if s.ID.IsSet() {
+		m = m.ID(testgen.DeepEqual(s.ID.Value(p)))
+	}
+	if s.Title.IsSet() {
+		m = m.Title(testgen.DeepEqual(s.Title.Value(p)))
+	}
+	if s.Content.IsSet() {
+		m = m.Content(testgen.DeepEqual(s.Content.Value(p)))
+	}
+	if s.Author.IsSet() {
+		// Check if we have a nested recipe for partial matching
+		if r.authorRecipe != nil {
+			m = m.Author(r.authorRecipe.AsEqualMatcher())
+		} else {
+			m = m.Author(testgen.DeepEqual(s.Author.Value(p)))
+		}
+	}
+	if s.Published.IsSet() {
+		m = m.Published(testgen.DeepEqual(s.Published.Value(p)))
+	}
+	if s.PublishedAt.IsSet() {
+		m = m.PublishedAt(testgen.DeepEqual(s.PublishedAt.Value(p)))
+	}
+	if s.CreatedAt.IsSet() {
+		m = m.CreatedAt(testgen.DeepEqual(s.CreatedAt.Value(p)))
+	}
+	if s.UpdatedAt.IsSet() {
+		m = m.UpdatedAt(testgen.DeepEqual(s.UpdatedAt.Value(p)))
+	}
+
+	return m.Matcher()
 }

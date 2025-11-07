@@ -13,7 +13,10 @@ import (
 )
 
 // UserRecipe provides a fluent API for building User instances.
-type UserRecipe struct{ opts []testgen.Opt[spec.UserSpec] }
+type UserRecipe struct {
+	opts          []testgen.Opt[spec.UserSpec]
+	addressRecipe *AddressRecipe
+}
 
 // User creates a new UserRecipe for building User instances.
 func User() UserRecipe { return UserRecipe{} }
@@ -51,12 +54,14 @@ func (r UserRecipe) Active(v bool) UserRecipe {
 // Address sets the Address field.
 func (r UserRecipe) Address(v showcase.Address) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserAddress(v))
+	r.addressRecipe = nil
 	return r
 }
 
 // AddressFromRecipe sets the Address field using another Recipe (creates unique instances).
 func (r UserRecipe) AddressFromRecipe(v AddressRecipe) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserAddressFromProvider(v.Provider()))
+	r.addressRecipe = &v
 	return r
 }
 
@@ -85,4 +90,54 @@ func (r UserRecipe) Build(p testgen.Primitives) showcase.User {
 // Many creates multiple User instances with unique generated values.
 func (r UserRecipe) Many(n int, p testgen.Primitives) []showcase.User {
 	return spec.NewUserFactory(p).Many(n, r.opts...)
+}
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r UserRecipe) AsEqualMatcher() testgen.Matcher[showcase.User] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewUserSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := UserMatches()
+	if s.ID.IsSet() {
+		m = m.ID(testgen.DeepEqual(s.ID.Value(p)))
+	}
+	if s.Email.IsSet() {
+		m = m.Email(testgen.DeepEqual(s.Email.Value(p)))
+	}
+	if s.FirstName.IsSet() {
+		m = m.FirstName(testgen.DeepEqual(s.FirstName.Value(p)))
+	}
+	if s.LastName.IsSet() {
+		m = m.LastName(testgen.DeepEqual(s.LastName.Value(p)))
+	}
+	if s.Active.IsSet() {
+		m = m.Active(testgen.DeepEqual(s.Active.Value(p)))
+	}
+	if s.Address.IsSet() {
+		// Check if we have a nested recipe for partial matching
+		if r.addressRecipe != nil {
+			m = m.Address(r.addressRecipe.AsEqualMatcher())
+		} else {
+			m = m.Address(testgen.DeepEqual(s.Address.Value(p)))
+		}
+	}
+	if s.CreatedAt.IsSet() {
+		m = m.CreatedAt(testgen.DeepEqual(s.CreatedAt.Value(p)))
+	}
+	if s.UpdatedAt.IsSet() {
+		m = m.UpdatedAt(testgen.DeepEqual(s.UpdatedAt.Value(p)))
+	}
+
+	return m.Matcher()
 }

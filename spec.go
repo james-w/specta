@@ -21,6 +21,20 @@ func (m Maybe[V]) Get(p Primitives, def Provider[V]) V {
 	return def(p)
 }
 
+// IsSet returns true if this Maybe has a value.
+func (m Maybe[V]) IsSet() bool {
+	return m.set
+}
+
+// Value returns the value from this Maybe, evaluating it with the given Primitives.
+// Panics if the Maybe is not set.
+func (m Maybe[V]) Value(p Primitives) V {
+	if !m.set {
+		panic("Maybe.Value called on unset Maybe")
+	}
+	return m.fn(p)
+}
+
 // Opt applies to a spec S (not the final instance).
 type Opt[S any] func(*S)
 

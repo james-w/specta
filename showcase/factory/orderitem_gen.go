@@ -12,7 +12,8 @@ import (
 
 // OrderItemRecipe provides a fluent API for building OrderItem instances.
 type OrderItemRecipe struct {
-	opts []testgen.Opt[spec.OrderItemSpec]
+	opts          []testgen.Opt[spec.OrderItemSpec]
+	productRecipe *ProductRecipe
 }
 
 // OrderItem creates a new OrderItemRecipe for building OrderItem instances.
@@ -21,12 +22,14 @@ func OrderItem() OrderItemRecipe { return OrderItemRecipe{} }
 // Product sets the Product field.
 func (r OrderItemRecipe) Product(v showcase.Product) OrderItemRecipe {
 	r.opts = append(r.opts, spec.WithOrderItemProduct(v))
+	r.productRecipe = nil
 	return r
 }
 
 // ProductFromRecipe sets the Product field using another Recipe (creates unique instances).
 func (r OrderItemRecipe) ProductFromRecipe(v ProductRecipe) OrderItemRecipe {
 	r.opts = append(r.opts, spec.WithOrderItemProductFromProvider(v.Provider()))
+	r.productRecipe = &v
 	return r
 }
 
@@ -55,4 +58,39 @@ func (r OrderItemRecipe) Build(p testgen.Primitives) showcase.OrderItem {
 // Many creates multiple OrderItem instances with unique generated values.
 func (r OrderItemRecipe) Many(n int, p testgen.Primitives) []showcase.OrderItem {
 	return spec.NewOrderItemFactory(p).Many(n, r.opts...)
+}
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r OrderItemRecipe) AsEqualMatcher() testgen.Matcher[showcase.OrderItem] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewOrderItemSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := OrderItemMatches()
+	if s.Product.IsSet() {
+		// Check if we have a nested recipe for partial matching
+		if r.productRecipe != nil {
+			m = m.Product(r.productRecipe.AsEqualMatcher())
+		} else {
+			m = m.Product(testgen.DeepEqual(s.Product.Value(p)))
+		}
+	}
+	if s.Quantity.IsSet() {
+		m = m.Quantity(testgen.DeepEqual(s.Quantity.Value(p)))
+	}
+	if s.Price.IsSet() {
+		m = m.Price(testgen.DeepEqual(s.Price.Value(p)))
+	}
+
+	return m.Matcher()
 }

@@ -55,6 +55,20 @@ func Equal[T comparable](expected T) Matcher[T] {
 	})
 }
 
+// DeepEqual creates a matcher that uses reflect.DeepEqual for comparison.
+// This works with any type, including slices, maps, and other non-comparable types.
+func DeepEqual[T any](expected T) Matcher[T] {
+	return MatcherFunc[T](func(actual T) MatchResult {
+		if reflect.DeepEqual(actual, expected) {
+			return MatchResult{Matched: true}
+		}
+		return MatchResult{
+			Matched: false,
+			Message: fmt.Sprintf("expected %v but got %v", expected, actual),
+		}
+	})
+}
+
 // Is is an alias for Equal for more readable assertions.
 func Is[T comparable](expected T) Matcher[T] {
 	return Equal(expected)
