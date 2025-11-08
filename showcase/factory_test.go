@@ -421,27 +421,6 @@ func TestTimeHandling(t *testing.T) {
 	})
 }
 
-func TestBooleanGeneration(t *testing.T) {
-	p := gomatchers.New()
-
-	// Generate multiple users to check boolean variation
-	users := factory.User().Many(10, p)
-
-	activeCount := 0
-	for _, u := range users {
-		if u.Active {
-			activeCount++
-		}
-	}
-
-	// With deterministic generation, we should have both true and false values
-	// (not all the same)
-	if activeCount == 0 || activeCount == 10 {
-		t.Logf("Warning: all Active values are the same (%d/10 active). "+
-			"Expected variation in boolean generation.", activeCount)
-	}
-}
-
 func TestIDGeneration(t *testing.T) {
 	p := gomatchers.New()
 

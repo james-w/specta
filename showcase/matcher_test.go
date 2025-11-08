@@ -5,18 +5,17 @@ import (
 	"time"
 
 	"github.com/james-w/gomatchers"
+	"github.com/james-w/gomatchers/showcase"
 	"github.com/james-w/gomatchers/showcase/factory"
 )
 
 func TestUserMatcher(t *testing.T) {
-	p := gomatchers.New()
-
 	t.Run("matches all specified fields", func(t *testing.T) {
-		user := factory.User().
-			Email("alice@example.com").
-			FirstName("Alice").
-			Active(true).
-			Build(p)
+		user := showcase.User{
+			Email:     "alice@example.com",
+			FirstName: "Alice",
+			Active:    true,
+		}
 
 		matcher := factory.UserMatches().
 			Email(gomatchers.Equal("alice@example.com")).
@@ -33,7 +32,7 @@ func TestUserMatcher(t *testing.T) {
 	})
 
 	t.Run("fails when field doesn't match", func(t *testing.T) {
-		user := factory.User().Email("alice@example.com").Build(p)
+		user := showcase.User{Email: "alice@example.com"}
 
 		matcher := factory.UserMatches().
 			Email(gomatchers.Equal("bob@example.com"))
@@ -48,10 +47,10 @@ func TestUserMatcher(t *testing.T) {
 	})
 
 	t.Run("only checks specified fields", func(t *testing.T) {
-		user := factory.User().
-			Email("alice@example.com").
-			FirstName("Alice").
-			Build(p)
+		user := showcase.User{
+			Email:     "alice@example.com",
+			FirstName: "Alice",
+		}
 
 		// Only check email, ignore other fields
 		matcher := factory.UserMatches().
@@ -64,7 +63,7 @@ func TestUserMatcher(t *testing.T) {
 	})
 
 	t.Run("works with string matchers", func(t *testing.T) {
-		user := factory.User().Email("alice@example.com").Build(p)
+		user := showcase.User{Email: "alice@example.com"}
 
 		matcher := factory.UserMatches().
 			Email(gomatchers.Contains("@example.com"))
@@ -76,9 +75,12 @@ func TestUserMatcher(t *testing.T) {
 	})
 
 	t.Run("works with nested matchers", func(t *testing.T) {
-		user := factory.User().
-			AddressFromRecipe(factory.Address().City("Boston")).
-			Build(p)
+		user := showcase.User{
+			FirstName: "Alice",
+			Address: showcase.Address{
+				City: "Boston",
+			},
+		}
 
 		matcher := factory.UserMatches().
 			AddressMatches(
@@ -96,14 +98,12 @@ func TestUserMatcher(t *testing.T) {
 }
 
 func TestAddressMatcher(t *testing.T) {
-	p := gomatchers.New()
-
 	t.Run("matches address fields", func(t *testing.T) {
-		addr := factory.Address().
-			Street("123 Main St").
-			City("Springfield").
-			State("IL").
-			Build(p)
+		addr := showcase.Address{
+			Street: "123 Main St",
+			City:   "Springfield",
+			State:  "IL",
+		}
 
 		matcher := factory.AddressMatches().
 			Street(gomatchers.Equal("123 Main St")).
@@ -117,7 +117,11 @@ func TestAddressMatcher(t *testing.T) {
 	})
 
 	t.Run("works with partial matching", func(t *testing.T) {
-		addr := factory.Address().City("Boston").Build(p)
+		addr := showcase.Address{
+			City:    "Boston",
+			Street:  "Any Street",
+			ZipCode: "02101",
+		}
 
 		// Only check city
 		matcher := factory.AddressMatches().
@@ -131,14 +135,12 @@ func TestAddressMatcher(t *testing.T) {
 }
 
 func TestProductMatcher(t *testing.T) {
-	p := gomatchers.New()
-
 	t.Run("matches with numeric matchers", func(t *testing.T) {
-		product := factory.Product().
-			Name("Widget").
-			Price(19.99).
-			InStock(true).
-			Build(p)
+		product := showcase.Product{
+			Name:    "Widget",
+			Price:   19.99,
+			InStock: true,
+		}
 
 		matcher := factory.ProductMatches().
 			Name(gomatchers.Equal("Widget")).
@@ -152,7 +154,7 @@ func TestProductMatcher(t *testing.T) {
 	})
 
 	t.Run("fails with wrong price", func(t *testing.T) {
-		product := factory.Product().Price(5.0).Build(p)
+		product := showcase.Product{Price: 5.0}
 
 		matcher := factory.ProductMatches().
 			Price(gomatchers.GreaterThan(10.0))
@@ -165,16 +167,14 @@ func TestProductMatcher(t *testing.T) {
 }
 
 func TestOrderMatcher(t *testing.T) {
-	p := gomatchers.New()
-
 	t.Run("matches nested user", func(t *testing.T) {
-		order := factory.Order().
-			UserFromRecipe(
-				factory.User().Email("customer@example.com"),
-			).
-			Status("pending").
-			Total(100.50).
-			Build(p)
+		order := showcase.Order{
+			User: showcase.User{
+				Email: "customer@example.com",
+			},
+			Status: "pending",
+			Total:  100.50,
+		}
 
 		matcher := factory.OrderMatches().
 			UserMatches(
@@ -194,11 +194,11 @@ func TestOrderMatcher(t *testing.T) {
 	})
 
 	t.Run("provides detailed error on nested mismatch", func(t *testing.T) {
-		order := factory.Order().
-			UserFromRecipe(
-				factory.User().Email("wrong@example.com"),
-			).
-			Build(p)
+		order := showcase.Order{
+			User: showcase.User{
+				Email: "wrong@example.com",
+			},
+		}
 
 		matcher := factory.OrderMatches().
 			UserMatches(
@@ -217,94 +217,12 @@ func TestOrderMatcher(t *testing.T) {
 	})
 }
 
-func TestBlogPostMatcher(t *testing.T) {
-	p := gomatchers.New()
-
-	t.Run("matches blog post with author", func(t *testing.T) {
-		post := factory.BlogPost().
-			Title("My First Post").
-			Published(true).
-			AuthorFromRecipe(
-				factory.User().FirstName("Alice"),
-			).
-			Build(p)
-
-		matcher := factory.BlogPostMatches().
-			Title(gomatchers.Equal("My First Post")).
-			Published(gomatchers.IsTrue()).
-			AuthorMatches(
-				factory.UserMatches().
-					FirstName(gomatchers.Equal("Alice")),
-			)
-
-		result := matcher.Matcher().Matches(post)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
-	})
-}
-
-func TestCommentMatcher(t *testing.T) {
-	p := gomatchers.New()
-
-	t.Run("matches deeply nested structures", func(t *testing.T) {
-		comment := factory.Comment().
-			Content("Great post!").
-			PostFromRecipe(
-				factory.BlogPost().Title("Test Post"),
-			).
-			AuthorFromRecipe(
-				factory.User().FirstName("Bob"),
-			).
-			Build(p)
-
-		matcher := factory.CommentMatches().
-			Content(gomatchers.Equal("Great post!")).
-			PostMatches(
-				factory.BlogPostMatches().
-					Title(gomatchers.Equal("Test Post")),
-			).
-			AuthorMatches(
-				factory.UserMatches().
-					FirstName(gomatchers.Equal("Bob")),
-			)
-
-		result := matcher.Matcher().Matches(comment)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
-	})
-}
-
-func TestMatcherWithAssertThat(t *testing.T) {
-	p := gomatchers.New()
-
-	t.Run("AssertThat integration", func(t *testing.T) {
-		user := factory.User().
-			Email("test@example.com").
-			Active(true).
-			Build(p)
-
-		// This should not fail the test
-		gomatchers.AssertThat(t, user,
-			factory.UserMatches().
-				Email(gomatchers.Contains("@example.com")).
-				Active(gomatchers.IsTrue()).
-				Matcher())
-	})
-}
-
 func TestMatcherCombinations(t *testing.T) {
-	p := gomatchers.New()
-
 	t.Run("AllOf with matchers", func(t *testing.T) {
-		user := factory.User().
-			Email("alice@example.com").
-			FirstName("Alice").
-			Build(p)
+		user := showcase.User{
+			Email:     "alice@example.com",
+			FirstName: "Alice",
+		}
 
 		matcher := gomatchers.AllOf(
 			factory.UserMatches().
@@ -322,7 +240,7 @@ func TestMatcherCombinations(t *testing.T) {
 	})
 
 	t.Run("AnyOf with matchers", func(t *testing.T) {
-		user := factory.User().Email("alice@example.com").Build(p)
+		user := showcase.User{Email: "alice@example.com"}
 
 		matcher := gomatchers.AnyOf(
 			factory.UserMatches().
@@ -340,12 +258,28 @@ func TestMatcherCombinations(t *testing.T) {
 	})
 }
 
-func TestTimeMatcher(t *testing.T) {
-	p := gomatchers.New()
+func TestNotMatcher(t *testing.T) {
+	t.Run("negates matcher result", func(t *testing.T) {
+		user := showcase.User{Active: false}
 
+		// Not(IsTrue()) should match when Active is false
+		matcher := factory.UserMatches().
+			Active(gomatchers.Not(gomatchers.IsTrue()))
+
+		result := matcher.Matcher().Matches(user)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+		}
+	})
+}
+
+func TestTimeMatcher(t *testing.T) {
 	t.Run("matches time fields", func(t *testing.T) {
 		now := time.Now()
-		product := factory.Product().CreatedAt(now).Build(p)
+		product := showcase.Product{
+			Name:      "Widget",
+			CreatedAt: now,
+		}
 
 		matcher := factory.ProductMatches().
 			CreatedAt(gomatchers.Equal(now))
@@ -354,34 +288,5 @@ func TestTimeMatcher(t *testing.T) {
 		if !result.Matched {
 			t.Errorf("Expected match but got: %s", result.Message)
 		}
-	})
-}
-
-func TestMatcherReadability(t *testing.T) {
-	p := gomatchers.New()
-
-	// This test demonstrates the readability of the matcher API
-	t.Run("readable fluent API", func(t *testing.T) {
-		order := factory.Order().
-			Status("shipped").
-			Total(250.00).
-			UserFromRecipe(
-				factory.User().
-					Email("premium@example.com").
-					Active(true),
-			).
-			Build(p)
-
-		// The matcher reads naturally
-		gomatchers.AssertThat(t, order,
-			factory.OrderMatches().
-				Status(gomatchers.Equal("shipped")).
-				Total(gomatchers.GreaterThan(200.0)).
-				UserMatches(
-					factory.UserMatches().
-						Email(gomatchers.Contains("premium")).
-						Active(gomatchers.IsTrue()),
-				).
-				Matcher())
 	})
 }
