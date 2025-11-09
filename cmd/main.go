@@ -300,6 +300,42 @@ func anyHas(fields []field, typ string) bool {
 	return false
 }
 
+// verifyCompiles checks that the generated code type-checks without writing it to disk
+func verifyCompiles(src []byte, filename string) error {
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		return fmt.Errorf("abs path: %w", err)
+	}
+
+	// Use packages.Load with an overlay to type-check without writing
+	cfg := &packages.Config{
+		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo,
+		Dir:  filepath.Dir(absPath),
+		Overlay: map[string][]byte{
+			absPath: src,
+		},
+	}
+
+	// Load the package containing this file
+	pkgs, err := packages.Load(cfg, filepath.Dir(absPath))
+	if err != nil {
+		return fmt.Errorf("load for type-check: %w", err)
+	}
+
+	// Check for type errors
+	for _, pkg := range pkgs {
+		if len(pkg.Errors) > 0 {
+			var errs []string
+			for _, e := range pkg.Errors {
+				errs = append(errs, e.Error())
+			}
+			return fmt.Errorf("type errors in generated code:\n%s", strings.Join(errs, "\n"))
+		}
+	}
+
+	return nil
+}
+
 func renderSpec(out string, d data) error {
 	os.MkdirAll(filepath.Dir(out), 0o755)
 	var buf bytes.Buffer
@@ -309,6 +345,13 @@ func renderSpec(out string, d data) error {
 		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
 		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
 	}
+
+	// Verify it compiles before writing
+	if err := verifyCompiles(src, out); err != nil {
+		_ = os.WriteFile(out+".broken", src, 0644)
+		return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
+	}
+
 	return os.WriteFile(out, src, 0644)
 }
 
@@ -321,6 +364,13 @@ func renderRecipe(out string, d data) error {
 		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
 		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
 	}
+
+	// Verify it compiles before writing
+	if err := verifyCompiles(src, out); err != nil {
+		_ = os.WriteFile(out+".broken", src, 0644)
+		return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
+	}
+
 	return os.WriteFile(out, src, 0644)
 }
 
@@ -333,6 +383,13 @@ func renderMatcher(out string, d data) error {
 		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
 		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
 	}
+
+	// Verify it compiles before writing
+	if err := verifyCompiles(src, out); err != nil {
+		_ = os.WriteFile(out+".broken", src, 0644)
+		return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
+	}
+
 	return os.WriteFile(out, src, 0644)
 }
 
