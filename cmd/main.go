@@ -83,9 +83,10 @@ type data struct {
 	ImportTestgen  string
 
 	// Constructor-based generation
-	HasConstructor    bool
-	ConstructorName   string
-	ConstructorParams []ConstructorParam
+	HasConstructor     bool
+	ConstructorName    string
+	ConstructorParams  []ConstructorParam
+	ConstructorReturns []string // return types from constructor, e.g., ["Email", "error"]
 }
 
 func findTypeConfig(cfg *Config, typeName string) *TypeConfig {
@@ -154,6 +155,34 @@ func analyzeConstructorParams(fn *ast.FuncDecl, pkg *packages.Package, typeNames
 	return params
 }
 
+func analyzeConstructorReturns(fn *ast.FuncDecl, pkg *packages.Package) []string {
+	if fn.Type == nil || fn.Type.Results == nil {
+		return nil
+	}
+
+	var returns []string
+	for _, result := range fn.Type.Results.List {
+		// Render the type expression
+		var buf bytes.Buffer
+		if err := printer.Fprint(&buf, pkg.Fset, result.Type); err != nil {
+			continue
+		}
+		typeExpr := buf.String()
+
+		// If there are multiple names (e.g., a, b int), add one entry per name
+		// But constructor returns typically don't have names, so len(result.Names) == 0
+		if len(result.Names) == 0 {
+			returns = append(returns, typeExpr)
+		} else {
+			for range result.Names {
+				returns = append(returns, typeExpr)
+			}
+		}
+	}
+
+	return returns
+}
+
 func processTarget(cfg *Config, tgt struct {
 	Package    string                                       `yaml:"package"`
 	Types      struct{ Include []string `yaml:"include"` } `yaml:"types"`
@@ -204,6 +233,7 @@ func processTarget(cfg *Config, tgt struct {
 				d.HasConstructor = true
 				d.ConstructorName = typeCfg.Constructor
 				d.ConstructorParams = analyzeConstructorParams(ctor, pkg, typeNames)
+				d.ConstructorReturns = analyzeConstructorReturns(ctor, pkg)
 
 				// Check if any params use time types
 				for _, param := range d.ConstructorParams {
@@ -396,6 +426,22 @@ func renderMatcher(out string, d data) error {
 var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
 	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
+	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
+		if len(returns) == 0 {
+			// No explicit returns means single return of the type
+			return pkg + "." + typeName
+		}
+		if len(returns) == 1 {
+			// Single return - could be just the type, or could be qualified
+			// First return is always the constructed type
+			return pkg + "." + typeName
+		}
+		// Multiple returns - (Type, error) or (Type, bool, error) etc
+		// First is the type, rest are passed through
+		parts := []string{pkg + "." + typeName}
+		parts = append(parts, returns[1:]...)
+		return "(" + strings.Join(parts, ", ") + ")"
+	},
 	"qualifiedType": func(pkg string, f field) string {
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
@@ -487,10 +533,12 @@ type {{.SpecName}} struct {
 // New{{.SpecName}} creates a new {{.SpecName}} with all fields unset.
 func New{{.SpecName}}() {{.SpecName}} { return {{.SpecName}}{} }
 
+{{- if not (and .HasConstructor (gt (len .ConstructorReturns) 1))}}
 // New{{.TypeName}}Factory creates a new SpecFactory for {{.TypeName}}.
 func New{{.TypeName}}Factory(p testgen.Primitives) *testgen.SpecFactory[{{$.ParentPackage}}.{{.TypeName}}, {{.SpecName}}] {
 	return testgen.NewSpecFactory(p, New{{.SpecName}}, Build{{.TypeName}})
 }
+{{- end}}
 
 {{- if .HasConstructor}}
 // Default parameter providers.
@@ -501,7 +549,7 @@ var (
 )
 
 // Build{{.TypeName}} constructs a {{.TypeName}} from a {{.SpecName}}.
-func Build{{.TypeName}}(p testgen.Primitives, s {{.SpecName}}) {{$.ParentPackage}}.{{.TypeName}} {
+func Build{{.TypeName}}(p testgen.Primitives, s {{.SpecName}}) {{buildReturnSignature $.ParentPackage $.TypeName $.ConstructorReturns}} {
 	{{- range .ConstructorParams}}
 	{{lower .Name}} := s.{{.Name}}.Get(p, {{$.TypeName}}Default{{.Name}})
 	{{- end}}
@@ -564,6 +612,17 @@ func With{{$.TypeName}}{{.Name}}FromProvider(prov testgen.Provider[{{qualifiedTy
 var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
 	"hasPrefix": strings.HasPrefix,
+	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
+		if len(returns) == 0 {
+			return pkg + "." + typeName
+		}
+		if len(returns) == 1 {
+			return pkg + "." + typeName
+		}
+		parts := []string{pkg + "." + typeName}
+		parts = append(parts, returns[1:]...)
+		return "(" + strings.Join(parts, ", ") + ")"
+	},
 	"qualifiedType": func(pkg string, f field) string {
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
@@ -673,19 +732,35 @@ func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeN
 {{end}}
 {{- end}}
 
+{{- if not (and .HasConstructor (gt (len .ConstructorReturns) 1))}}
 // Provider returns a Provider for lazy evaluation in parent factories.
 func (r {{.RecipeName}}) Provider() testgen.Provider[{{.ParentPackage}}.{{.TypeName}}] {
 	return testgen.FromSpec(spec.Build{{.TypeName}}, spec.New{{.SpecName}}, r.opts...)
 }
+{{- end}}
 
 // Build creates a single {{.TypeName}} instance.
-func (r {{.RecipeName}}) Build(p testgen.Primitives) {{.ParentPackage}}.{{.TypeName}} {
+func (r {{.RecipeName}}) Build(p testgen.Primitives) {{buildReturnSignature .ParentPackage .TypeName .ConstructorReturns}} {
+	{{- if and .HasConstructor (gt (len .ConstructorReturns) 1)}}
+	// Constructor returns multiple values - apply opts and call Build directly
+	s := spec.New{{.SpecName}}()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+	return spec.Build{{.TypeName}}(p, s)
+	{{- else}}
 	return spec.New{{.TypeName}}Factory(p).Make(r.opts...)
+	{{- end}}
 }
 
 // Many creates multiple {{.TypeName}} instances with unique generated values.
 func (r {{.RecipeName}}) Many(n int, p testgen.Primitives) []{{.ParentPackage}}.{{.TypeName}} {
+	{{- if and .HasConstructor (gt (len .ConstructorReturns) 1)}}
+	// Constructor returns multiple values - Many() is not supported for error-returning constructors
+	panic("Many() is not supported for types with error-returning constructors - use Build() in a loop instead")
+	{{- else}}
 	return spec.New{{.TypeName}}Factory(p).Many(n, r.opts...)
+	{{- end}}
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -700,7 +775,14 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 		opt(&s)
 	}
 	p := testgen.New()
+	{{- if gt (len .ConstructorReturns) 1}}
+	expected, err := spec.Build{{.TypeName}}(p, s)
+	if err != nil {
+		panic("AsEqualMatcher: failed to build expected value: " + err.Error())
+	}
+	{{- else}}
 	expected := spec.Build{{.TypeName}}(p, s)
+	{{- end}}
 	return testgen.DeepEqual(expected)
 	{{- else}}
 	// Apply opts to a spec to see what was set

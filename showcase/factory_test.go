@@ -476,6 +476,40 @@ func TestBankAccountFactory(t *testing.T) {
 	})
 }
 
+func TestEmailFactory(t *testing.T) {
+	p := gomatchers.New()
+
+	t.Run("constructor with error return - valid email", func(t *testing.T) {
+		email, err := factory.Email().Address("user@example.com").Build(p)
+
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if email.GetAddress() != "user@example.com" {
+			t.Errorf("expected Address='user@example.com', got %q", email.GetAddress())
+		}
+	})
+
+	t.Run("constructor with error return - invalid email", func(t *testing.T) {
+		_, err := factory.Email().Address("notanemail").Build(p)
+
+		if err == nil {
+			t.Error("expected error for invalid email")
+		}
+	})
+
+	t.Run("constructor with error return - default generates invalid email", func(t *testing.T) {
+		// Default provider generates "address_" which is not a valid email
+		// This will return an error, demonstrating that default providers
+		// need special handling for error-returning constructors
+		_, err := factory.Email().Build(p)
+
+		if err == nil {
+			t.Error("expected error with default generation (address_ is not valid)")
+		}
+	})
+}
+
 func TestIDGeneration(t *testing.T) {
 	p := gomatchers.New()
 

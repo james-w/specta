@@ -2,6 +2,8 @@ version: 1
 types:
   - name: BankAccount
     constructor: NewBankAccount
+  - name: Email
+    constructor: NewEmail
 targets:
   - package: .
     types:
@@ -14,6 +16,7 @@ targets:
         - BlogPost
         - Comment
         - BankAccount
+        - Email
     file_suffix: _gen.go
 
 defaults:

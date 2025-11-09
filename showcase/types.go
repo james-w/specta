@@ -2,7 +2,11 @@ package showcase
 
 //go:generate go run ../cmd/main.go -config testgen.yaml
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 // Address represents a physical address
 type Address struct {
@@ -99,4 +103,27 @@ func (b BankAccount) GetName() string {
 // GetBalance returns the account balance (needed for testing)
 func (b BankAccount) GetBalance() int {
 	return b.balance
+}
+
+// Email represents a validated email address
+// This demonstrates constructor-based factories with error returns
+type Email struct {
+	address string
+}
+
+// NewEmail creates a new Email with validation
+// Returns an error if the email format is invalid
+func NewEmail(address string) (Email, error) {
+	if address == "" {
+		return Email{}, fmt.Errorf("email address cannot be empty")
+	}
+	if !strings.Contains(address, "@") {
+		return Email{}, fmt.Errorf("invalid email format: %q", address)
+	}
+	return Email{address: address}, nil
+}
+
+// GetAddress returns the email address (needed for testing)
+func (e Email) GetAddress() string {
+	return e.address
 }
