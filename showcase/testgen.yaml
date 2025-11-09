@@ -1,4 +1,7 @@
 version: 1
+types:
+  - name: BankAccount
+    constructor: NewBankAccount
 targets:
   - package: .
     types:
@@ -10,6 +13,8 @@ targets:
         - Order
         - BlogPost
         - Comment
+        # BankAccount will be enabled in Phase 2 after template updates
+        # - BankAccount
     file_suffix: _gen.go
 
 defaults:

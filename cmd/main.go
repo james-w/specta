@@ -17,13 +17,19 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+type TypeConfig struct {
+	Name        string `yaml:"name"`
+	Constructor string `yaml:"constructor"`
+}
+
 type Config struct {
-	Version int `json:"version"`
+	Version int `yaml:"version"`
+	Types   []TypeConfig `yaml:"types"`
 	Targets []struct {
-		Package    string `json:"package"`
-		Types      struct{ Include []string `json:"include"` } `json:"types"`
-		FileSuffix string `json:"file_suffix"`
-	} `json:"targets"`
+		Package    string                                       `yaml:"package"`
+		Types      struct{ Include []string `yaml:"include"` } `yaml:"types"`
+		FileSuffix string                                       `yaml:"file_suffix"`
+	} `yaml:"targets"`
 }
 
 var cfgPath = flag.String("config", "testgen.yaml", "path to config (JSON for this skeleton)")
@@ -34,7 +40,7 @@ func main() {
 	if err != nil { log.Fatal(err) }
 
 	for _, t := range cfg.Targets {
-		if err := processTarget(t); err != nil {
+		if err := processTarget(cfg, t); err != nil {
 			log.Fatalf("target %s: %v", t.Package, err)
 		}
 	}
@@ -59,6 +65,12 @@ type field struct {
 	RecipeName   string // e.g., "UserRecipe" if IsCustomType
 }
 
+type ConstructorParam struct {
+	Name         string
+	TypeExpr     string
+	IsCustomType bool
+}
+
 type data struct {
 	Package        string // "factory"
 	ParentPackage  string // e.g., "example"
@@ -69,16 +81,87 @@ type data struct {
 	Fields         []field
 	ImportTime     bool
 	ImportTestgen  string
+
+	// Constructor-based generation
+	HasConstructor    bool
+	ConstructorName   string
+	ConstructorParams []ConstructorParam
 }
 
-func processTarget(tgt struct {
-	Package    string `json:"package"`
-	Types      struct{ Include []string `json:"include"` } `json:"types"`
-	FileSuffix string `json:"file_suffix"`
+func findTypeConfig(cfg *Config, typeName string) *TypeConfig {
+	for i := range cfg.Types {
+		if cfg.Types[i].Name == typeName {
+			return &cfg.Types[i]
+		}
+	}
+	return nil
+}
+
+func findConstructor(pkg *packages.Package, constructorName string) *ast.FuncDecl {
+	for _, f := range pkg.Syntax {
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			if fn.Name.Name == constructorName {
+				return fn
+			}
+		}
+	}
+	return nil
+}
+
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	runes := []rune(s)
+	runes[0] = []rune(strings.ToUpper(string(runes[0])))[0]
+	return string(runes)
+}
+
+func analyzeConstructorParams(fn *ast.FuncDecl, pkg *packages.Package, typeNames map[string]bool) []ConstructorParam {
+	if fn.Type == nil || fn.Type.Params == nil {
+		return nil
+	}
+
+	var params []ConstructorParam
+	for _, param := range fn.Type.Params.List {
+		if len(param.Names) == 0 {
+			continue // skip unnamed params for now
+		}
+
+		// Render the type expression
+		var buf bytes.Buffer
+		if err := printer.Fprint(&buf, pkg.Fset, param.Type); err != nil {
+			continue
+		}
+		typeExpr := buf.String()
+
+		// Check if custom type
+		isCustomType := typeNames[typeExpr]
+
+		for _, name := range param.Names {
+			params = append(params, ConstructorParam{
+				Name:         capitalizeFirst(name.Name),
+				TypeExpr:     typeExpr,
+				IsCustomType: isCustomType,
+			})
+		}
+	}
+
+	return params
+}
+
+func processTarget(cfg *Config, tgt struct {
+	Package    string                                       `yaml:"package"`
+	Types      struct{ Include []string `yaml:"include"` } `yaml:"types"`
+	FileSuffix string                                       `yaml:"file_suffix"`
 }) error {
 	if tgt.FileSuffix == "" { tgt.FileSuffix = "_testgen_gen.go" }
-	cfg := &packages.Config{Mode: packages.NeedName|packages.NeedSyntax|packages.NeedTypes|packages.NeedFiles, Dir: "."}
-	pkgs, err := packages.Load(cfg, tgt.Package)
+	pkgCfg := &packages.Config{Mode: packages.NeedName|packages.NeedSyntax|packages.NeedTypes|packages.NeedFiles, Dir: "."}
+	pkgs, err := packages.Load(pkgCfg, tgt.Package)
 	if err != nil || packages.PrintErrors(pkgs) > 0 { return fmt.Errorf("load: %v", err) }
 	pkg := pkgs[0]
 
@@ -94,7 +177,6 @@ func processTarget(tgt struct {
 			log.Printf("skip %s: not found", typeName)
 			continue
 		}
-		fields := collectFields(pkg, st, typeNames)
 
 		// Output to factory/ and factory/spec/ subdirectories
 		factoryDir := filepath.Join(filepath.Dir(pkg.GoFiles[0]), "factory")
@@ -110,9 +192,36 @@ func processTarget(tgt struct {
 			TypeName:       typeName,
 			SpecName:       typeName + "Spec",
 			RecipeName:     typeName + "Recipe",
-			Fields:         fields,
-			ImportTime:     anyHas(fields, "time.Time") || anyHas(fields, "time.Duration"),
 			ImportTestgen:  "github.com/james-w/gomatchers",
+		}
+
+		// Check if this type has a constructor configured
+		typeCfg := findTypeConfig(cfg, typeName)
+		if typeCfg != nil && typeCfg.Constructor != "" {
+			// Use constructor-based generation
+			ctor := findConstructor(pkg, typeCfg.Constructor)
+			if ctor != nil {
+				d.HasConstructor = true
+				d.ConstructorName = typeCfg.Constructor
+				d.ConstructorParams = analyzeConstructorParams(ctor, pkg, typeNames)
+
+				// Check if any params use time types
+				for _, param := range d.ConstructorParams {
+					if strings.Contains(param.TypeExpr, "time.") {
+						d.ImportTime = true
+						break
+					}
+				}
+			} else {
+				log.Printf("warning: constructor %s not found for %s, using field-based generation", typeCfg.Constructor, typeName)
+			}
+		}
+
+		// If no constructor, use field-based generation
+		if !d.HasConstructor {
+			fields := collectFields(pkg, st, typeNames)
+			d.Fields = fields
+			d.ImportTime = anyHas(fields, "time.Time") || anyHas(fields, "time.Duration")
 		}
 
 		// Generate spec file (low-level API)

@@ -73,3 +73,30 @@ type Comment struct {
 	Content   string
 	CreatedAt time.Time
 }
+
+// BankAccount demonstrates constructor-based factory generation
+// with unexported fields that should not be directly settable
+type BankAccount struct {
+	id      string
+	name    string
+	balance int
+}
+
+// NewBankAccount creates a new bank account with the given name and initial balance
+func NewBankAccount(name string, balance int) BankAccount {
+	return BankAccount{
+		id:      "account_" + name, // Generated ID
+		name:    name,
+		balance: balance,
+	}
+}
+
+// GetName returns the account name (needed for testing)
+func (b BankAccount) GetName() string {
+	return b.name
+}
+
+// GetBalance returns the account balance (needed for testing)
+func (b BankAccount) GetBalance() int {
+	return b.balance
+}
