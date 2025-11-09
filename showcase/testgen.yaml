@@ -13,8 +13,7 @@ targets:
         - Order
         - BlogPost
         - Comment
-        # BankAccount will be enabled in Phase 2 after template updates
-        # - BankAccount
+        - BankAccount
     file_suffix: _gen.go
 
 defaults:

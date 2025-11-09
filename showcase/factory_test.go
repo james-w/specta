@@ -421,6 +421,61 @@ func TestTimeHandling(t *testing.T) {
 	})
 }
 
+func TestBankAccountFactory(t *testing.T) {
+	p := gomatchers.New()
+
+	t.Run("constructor-based factory with default values", func(t *testing.T) {
+		account := factory.BankAccount().Build(p)
+
+		name := account.GetName()
+		balance := account.GetBalance()
+
+		if name == "" {
+			t.Error("expected non-empty Name")
+		}
+		// Default balance should be generated
+		if balance == 0 {
+			t.Error("expected non-zero balance from default provider")
+		}
+	})
+
+	t.Run("constructor-based factory with custom values", func(t *testing.T) {
+		account := factory.BankAccount().
+			Name("Alice").
+			Balance(1000).
+			Build(p)
+
+		if account.GetName() != "Alice" {
+			t.Errorf("expected Name='Alice', got %q", account.GetName())
+		}
+		if account.GetBalance() != 1000 {
+			t.Errorf("expected Balance=1000, got %d", account.GetBalance())
+		}
+	})
+
+	t.Run("many generates unique instances", func(t *testing.T) {
+		accounts := factory.BankAccount().Many(3, p)
+
+		if len(accounts) != 3 {
+			t.Fatalf("expected 3 accounts, got %d", len(accounts))
+		}
+
+		// Names should be unique
+		names := make(map[string]bool)
+		for i, acc := range accounts {
+			name := acc.GetName()
+			if names[name] {
+				t.Errorf("duplicate name found: %q at index %d", name, i)
+			}
+			names[name] = true
+		}
+
+		if len(names) != 3 {
+			t.Errorf("expected 3 unique names, got %d", len(names))
+		}
+	})
+}
+
 func TestIDGeneration(t *testing.T) {
 	p := gomatchers.New()
 
