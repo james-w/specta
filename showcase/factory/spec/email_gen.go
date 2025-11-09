@@ -18,6 +18,19 @@ type EmailSpec struct {
 // NewEmailSpec creates a new EmailSpec with all fields unset.
 func NewEmailSpec() EmailSpec { return EmailSpec{} }
 
+// NewEmailFactory creates a new SpecFactory for Email.
+func NewEmailFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Email, EmailSpec] {
+	// Wrap error-returning constructor - panic on error for test factories
+	wrappedBuild := func(p testgen.Primitives, s EmailSpec) showcase.Email {
+		result, err := BuildEmail(p, s)
+		if err != nil {
+			panic("BuildEmail failed: " + err.Error())
+		}
+		return result
+	}
+	return testgen.NewSpecFactory(p, NewEmailSpec, wrappedBuild)
+}
+
 // Default parameter providers.
 var (
 	EmailDefaultAddress = func(p testgen.Primitives) string { return p.StringWith("address_") }

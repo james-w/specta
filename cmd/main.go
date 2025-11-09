@@ -533,12 +533,22 @@ type {{.SpecName}} struct {
 // New{{.SpecName}} creates a new {{.SpecName}} with all fields unset.
 func New{{.SpecName}}() {{.SpecName}} { return {{.SpecName}}{} }
 
-{{- if not (and .HasConstructor (gt (len .ConstructorReturns) 1))}}
 // New{{.TypeName}}Factory creates a new SpecFactory for {{.TypeName}}.
 func New{{.TypeName}}Factory(p testgen.Primitives) *testgen.SpecFactory[{{$.ParentPackage}}.{{.TypeName}}, {{.SpecName}}] {
+	{{- if and .HasConstructor (gt (len .ConstructorReturns) 1)}}
+	// Wrap error-returning constructor - panic on error for test factories
+	wrappedBuild := func(p testgen.Primitives, s {{.SpecName}}) {{$.ParentPackage}}.{{.TypeName}} {
+		result, err := Build{{.TypeName}}(p, s)
+		if err != nil {
+			panic("Build{{.TypeName}} failed: " + err.Error())
+		}
+		return result
+	}
+	return testgen.NewSpecFactory(p, New{{.SpecName}}, wrappedBuild)
+	{{- else}}
 	return testgen.NewSpecFactory(p, New{{.SpecName}}, Build{{.TypeName}})
+	{{- end}}
 }
-{{- end}}
 
 {{- if .HasConstructor}}
 // Default parameter providers.
@@ -665,6 +675,9 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 package factory
 
 import (
+{{- if and .HasConstructor (gt (len .ConstructorReturns) 1) }}
+	"fmt"
+{{end}}
 {{- if .ImportTime }}
 	"time"
 {{end}}
@@ -732,12 +745,25 @@ func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeN
 {{end}}
 {{- end}}
 
-{{- if not (and .HasConstructor (gt (len .ConstructorReturns) 1))}}
 // Provider returns a Provider for lazy evaluation in parent factories.
 func (r {{.RecipeName}}) Provider() testgen.Provider[{{.ParentPackage}}.{{.TypeName}}] {
+	{{- if and .HasConstructor (gt (len .ConstructorReturns) 1)}}
+	// Wrap error-returning constructor - panic on error for test factories
+	return func(p testgen.Primitives) {{.ParentPackage}}.{{.TypeName}} {
+		s := spec.New{{.SpecName}}()
+		for _, opt := range r.opts {
+			opt(&s)
+		}
+		result, err := spec.Build{{.TypeName}}(p, s)
+		if err != nil {
+			panic("Provider failed: " + err.Error())
+		}
+		return result
+	}
+	{{- else}}
 	return testgen.FromSpec(spec.Build{{.TypeName}}, spec.New{{.SpecName}}, r.opts...)
+	{{- end}}
 }
-{{- end}}
 
 // Build creates a single {{.TypeName}} instance.
 func (r {{.RecipeName}}) Build(p testgen.Primitives) {{buildReturnSignature .ParentPackage .TypeName .ConstructorReturns}} {
@@ -756,8 +782,16 @@ func (r {{.RecipeName}}) Build(p testgen.Primitives) {{buildReturnSignature .Par
 // Many creates multiple {{.TypeName}} instances with unique generated values.
 func (r {{.RecipeName}}) Many(n int, p testgen.Primitives) []{{.ParentPackage}}.{{.TypeName}} {
 	{{- if and .HasConstructor (gt (len .ConstructorReturns) 1)}}
-	// Constructor returns multiple values - Many() is not supported for error-returning constructors
-	panic("Many() is not supported for types with error-returning constructors - use Build() in a loop instead")
+	// Wrap error-returning constructor - panic on first error
+	var results []{{.ParentPackage}}.{{.TypeName}}
+	for i := 0; i < n; i++ {
+		item, err := r.Build(p)
+		if err != nil {
+			panic("Many() failed on item " + fmt.Sprint(i) + ": " + err.Error())
+		}
+		results = append(results, item)
+	}
+	return results
 	{{- else}}
 	return spec.New{{.TypeName}}Factory(p).Many(n, r.opts...)
 	{{- end}}

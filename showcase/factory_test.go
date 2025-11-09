@@ -1,6 +1,8 @@
 package showcase_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -479,7 +481,7 @@ func TestBankAccountFactory(t *testing.T) {
 func TestEmailFactory(t *testing.T) {
 	p := gomatchers.New()
 
-	t.Run("constructor with error return - valid email", func(t *testing.T) {
+	t.Run("Build with valid email returns no error", func(t *testing.T) {
 		email, err := factory.Email().Address("user@example.com").Build(p)
 
 		if err != nil {
@@ -490,7 +492,7 @@ func TestEmailFactory(t *testing.T) {
 		}
 	})
 
-	t.Run("constructor with error return - invalid email", func(t *testing.T) {
+	t.Run("Build with invalid email returns error", func(t *testing.T) {
 		_, err := factory.Email().Address("notanemail").Build(p)
 
 		if err == nil {
@@ -498,14 +500,53 @@ func TestEmailFactory(t *testing.T) {
 		}
 	})
 
-	t.Run("constructor with error return - default generates invalid email", func(t *testing.T) {
+	t.Run("Build with default generates invalid email and returns error", func(t *testing.T) {
 		// Default provider generates "address_" which is not a valid email
-		// This will return an error, demonstrating that default providers
-		// need special handling for error-returning constructors
 		_, err := factory.Email().Build(p)
 
 		if err == nil {
 			t.Error("expected error with default generation (address_ is not valid)")
+		}
+	})
+
+	t.Run("Provider panics on error", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected Provider to panic on invalid email")
+			}
+		}()
+
+		provider := factory.Email().Address("invalid").Provider()
+		provider(p) // Should panic
+	})
+
+	t.Run("Many panics on error", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if r == nil {
+				t.Error("expected Many to panic on invalid email")
+			} else {
+				// Verify the panic message includes the item index
+				msg := fmt.Sprint(r)
+				if !strings.Contains(msg, "Many() failed on item 0") {
+					t.Errorf("expected panic message to include item index, got: %v", r)
+				}
+			}
+		}()
+
+		factory.Email().Address("invalid").Many(3, p) // Should panic on first item
+	})
+
+	t.Run("Many succeeds with valid emails", func(t *testing.T) {
+		emails := factory.Email().Address("test@example.com").Many(3, p)
+
+		if len(emails) != 3 {
+			t.Fatalf("expected 3 emails, got %d", len(emails))
+		}
+		for i, email := range emails {
+			if email.GetAddress() != "test@example.com" {
+				t.Errorf("email %d: expected Address='test@example.com', got %q", i, email.GetAddress())
+			}
 		}
 	})
 }

@@ -5,6 +5,8 @@
 package factory
 
 import (
+	"fmt"
+
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
 	"github.com/james-w/gomatchers/showcase/factory/spec"
@@ -24,6 +26,22 @@ func (r EmailRecipe) Address(v string) EmailRecipe {
 	return r
 }
 
+// Provider returns a Provider for lazy evaluation in parent factories.
+func (r EmailRecipe) Provider() testgen.Provider[showcase.Email] {
+	// Wrap error-returning constructor - panic on error for test factories
+	return func(p testgen.Primitives) showcase.Email {
+		s := spec.NewEmailSpec()
+		for _, opt := range r.opts {
+			opt(&s)
+		}
+		result, err := spec.BuildEmail(p, s)
+		if err != nil {
+			panic("Provider failed: " + err.Error())
+		}
+		return result
+	}
+}
+
 // Build creates a single Email instance.
 func (r EmailRecipe) Build(p testgen.Primitives) (showcase.Email, error) {
 	// Constructor returns multiple values - apply opts and call Build directly
@@ -36,8 +54,16 @@ func (r EmailRecipe) Build(p testgen.Primitives) (showcase.Email, error) {
 
 // Many creates multiple Email instances with unique generated values.
 func (r EmailRecipe) Many(n int, p testgen.Primitives) []showcase.Email {
-	// Constructor returns multiple values - Many() is not supported for error-returning constructors
-	panic("Many() is not supported for types with error-returning constructors - use Build() in a loop instead")
+	// Wrap error-returning constructor - panic on first error
+	var results []showcase.Email
+	for i := 0; i < n; i++ {
+		item, err := r.Build(p)
+		if err != nil {
+			panic("Many() failed on item " + fmt.Sprint(i) + ": " + err.Error())
+		}
+		results = append(results, item)
+	}
+	return results
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
