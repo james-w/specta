@@ -34,7 +34,12 @@ func AssertThat[T any](t *testing.T, actual T, matcher Matcher[T]) {
 	t.Helper()
 	result := matcher.Matches(actual)
 	if !result.Matched {
-		t.Errorf("Assertion failed: %s", result.Message)
+		// For multi-line messages (like structured diffs), put on new line
+		if strings.Contains(result.Message, "\n") {
+			t.Errorf("\n%s", result.Message)
+		} else {
+			t.Errorf("%s", result.Message)
+		}
 		for _, detail := range result.Details {
 			t.Errorf("  %s", detail)
 		}
