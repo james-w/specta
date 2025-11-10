@@ -27,12 +27,13 @@ import "github.com/james-w/gomatchers"
 func TestUser(t *testing.T) {
     user := User{Name: "Alice", Age: 30, Email: "alice@example.com"}
 
+    // Match multiple fields at once
     gomatchers.AssertThat(t, user,
-        gomatchers.AllOf(
-            UserMatches().Name(gomatchers.Equal("Alice")),
-            UserMatches().Age(gomatchers.GreaterThan(18)),
-            UserMatches().Email(gomatchers.Contains("@example.com")),
-        ))
+        UserMatches().
+            Name(gomatchers.Equal("Alice")).
+            Age(gomatchers.GreaterThan(18)).
+            Email(gomatchers.Contains("@example.com")).
+            Matcher())
 }
 ```
 
