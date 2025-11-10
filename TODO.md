@@ -490,6 +490,165 @@ Transform("name uppercase",
 
 ---
 
+## Investigation: Matcher-to-Generator Conversion
+
+### Background
+
+The use case: Define validation rules as matchers, then generate test data that satisfies those rules.
+
+**Current state**: We have Recipe → Matcher (AsEqualMatcher), but not Matcher → Recipe.
+
+**Example of desired pattern**:
+```go
+// Define validation rules
+var IsValidUser = UserMatches().
+    Email(gomatchers.Contains("@")).
+    Age(gomatchers.GreaterThan(18)).
+    Matcher()
+
+// Generate test data satisfying those rules
+recipe := factory.User().SatisfyingMatcher(IsValidUser)
+user := recipe.Build(p)  // Will have email with @ and age > 18
+```
+
+### Investigation Results
+
+**Matcher Inversion Feasibility** (16 total matchers analyzed):
+
+**EASY (6 matchers)** - Single obvious satisfying value:
+- `Equal(v)` → generate v
+- `DeepEqual(v)` → generate v
+- `Is(v)` → generate v (alias for Equal)
+- `IsZero()` → generate zero value
+- `IsTrue()` → generate true
+- `IsFalse()` → generate false
+
+**MEDIUM (6 matchers)** - Multiple options, reasonable default exists:
+- `GreaterThan(n)` → generate n+1
+- `LessThan(n)` → generate n-1
+- `GreaterThanOrEqual(n)` → generate n
+- `Contains(s)` → generate s (or "prefix" + s)
+- `HasPrefix(p)` → generate p (or p + "suffix")
+- `HasSuffix(s)` → generate s (or "prefix" + s)
+
+**HARD (1 matcher)** - Requires special handling:
+- `Field(extractor, matcher)` → Can't invert arbitrary extractors. Only feasible for generated matchers where we control the extractor and know it maps to a specific field.
+
+**IMPOSSIBLE (3 matchers)** - Without major caveats:
+- `Not(m)` → Infinite non-matching values, fundamentally ambiguous
+- `AllOf(...)` → Constraint satisfaction problem, may be contradictory
+- `AnyOf(...)` → Ambiguous which branch to satisfy
+
+**Key obstacle**: Matchers are closures - their captured values aren't accessible for extraction.
+
+### Proposed Solution
+
+**Phase 1: Make Matchers Introspectable**
+
+Add optional introspection without breaking existing API:
+
+```go
+type IntrospectableMatcher[T any] interface {
+    Matcher[T]
+    Introspect() MatcherConstraints
+}
+
+type MatcherConstraints struct {
+    Type        string  // "equal", "greater_than", "allof", etc.
+    Value       any     // Captured value (for Equal, GreaterThan, etc.)
+    SubMatchers []any   // For composite matchers
+}
+```
+
+Refactor matchers to implement this interface while keeping backward compatibility.
+
+**Phase 2: Add Generator Inversion API**
+
+```go
+// Option A: Recipe method
+recipe := factory.User().
+    SatisfyingMatcher(someUserMatcher)
+
+// Option B: Standalone function
+recipe := factory.FromMatcher(someUserMatcher, factory.User())
+```
+
+**Phase 3: Implement Constraint Inversion**
+
+- EASY matchers: Extract value, return it
+- MEDIUM matchers: Apply heuristic (n+1, n-1, etc.)
+- HARD matchers: Special case for generated matchers, error otherwise
+- IMPOSSIBLE: Clear error messages explaining limitation
+
+**Phase 4: Handle Composite Matchers**
+
+- `AllOf`: Merge constraints if compatible (e.g., GreaterThan(5) + LessThan(10) → pick 7)
+- Detect contradictions (e.g., Equal(5) + Equal(6) → error)
+- `AnyOf`: Pick first matcher by convention (document this)
+- `Not`: Not supported (error with explanation)
+
+### Alternative: Recipe-First Pattern (Current)
+
+Instead of Matcher → Recipe, use Recipe → Matcher (already implemented):
+
+```go
+// Define pattern as recipe
+var ValidUser = factory.User().
+    Email("user@example.com").
+    Active(true)
+
+// Generate data
+user := ValidUser.Build(p)
+
+// Validate outputs
+gomatchers.AssertThat(t, result, ValidUser.AsEqualMatcher())
+```
+
+This works well but requires thinking in "generators" rather than "validators". The recipe becomes the single source of truth.
+
+### Decision Points
+
+1. **Pursue Matcher → Recipe inversion?**
+   - Pros: More intuitive for "define rules, generate conforming data" use case
+   - Cons: Requires refactoring, won't work for all matchers
+   - Coverage: 75% of matchers invertible (12/16)
+
+2. **Or advocate for Recipe → Matcher pattern?**
+   - Pros: Already implemented, works well, no refactoring needed
+   - Cons: Requires thinking generators-first rather than validators-first
+   - Works: 100% of cases
+
+3. **Or do both?**
+   - Support both directions for maximum flexibility
+   - Recipe → Matcher for partial matching (current)
+   - Matcher → Recipe for generating conforming data (new)
+
+### Recommendation
+
+**Pursue the full solution** (Matcher → Recipe) because:
+- 75% matcher coverage is good enough for common cases
+- The use case is compelling (define validation rules, generate conforming data)
+- Clear error messages can handle unsupported matchers
+- It complements the existing Recipe → Matcher pattern
+- Creates true symmetry: matchers and generators mirror each other
+
+**Implementation order**:
+1. Add introspection to basic matchers (EASY + MEDIUM)
+2. Implement SatisfyingMatcher for generated recipes
+3. Add constraint inversion logic
+4. Handle AllOf with constraint merging
+5. Document limitations clearly
+6. Add comprehensive tests and examples
+
+**Files to create/modify**:
+- `matchers_introspect.go` - New file for introspection interface
+- `matchers_generate.go` - New file for constraint inversion
+- `matchers.go` - Refactor to implement introspection
+- `cmd/main.go` - Add SatisfyingMatcher to recipe template
+- `README.md` - Document the pattern with examples
+
+---
+
 ## Notes
 
 - Each feature should have its own commit
