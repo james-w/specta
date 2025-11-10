@@ -13,9 +13,32 @@ Testing isn't just about asserting values—it's about building maintainable tes
 3. **Partial Matching**: Match only what matters, ignore the rest
 4. **Rich Error Messages**: See exactly what failed with structured, colored diffs
 
-### See What Failed at a Glance
+## Installation
 
-When tests fail, gomatchers shows you exactly what went wrong:
+```bash
+go get github.com/james-w/gomatchers
+```
+
+## Quick Start
+
+```go
+import "github.com/james-w/gomatchers"
+
+func TestUserRegistration(t *testing.T) {
+    // Register a new user
+    user := registerUser("alice@example.com", 30)
+
+    // Match multiple fields at once
+    gomatchers.AssertThat(t, user,
+        UserMatches().
+            Name(gomatchers.Equal("Alice")).
+            Age(gomatchers.GreaterThan(18)).
+            Email(gomatchers.Contains("@example.com")).
+            Matcher())
+}
+```
+
+**When tests fail**, you see exactly what went wrong with structured diffs:
 
 ```
 UserView {
@@ -28,30 +51,6 @@ UserView {
 ```
 
 ✓ = matched, ✗ = failed, ~ = not checked (shown for context). Colors automatically enabled in terminals.
-
-## Installation
-
-```bash
-go get github.com/james-w/gomatchers
-```
-
-## Quick Start
-
-```go
-import "github.com/james-w/gomatchers"
-
-func TestUser(t *testing.T) {
-    user := User{Name: "Alice", Age: 30, Email: "alice@example.com"}
-
-    // Match multiple fields at once
-    gomatchers.AssertThat(t, user,
-        UserMatches().
-            Name(gomatchers.Equal("Alice")).
-            Age(gomatchers.GreaterThan(18)).
-            Email(gomatchers.Contains("@example.com")).
-            Matcher())
-}
-```
 
 ## Why Composition Matters
 
