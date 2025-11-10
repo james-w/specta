@@ -13,6 +13,22 @@ Testing isn't just about asserting values—it's about building maintainable tes
 3. **Partial Matching**: Match only what matters, ignore the rest
 4. **Rich Error Messages**: See exactly what failed with structured, colored diffs
 
+### See What Failed at a Glance
+
+When tests fail, gomatchers shows you exactly what went wrong:
+
+```
+UserView {
+  ✓ ID: "user-123"
+  ✗ Name: expected "Alice" but got "Bob"
+  ✓ Active: true
+  ✗ Score: expected > 100 but got 50
+  ~ Email: "test@example.com"
+}
+```
+
+✓ = matched, ✗ = failed, ~ = not checked (shown for context). Colors automatically enabled in terminals.
+
 ## Installation
 
 ```bash
@@ -259,29 +275,33 @@ gomatchers.Field("IsExpired",
 
 ## Test Data Factories
 
-Generate factories alongside matchers for consistent test data:
+Generate factories alongside matchers for consistent test data.
+
+**Key insight**: Only specify what matters to your test. This makes tests clearer and avoids unintended dependencies on irrelevant test data details.
 
 ```go
 p := gomatchers.New()
 
-// Build with defaults
+// Build with defaults - gets realistic random data for all fields
 user := factory.User().Build(p)
 
-// Override specific fields
+// Override only what matters to THIS test
 user := factory.User().
-    Name("Alice").
-    Email("alice@example.com").
-    Age(30).
+    Email("alice@example.com").  // This test cares about email format
     Build(p)
+// Name, Age, ID, etc. get sensible defaults - we don't care about them
 
-// Build nested structures
+// Build nested structures - specify only relevant parts
 order := factory.Order().
     UserFromRecipe(
-        factory.User().Email("buyer@example.com"),
+        factory.User().Email("buyer@example.com"),  // Only email matters
     ).
-    Total(99.99).
+    Total(99.99).  // Only total matters
     Build(p)
+// Status, ID, CreatedAt, etc. get defaults
 ```
+
+This prevents brittle tests: if you later realize `User` needs a `PhoneNumber` field, tests that don't care about phone numbers keep working without changes.
 
 ### Factory + Matcher Integration
 
@@ -311,27 +331,6 @@ func TestOrderProcessing(t *testing.T) {
             Matcher())
 }
 ```
-
-## Rich Error Messages
-
-When assertions fail, gomatchers shows you exactly what went wrong with structured diffs:
-
-```
-UserView {
-  ✓ ID: "user-123"
-  ✗ Name: expected "Alice" but got "Bob"
-  ✓ Active: true
-  ✗ Score: expected > 100 but got 50
-  ~ Email: "test@example.com"
-}
-```
-
-Legend:
-- ✓ Field matched
-- ✗ Field failed (shows expected vs actual)
-- ~ Field not checked (shown for context)
-
-Colors are automatically enabled when output is a terminal.
 
 ## Real-World Example: E-commerce Testing
 
@@ -428,49 +427,109 @@ func TestBulkOrderProcessing(t *testing.T) {
 
 ## Advanced Patterns
 
-### Table-Driven Tests with Matchers
+### Table-Driven Tests with Factories
+
+Factories shine in table-driven tests by letting you vary inputs while keeping irrelevant fields consistent:
 
 ```go
-func TestAgeValidation(t *testing.T) {
+func TestOrderDiscount(t *testing.T) {
+    p := gomatchers.New()
+
     tests := []struct {
-        name    string
-        age     int
-        matcher gomatchers.Matcher[int]
+        name           string
+        userRecipe     factory.UserRecipe
+        orderTotal     float64
+        expectedStatus string
+        shouldDiscount bool
     }{
-        {"child", 5, gomatchers.LessThan(13)},
-        {"teen", 15, gomatchers.AllOf(
-            gomatchers.GreaterThanOrEqual(13),
-            gomatchers.LessThan(20),
-        )},
-        {"adult", 25, gomatchers.GreaterThanOrEqual(18)},
+        {
+            name:           "premium user gets discount",
+            userRecipe:     factory.User().AccountType("premium"),
+            orderTotal:     100.0,
+            expectedStatus: "approved",
+            shouldDiscount: true,
+        },
+        {
+            name:           "regular user no discount",
+            userRecipe:     factory.User().AccountType("regular"),
+            orderTotal:     100.0,
+            expectedStatus: "approved",
+            shouldDiscount: false,
+        },
+        {
+            name:           "new user no discount",
+            userRecipe:     factory.User().AccountType("regular").CreatedAt(time.Now()),
+            orderTotal:     100.0,
+            expectedStatus: "pending_review",
+            shouldDiscount: false,
+        },
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            gomatchers.AssertThat(t, tt.age, tt.matcher)
+            // Build test data - only varies what matters
+            order := factory.Order().
+                Total(tt.orderTotal).
+                UserFromRecipe(tt.userRecipe).
+                Build(p)
+
+            result := applyDiscountRules(order)
+
+            // Verify expected outcomes
+            gomatchers.AssertThat(t, result,
+                OrderMatches().
+                    Status(gomatchers.Equal(tt.expectedStatus)).
+                    DiscountApplied(gomatchers.Equal(tt.shouldDiscount)).
+                    Matcher())
         })
     }
 }
 ```
 
-### Polymorphic Matchers
+**Why this works well**: Each test case specifies only the user attributes that matter (account type, creation date), while all other user fields (name, email, address, etc.) get consistent defaults. This makes it crystal clear what's being varied in each test case.
+
+### Interface-Based Matchers
+
+When multiple concrete types share common behavior through interfaces or embedded fields, you can create matchers that work across all of them:
 
 ```go
-// Match any notification type that meets criteria
-func IsUrgentNotification(n Notification) gomatchers.Matcher[Notification] {
+// Notification is an interface implemented by Email, SMS, Push
+type Notification interface {
+    GetPriority() int
+    IsSent() bool
+    GetRecipient() string
+}
+
+// Create a matcher that works for ANY notification type
+func IsUrgentNotification[T Notification]() gomatchers.Matcher[T] {
     return gomatchers.AllOf(
-        NotificationMatches().
-            Priority(gomatchers.GreaterThanOrEqual(5)).
-            Sent(gomatchers.IsTrue()).
-            Matcher(),
+        gomatchers.Field("Priority",
+            func(n T) int { return n.GetPriority() },
+            gomatchers.GreaterThanOrEqual(5)),
+        gomatchers.Field("Sent",
+            func(n T) bool { return n.IsSent() },
+            gomatchers.IsTrue()),
     )
 }
 
-// Works with any notification type
-gomatchers.AssertThat(t, emailNotification, IsUrgentNotification)
-gomatchers.AssertThat(t, smsNotification, IsUrgentNotification)
-gomatchers.AssertThat(t, pushNotification, IsUrgentNotification)
+// Same matcher works for all concrete types
+func TestEmailNotification(t *testing.T) {
+    email := EmailNotification{Priority: 5, Sent: true, ...}
+    gomatchers.AssertThat(t, email, IsUrgentNotification[EmailNotification]())
+}
+
+func TestSMSNotification(t *testing.T) {
+    sms := SMSNotification{Priority: 8, Sent: true, ...}
+    gomatchers.AssertThat(t, sms, IsUrgentNotification[SMSNotification]())
+}
+
+func TestPushNotification(t *testing.T) {
+    push := PushNotification{Priority: 7, Sent: true, ...}
+    gomatchers.AssertThat(t, push, IsUrgentNotification[PushNotification]())
+}
 ```
+
+This lets you define matching logic once based on the interface contract, then apply it to all implementing types.
 
 ## Code Generation
 
@@ -523,13 +582,14 @@ The answer: **composition and reuse**.
 
 Example: Imagine you have 50 tests checking "valid users". With traditional assertions:
 - 50 places checking `user.Email != ""`, `user.Active == true`, etc.
-- When validation changes, update 50 places
-- Easy to miss one, causing flaky tests
+- When validation rules change (e.g., "active users must also have verified email"), update 50 places
+- Easy to miss one, causing inconsistent test coverage and maintenance burden
 
 With gomatchers:
 - One `IsValidUser` matcher
 - 50 tests use it
-- Change validation rule → update matcher → all tests updated
+- Change validation rule → update matcher → all tests updated consistently
+- If you miss updating the matcher, ALL 50 tests fail immediately, showing you exactly what needs fixing
 
 This is the difference between *writing assertions* and *building a test framework*.
 
