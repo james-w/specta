@@ -41,12 +41,13 @@ func TestUserRegistration(t *testing.T) {
 **When tests fail**, you see exactly what went wrong with structured diffs:
 
 ```
-UserView {
-  ✓ ID: "user-123"
-  ✗ Name: expected "Alice" but got "Bob"
-  ✓ Active: true
-  ✗ Score: expected > 100 but got 50
-  ~ Email: "test@example.com"
+User {
+  ✗ Age: expected > 18 but got 15
+  ✗ Email: expected to contain "@example.com" but got "alice@test.org"
+  ✓ Name: "Alice"
+  ~ Active: true
+  ~ ID: "user-123"
+  ~ Score: 50
 }
 ```
 
