@@ -34,22 +34,31 @@ func (m ParentMatcher) ChildMatches(matcher UserViewMatcher) ParentMatcher {
 // Matcher returns the composed matcher for Parent.
 func (m ParentMatcher) Matcher() testgen.Matcher[example.Parent] {
 	return testgen.MatcherFunc[example.Parent](func(actual example.Parent) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		childValue := actual.Child
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"Child": childValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.childMatcher != nil {
-			result := m.childMatcher.Matches(actual.Child)
+			result := m.childMatcher.Matches(childValue)
+			fieldResults["Child"] = &result
 			if !result.Matched {
-				failures = append(failures, "Child: "+result.Message)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("Parent", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "Parent did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

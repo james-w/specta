@@ -12,7 +12,8 @@ import (
 
 // ParentRecipe provides a fluent API for building Parent instances.
 type ParentRecipe struct {
-	opts []testgen.Opt[spec.ParentSpec]
+	opts        []testgen.Opt[spec.ParentSpec]
+	childRecipe *UserViewRecipe
 }
 
 // Parent creates a new ParentRecipe for building Parent instances.
@@ -21,12 +22,14 @@ func Parent() ParentRecipe { return ParentRecipe{} }
 // Child sets the Child field.
 func (r ParentRecipe) Child(v example.UserView) ParentRecipe {
 	r.opts = append(r.opts, spec.WithParentChild(v))
+	r.childRecipe = nil
 	return r
 }
 
 // ChildFromRecipe sets the Child field using another Recipe (creates unique instances).
 func (r ParentRecipe) ChildFromRecipe(v UserViewRecipe) ParentRecipe {
 	r.opts = append(r.opts, spec.WithParentChildFromProvider(v.Provider()))
+	r.childRecipe = &v
 	return r
 }
 
@@ -43,4 +46,33 @@ func (r ParentRecipe) Build(p testgen.Primitives) example.Parent {
 // Many creates multiple Parent instances with unique generated values.
 func (r ParentRecipe) Many(n int, p testgen.Primitives) []example.Parent {
 	return spec.NewParentFactory(p).Many(n, r.opts...)
+}
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r ParentRecipe) AsEqualMatcher() testgen.Matcher[example.Parent] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewParentSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := ParentMatches()
+	if s.Child.IsSet() {
+		// Check if we have a nested recipe for partial matching
+		if r.childRecipe != nil {
+			m = m.Child(r.childRecipe.AsEqualMatcher())
+		} else {
+			m = m.Child(testgen.DeepEqual(s.Child.Value(p)))
+		}
+	}
+
+	return m.Matcher()
 }

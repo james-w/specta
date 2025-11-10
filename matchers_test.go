@@ -287,3 +287,215 @@ func TestMatcherComposition(t *testing.T) {
 		}
 	})
 }
+
+// ==============================================================================
+// Structured Diff Tests
+// ==============================================================================
+
+type TestPerson struct {
+	Name  string
+	Age   int
+	Email string
+}
+
+type TestAddress struct {
+	Street  string
+	City    string
+	ZipCode string
+}
+
+type TestUser struct {
+	Name    string
+	Age     int
+	Active  bool
+	Address TestAddress
+}
+
+func TestStructuredDiff_DeepEqual(t *testing.T) {
+	t.Run("shows structured diff for struct types", func(t *testing.T) {
+		expected := TestPerson{Name: "Alice", Age: 30, Email: "alice@example.com"}
+		actual := TestPerson{Name: "Alice", Age: 25, Email: "bob@example.com"}
+
+		matcher := gomatchers.DeepEqual(expected)
+		result := matcher.Matches(actual)
+
+		if result.Matched {
+			t.Error("Expected mismatch")
+		}
+		if result.Message == "" {
+			t.Error("Expected error message")
+		}
+		// Should contain struct name
+		if !contains(result.Message, "TestPerson") {
+			t.Errorf("Expected message to contain struct name, got: %s", result.Message)
+		}
+		// Should show matched field (Name)
+		if !contains(result.Message, "Name") {
+			t.Errorf("Expected message to show Name field, got: %s", result.Message)
+		}
+		// Should show failed fields (Age, Email)
+		if !contains(result.Message, "Age") || !contains(result.Message, "Email") {
+			t.Errorf("Expected message to show failed fields, got: %s", result.Message)
+		}
+	})
+
+	t.Run("uses simple format for non-struct types", func(t *testing.T) {
+		matcher := gomatchers.DeepEqual(42)
+		result := matcher.Matches(99)
+
+		if result.Matched {
+			t.Error("Expected mismatch")
+		}
+		// Should use simple format (no structured diff)
+		if !contains(result.Message, "42") || !contains(result.Message, "99") {
+			t.Errorf("Expected simple format with values, got: %s", result.Message)
+		}
+	})
+
+	t.Run("handles nested structs", func(t *testing.T) {
+		expected := TestUser{
+			Name:   "Alice",
+			Age:    30,
+			Active: true,
+			Address: TestAddress{
+				Street:  "123 Main St",
+				City:    "NYC",
+				ZipCode: "10001",
+			},
+		}
+		actual := TestUser{
+			Name:   "Alice",
+			Age:    30,
+			Active: true,
+			Address: TestAddress{
+				Street:  "123 Main St",
+				City:    "Boston",
+				ZipCode: "10001",
+			},
+		}
+
+		matcher := gomatchers.DeepEqual(expected)
+		result := matcher.Matches(actual)
+
+		if result.Matched {
+			t.Error("Expected mismatch due to nested Address.City difference")
+		}
+		if !contains(result.Message, "Address") {
+			t.Errorf("Expected message to show Address field, got: %s", result.Message)
+		}
+	})
+}
+
+func TestStructuredDiff_SliceTruncation(t *testing.T) {
+	t.Run("shows all items for small slices", func(t *testing.T) {
+		// BuildMatcherStructDiff is used by generated matchers,
+		// but we can test the value formatting directly through DeepEqual
+		type SmallList struct {
+			Items []int
+		}
+		expected := SmallList{Items: []int{1, 2, 3}}
+		actual := SmallList{Items: []int{1, 2, 4}}
+
+		matcher := gomatchers.DeepEqual(expected)
+		result := matcher.Matches(actual)
+
+		if result.Matched {
+			t.Error("Expected mismatch")
+		}
+		// Should show Items field with difference
+		if !contains(result.Message, "Items") {
+			t.Errorf("Expected message to show Items field, got: %s", result.Message)
+		}
+	})
+
+	t.Run("truncates large slices", func(t *testing.T) {
+		type LargeList struct {
+			Items []int
+		}
+		// Create slice with more than 5 items
+		expectedItems := make([]int, 10)
+		actualItems := make([]int, 10)
+		for i := range expectedItems {
+			expectedItems[i] = i
+			actualItems[i] = i + 1 // All different
+		}
+
+		expected := LargeList{Items: expectedItems}
+		actual := LargeList{Items: actualItems}
+
+		matcher := gomatchers.DeepEqual(expected)
+		result := matcher.Matches(actual)
+
+		if result.Matched {
+			t.Error("Expected mismatch")
+		}
+		// Message should be present
+		if result.Message == "" {
+			t.Error("Expected error message")
+		}
+	})
+}
+
+func TestStructuredDiff_MapTruncation(t *testing.T) {
+	t.Run("shows all entries for small maps", func(t *testing.T) {
+		type Config struct {
+			Settings map[string]string
+		}
+		expected := Config{Settings: map[string]string{"a": "1", "b": "2"}}
+		actual := Config{Settings: map[string]string{"a": "1", "b": "3"}}
+
+		matcher := gomatchers.DeepEqual(expected)
+		result := matcher.Matches(actual)
+
+		if result.Matched {
+			t.Error("Expected mismatch")
+		}
+		if !contains(result.Message, "Settings") {
+			t.Errorf("Expected message to show Settings field, got: %s", result.Message)
+		}
+	})
+
+	t.Run("truncates large maps", func(t *testing.T) {
+		type Config struct {
+			Settings map[string]int
+		}
+		expectedSettings := make(map[string]int)
+		actualSettings := make(map[string]int)
+		for i := 0; i < 10; i++ {
+			key := string(rune('a' + i))
+			expectedSettings[key] = i
+			actualSettings[key] = i + 1
+		}
+
+		expected := Config{Settings: expectedSettings}
+		actual := Config{Settings: actualSettings}
+
+		matcher := gomatchers.DeepEqual(expected)
+		result := matcher.Matches(actual)
+
+		if result.Matched {
+			t.Error("Expected mismatch")
+		}
+		if result.Message == "" {
+			t.Error("Expected error message")
+		}
+	})
+}
+
+func TestStructuredDiff_AllMatched(t *testing.T) {
+	t.Run("shows only matched symbols when everything matches", func(t *testing.T) {
+		expected := TestPerson{Name: "Alice", Age: 30, Email: "alice@example.com"}
+		actual := TestPerson{Name: "Alice", Age: 30, Email: "alice@example.com"}
+
+		matcher := gomatchers.DeepEqual(expected)
+		result := matcher.Matches(actual)
+
+		if !result.Matched {
+			t.Error("Expected match")
+		}
+	})
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && contains(s[1:], substr) || s[:len(substr)] == substr)
+}

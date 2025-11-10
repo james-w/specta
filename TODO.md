@@ -2,7 +2,7 @@
 
 ## High Priority
 
-### 1. Better Error Messages (IN PROGRESS)
+### 1. Better Error Messages (COMPLETED)
 **Goal:** Improve matcher failure messages with actual vs expected values and structured diffs
 
 **Completed:**
@@ -10,13 +10,11 @@
 - [x] Update all basic matchers (Equal, GreaterThan, etc.) to include both values
 - [x] Show field paths for nested failures (e.g., "User.Address.City")
 - [x] Update all generated matchers to show actual values
-
-**Remaining - Structured Diff Output:**
-- [ ] Add structured diff with status symbols (✓/✗/~)
-- [ ] Implement indented block format for nested structs
-- [ ] Add terminal color detection (auto-detect TTY)
-- [ ] Smart truncation for collections (show first 5, summarize rest)
-- [ ] Handle both equality and constraint matchers appropriately
+- [x] Add structured diff with status symbols (✓/✗/~)
+- [x] Implement indented block format for nested structs
+- [x] Add terminal color detection (auto-detect TTY)
+- [x] Smart truncation for collections (show first 5, summarize rest)
+- [x] Handle both equality and constraint matchers appropriately
 
 **Desired Output Format:**
 ```
@@ -60,6 +58,20 @@ User {
 
 **Commit points:**
 - "feat: add structured diff output with status symbols"
+
+**Implementation Notes:**
+- Created `matchers_term.go` for terminal detection and ANSI color support
+- Created `matchers_diff.go` with two diff strategies:
+  - `BuildMatcherStructDiff()` for generated matchers (uses cached field values)
+  - `buildReflectionStructDiff()` for DeepEqual (uses reflection)
+- Updated generated matcher template in `cmd/main.go`:
+  - Extracts all field/getter values upfront (calls each exactly once)
+  - Stores values in map for structured diff
+  - Tracks match results per field
+- Updated `DeepEqual` in `matchers.go` to use structured diff for struct types
+- Added comprehensive tests in `matchers_test.go`
+- Smart collection truncation shows max 5 items with "... and N more"
+- Each getter called exactly once (cached for both matching and diff display)
 
 ---
 

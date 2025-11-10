@@ -67,6 +67,20 @@ func DeepEqual[T any](expected T) Matcher[T] {
 		if reflect.DeepEqual(actual, expected) {
 			return MatchResult{Matched: true}
 		}
+
+		// Check if both values are structs - use structured diff
+		expectedVal := reflect.ValueOf(expected)
+		actualVal := reflect.ValueOf(actual)
+		if expectedVal.Kind() == reflect.Struct && actualVal.Kind() == reflect.Struct {
+			return MatchResult{
+				Matched:  false,
+				Message:  buildReflectionStructDiff(expected, actual),
+				Expected: expected,
+				Actual:   actual,
+			}
+		}
+
+		// For non-structs, use simple format
 		return MatchResult{
 			Matched:  false,
 			Message:  fmt.Sprintf("expected %#v but got %#v", expected, actual),

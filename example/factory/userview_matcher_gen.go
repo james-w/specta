@@ -49,49 +49,58 @@ func (m UserViewMatcher) Score(matcher testgen.Matcher[int]) UserViewMatcher {
 // Matcher returns the composed matcher for UserView.
 func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
 	return testgen.MatcherFunc[example.UserView](func(actual example.UserView) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		iDValue := actual.ID
+		nameValue := actual.Name
+		activeValue := actual.Active
+		scoreValue := actual.Score
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"ID":     iDValue,
+			"Name":   nameValue,
+			"Active": activeValue,
+			"Score":  scoreValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(actual.ID)
+			result := m.iDMatcher.Matches(iDValue)
+			fieldResults["ID"] = &result
 			if !result.Matched {
-				failures = append(failures, "ID: "+result.Message)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.nameMatcher != nil {
-			result := m.nameMatcher.Matches(actual.Name)
+			result := m.nameMatcher.Matches(nameValue)
+			fieldResults["Name"] = &result
 			if !result.Matched {
-				failures = append(failures, "Name: "+result.Message)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.activeMatcher != nil {
-			result := m.activeMatcher.Matches(actual.Active)
+			result := m.activeMatcher.Matches(activeValue)
+			fieldResults["Active"] = &result
 			if !result.Matched {
-				failures = append(failures, "Active: "+result.Message)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.scoreMatcher != nil {
-			result := m.scoreMatcher.Matches(actual.Score)
+			result := m.scoreMatcher.Matches(scoreValue)
+			fieldResults["Score"] = &result
 			if !result.Matched {
-				failures = append(failures, "Score: "+result.Message)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("UserView", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "UserView did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

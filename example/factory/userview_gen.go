@@ -56,3 +56,36 @@ func (r UserViewRecipe) Build(p testgen.Primitives) example.UserView {
 func (r UserViewRecipe) Many(n int, p testgen.Primitives) []example.UserView {
 	return spec.NewUserViewFactory(p).Many(n, r.opts...)
 }
+
+// AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
+// Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
+// This enables partial matching where you only verify specific fields.
+// For nested types set via FromRecipe, partial matching is applied recursively.
+func (r UserViewRecipe) AsEqualMatcher() testgen.Matcher[example.UserView] {
+	// Apply opts to a spec to see what was set
+	s := spec.NewUserViewSpec()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+
+	// Use a dummy Primitives to evaluate literal values
+	// This works for SetLit values; SetWith/Provider values will be evaluated too
+	p := testgen.New()
+
+	// Build matcher only for set fields
+	m := UserViewMatches()
+	if s.ID.IsSet() {
+		m = m.ID(testgen.DeepEqual(s.ID.Value(p)))
+	}
+	if s.Name.IsSet() {
+		m = m.Name(testgen.DeepEqual(s.Name.Value(p)))
+	}
+	if s.Active.IsSet() {
+		m = m.Active(testgen.DeepEqual(s.Active.Value(p)))
+	}
+	if s.Score.IsSet() {
+		m = m.Score(testgen.DeepEqual(s.Score.Value(p)))
+	}
+
+	return m.Matcher()
+}

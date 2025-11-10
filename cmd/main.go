@@ -962,7 +962,6 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 package factory
 
 import (
-	"fmt"
 {{- if .ImportTime }}
 	"time"
 {{end}}
@@ -1011,56 +1010,54 @@ func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{.ReturnType}}
 // Matcher returns the composed matcher for {{.TypeName}}.
 func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.TypeName}}] {
 	return testgen.MatcherFunc[{{.ParentPackage}}.{{.TypeName}}](func(actual {{.ParentPackage}}.{{.TypeName}}) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		{{- range .Fields}}
+		{{lower .Name}}Value := actual.{{.Name}}
+		{{- end}}
+		{{- range .GetterMatchers}}
+		{{lower .Name}}Value := actual.{{.Getter}}()
+		{{- end}}
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			{{- range .Fields}}
+			"{{.Name}}": {{lower .Name}}Value,
+			{{- end}}
+			{{- range .GetterMatchers}}
+			"{{.Name}}": {{lower .Name}}Value,
+			{{- end}}
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 
 		{{- range .Fields}}
 		if m.{{lower .Name}}Matcher != nil {
-			result := m.{{lower .Name}}Matcher.Matches(actual.{{.Name}})
+			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
+			fieldResults["{{.Name}}"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "{{$.TypeName}}.{{.Name}}"
-				if result.Path != "" {
-					path = "{{$.TypeName}}." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "{{.Name}}: " + msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  " + detail)
-				}
+				hasFailures = true
 			}
 		}
 		{{- end}}
 
 		{{- range .GetterMatchers}}
 		if m.{{lower .Name}}Matcher != nil {
-			value := actual.{{.Getter}}()
-			result := m.{{lower .Name}}Matcher.Matches(value)
+			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
+			fieldResults["{{.Name}}"] = &result
 			if !result.Matched {
-				// Add path context
-				path := "{{$.TypeName}}.{{.Name}}"
-				if result.Path != "" {
-					path = "{{$.TypeName}}." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "{{.Name}}: " + msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  " + detail)
-				}
+				hasFailures = true
 			}
 		}
 		{{- end}}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("{{.TypeName}}", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "{{.TypeName}} did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}
