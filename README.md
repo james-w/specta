@@ -110,6 +110,67 @@ func TestBulkOperation(t *testing.T) {
 
 **The difference**: When requirements change (e.g., "admins must also have verified email"), you update the matcher **once** instead of hunting through dozens of test files.
 
+### Composition Across Test Layers
+
+Both matchers and factories compose naturally across different layers of your application. Build them at each layer, then reuse them in higher layers:
+
+```go
+// Unit tests: Define valid users
+var IsValidUser = UserMatches().
+    Email(gomatchers.Contains("@")).
+    Active(gomatchers.IsTrue()).
+    Matcher()
+
+var ValidUserRecipe = factory.User().
+    Email("user@example.com").
+    Active(true)
+
+func TestUserCreation(t *testing.T) {
+    p := gomatchers.New()
+    user := ValidUserRecipe.Build(p)
+    gomatchers.AssertThat(t, user, IsValidUser)
+}
+
+// Integration tests: Build orders with valid users
+var ValidOrderRecipe = factory.Order().
+    UserFromRecipe(ValidUserRecipe).  // Reuse the user recipe!
+    Total(100.0)
+
+var IsValidOrder = OrderMatches().
+    Total(gomatchers.GreaterThan(0.0)).
+    UserMatches(IsValidUser).  // Reuse the user matcher!
+    Matcher()
+
+func TestOrderCreation(t *testing.T) {
+    p := gomatchers.New()
+    order := ValidOrderRecipe.Build(p)
+    gomatchers.AssertThat(t, order, IsValidOrder)
+}
+
+// End-to-end tests: Build payments with valid orders
+func TestPaymentFlow(t *testing.T) {
+    p := gomatchers.New()
+
+    // Create payment with a valid order (which has a valid user)
+    payment := factory.Payment().
+        OrderFromRecipe(ValidOrderRecipe).  // Reuse order recipe (includes user)!
+        Build(p)
+
+    result := processPayment(payment)
+
+    gomatchers.AssertThat(t, result,
+        PaymentMatches().
+            Status(gomatchers.Equal("completed")).
+            OrderMatches(IsValidOrder).  // Reuse order matcher (includes user)!
+            Matcher())
+}
+```
+
+**The power**:
+- **Factories**: When user validation rules change (e.g., email must be verified), update `ValidUserRecipe` once. All orders and payments in all test layers automatically use valid users.
+- **Matchers**: When you update `IsValidUser`, all assertions at every layer get the fix. No hunting through integration and e2e tests to update checks.
+- **Together**: Your test suite forms a pyramid of reusable components. Each layer builds on the previous layer's building blocks.
+
 ## Core Features
 
 ### 1. Basic Matchers
