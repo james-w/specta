@@ -17,9 +17,15 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+type MatcherField struct {
+	Name   string `yaml:"name"`
+	Getter string `yaml:"getter"`
+}
+
 type TypeConfig struct {
-	Name        string `yaml:"name"`
-	Constructor string `yaml:"constructor"`
+	Name        string         `yaml:"name"`
+	Constructor string         `yaml:"constructor"`
+	Matchers    []MatcherField `yaml:"matchers"`
 }
 
 type Config struct {
@@ -71,6 +77,12 @@ type ConstructorParam struct {
 	IsCustomType bool
 }
 
+type GetterInfo struct {
+	Name       string // "Name" - the matcher method name
+	Getter     string // "GetName" - the getter method name
+	ReturnType string // "string" - the return type
+}
+
 type data struct {
 	Package        string // "factory"
 	ParentPackage  string // e.g., "example"
@@ -87,6 +99,9 @@ type data struct {
 	ConstructorName    string
 	ConstructorParams  []ConstructorParam
 	ConstructorReturns []string // return types from constructor, e.g., ["Email", "error"]
+
+	// Matcher-based generation for getters
+	GetterMatchers []GetterInfo
 }
 
 func findTypeConfig(cfg *Config, typeName string) *TypeConfig {
@@ -183,6 +198,50 @@ func analyzeConstructorReturns(fn *ast.FuncDecl, pkg *packages.Package) []string
 	return returns
 }
 
+// findGetterMethod finds a method on the given type
+func findGetterMethod(pkg *packages.Package, typeName string, methodName string) *ast.FuncDecl {
+	for _, f := range pkg.Syntax {
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv == nil || len(fn.Recv.List) == 0 {
+				continue
+			}
+
+			// Check if this method is on our type
+			recvType := fn.Recv.List[0].Type
+			var recvTypeName string
+			switch t := recvType.(type) {
+			case *ast.Ident:
+				recvTypeName = t.Name
+			case *ast.StarExpr:
+				if ident, ok := t.X.(*ast.Ident); ok {
+					recvTypeName = ident.Name
+				}
+			}
+
+			if recvTypeName == typeName && fn.Name.Name == methodName {
+				return fn
+			}
+		}
+	}
+	return nil
+}
+
+// analyzeGetterMethod extracts the return type from a getter method
+func analyzeGetterMethod(fn *ast.FuncDecl, pkg *packages.Package) string {
+	if fn.Type == nil || fn.Type.Results == nil || len(fn.Type.Results.List) == 0 {
+		return ""
+	}
+
+	// Get first return type
+	result := fn.Type.Results.List[0]
+	var buf bytes.Buffer
+	if err := printer.Fprint(&buf, pkg.Fset, result.Type); err != nil {
+		return ""
+	}
+	return buf.String()
+}
+
 func processTarget(cfg *Config, tgt struct {
 	Package    string                                       `yaml:"package"`
 	Types      struct{ Include []string `yaml:"include"` } `yaml:"types"`
@@ -252,6 +311,27 @@ func processTarget(cfg *Config, tgt struct {
 			fields := collectFields(pkg, st, typeNames)
 			d.Fields = fields
 			d.ImportTime = anyHas(fields, "time.Time") || anyHas(fields, "time.Duration")
+		}
+
+		// Analyze configured getter matchers
+		if typeCfg != nil && len(typeCfg.Matchers) > 0 {
+			for _, mf := range typeCfg.Matchers {
+				getter := findGetterMethod(pkg, typeName, mf.Getter)
+				if getter == nil {
+					log.Printf("warning: getter method %s not found for %s", mf.Getter, typeName)
+					continue
+				}
+				returnType := analyzeGetterMethod(getter, pkg)
+				if returnType == "" {
+					log.Printf("warning: could not determine return type for %s.%s", typeName, mf.Getter)
+					continue
+				}
+				d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
+					Name:       mf.Name,
+					Getter:     mf.Getter,
+					ReturnType: returnType,
+				})
+			}
 		}
 
 		// Generate spec file (low-level API)
@@ -894,6 +974,9 @@ type {{.TypeName}}Matcher struct {
 	{{- range .Fields}}
 	{{lower .Name}}Matcher testgen.Matcher[{{qualifiedType $.ParentPackage .}}]
 	{{- end}}
+	{{- range .GetterMatchers}}
+	{{lower .Name}}Matcher testgen.Matcher[{{.ReturnType}}]
+	{{- end}}
 }
 
 // {{.TypeName}}Matches creates a new {{.TypeName}}Matcher for matching {{.TypeName}} instances.
@@ -916,6 +999,14 @@ func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.TypeExpr}}Matcher) {{
 {{end}}
 {{end}}
 
+{{range .GetterMatchers}}
+// {{.Name}} adds a matcher for the {{.Name}} property (via {{.Getter}}).
+func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{.ReturnType}}]) {{$.TypeName}}Matcher {
+	m.{{lower .Name}}Matcher = matcher
+	return m
+}
+{{end}}
+
 // Matcher returns the composed matcher for {{.TypeName}}.
 func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.TypeName}}] {
 	return testgen.MatcherFunc[{{.ParentPackage}}.{{.TypeName}}](func(actual {{.ParentPackage}}.{{.TypeName}}) testgen.MatchResult {
@@ -924,6 +1015,19 @@ func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.Ty
 		{{- range .Fields}}
 		if m.{{lower .Name}}Matcher != nil {
 			result := m.{{lower .Name}}Matcher.Matches(actual.{{.Name}})
+			if !result.Matched {
+				failures = append(failures, "{{.Name}}: " + result.Message)
+				for _, detail := range result.Details {
+					failures = append(failures, "  " + detail)
+				}
+			}
+		}
+		{{- end}}
+
+		{{- range .GetterMatchers}}
+		if m.{{lower .Name}}Matcher != nil {
+			value := actual.{{.Getter}}()
+			result := m.{{lower .Name}}Matcher.Matches(value)
 			if !result.Matched {
 				failures = append(failures, "{{.Name}}: " + result.Message)
 				for _, detail := range result.Details {

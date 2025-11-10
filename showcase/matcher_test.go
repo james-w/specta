@@ -290,3 +290,98 @@ func TestTimeMatcher(t *testing.T) {
 		}
 	})
 }
+
+func TestBankAccountMatcher(t *testing.T) {
+	p := gomatchers.New()
+
+	t.Run("matches via getter methods", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+
+		matcher := factory.BankAccountMatches().
+			Name(gomatchers.Equal("Alice")).
+			Balance(gomatchers.Equal(1000))
+
+		result := matcher.Matcher().Matches(account)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+			for _, detail := range result.Details {
+				t.Errorf("  %s", detail)
+			}
+		}
+	})
+
+	t.Run("fails when getter value doesn't match", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+
+		matcher := factory.BankAccountMatches().
+			Name(gomatchers.Equal("Bob"))
+
+		result := matcher.Matcher().Matches(account)
+		if result.Matched {
+			t.Error("Expected no match but got match")
+		}
+		if len(result.Details) == 0 || result.Details[0] == "" {
+			t.Errorf("Expected error details, got: %v", result.Details)
+		}
+	})
+
+	t.Run("partial matching - only checks specified getters", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+
+		// Only check Name, ignore Balance
+		matcher := factory.BankAccountMatches().
+			Name(gomatchers.Equal("Alice"))
+
+		result := matcher.Matcher().Matches(account)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+		}
+	})
+
+	t.Run("works with numeric matchers", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1500).Build(p)
+
+		matcher := factory.BankAccountMatches().
+			Balance(gomatchers.GreaterThan(1000))
+
+		result := matcher.Matcher().Matches(account)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+		}
+	})
+}
+
+func TestEmailMatcher(t *testing.T) {
+	t.Run("matches via getter methods", func(t *testing.T) {
+		email, err := showcase.NewEmail("alice@example.com")
+		if err != nil {
+			t.Fatalf("Failed to create email: %v", err)
+		}
+
+		matcher := factory.EmailMatches().
+			Address(gomatchers.Equal("alice@example.com"))
+
+		result := matcher.Matcher().Matches(email)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+			for _, detail := range result.Details {
+				t.Errorf("  %s", detail)
+			}
+		}
+	})
+
+	t.Run("fails when getter value doesn't match", func(t *testing.T) {
+		email, err := showcase.NewEmail("alice@example.com")
+		if err != nil {
+			t.Fatalf("Failed to create email: %v", err)
+		}
+
+		matcher := factory.EmailMatches().
+			Address(gomatchers.Equal("bob@example.com"))
+
+		result := matcher.Matcher().Matches(email)
+		if result.Matched {
+			t.Error("Expected no match but got match")
+		}
+	})
+}

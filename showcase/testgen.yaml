@@ -2,8 +2,16 @@ version: 1
 types:
   - name: BankAccount
     constructor: NewBankAccount
+    matchers:
+      - name: Name
+        getter: GetName
+      - name: Balance
+        getter: GetBalance
   - name: Email
     constructor: NewEmail
+    matchers:
+      - name: Address
+        getter: GetAddress
 targets:
   - package: .
     types:

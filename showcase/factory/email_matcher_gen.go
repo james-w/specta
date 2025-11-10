@@ -11,6 +11,7 @@ import (
 
 // EmailMatcher provides a fluent API for matching Email instances.
 type EmailMatcher struct {
+	addressMatcher testgen.Matcher[string]
 }
 
 // EmailMatches creates a new EmailMatcher for matching Email instances.
@@ -18,10 +19,26 @@ func EmailMatches() EmailMatcher {
 	return EmailMatcher{}
 }
 
+// Address adds a matcher for the Address property (via GetAddress).
+func (m EmailMatcher) Address(matcher testgen.Matcher[string]) EmailMatcher {
+	m.addressMatcher = matcher
+	return m
+}
+
 // Matcher returns the composed matcher for Email.
 func (m EmailMatcher) Matcher() testgen.Matcher[showcase.Email] {
 	return testgen.MatcherFunc[showcase.Email](func(actual showcase.Email) testgen.MatchResult {
 		var failures []string
+		if m.addressMatcher != nil {
+			value := actual.GetAddress()
+			result := m.addressMatcher.Matches(value)
+			if !result.Matched {
+				failures = append(failures, "Address: "+result.Message)
+				for _, detail := range result.Details {
+					failures = append(failures, "  "+detail)
+				}
+			}
+		}
 
 		if len(failures) > 0 {
 			return testgen.MatchResult{

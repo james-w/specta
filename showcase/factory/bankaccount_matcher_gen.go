@@ -11,6 +11,8 @@ import (
 
 // BankAccountMatcher provides a fluent API for matching BankAccount instances.
 type BankAccountMatcher struct {
+	nameMatcher    testgen.Matcher[string]
+	balanceMatcher testgen.Matcher[int]
 }
 
 // BankAccountMatches creates a new BankAccountMatcher for matching BankAccount instances.
@@ -18,10 +20,42 @@ func BankAccountMatches() BankAccountMatcher {
 	return BankAccountMatcher{}
 }
 
+// Name adds a matcher for the Name property (via GetName).
+func (m BankAccountMatcher) Name(matcher testgen.Matcher[string]) BankAccountMatcher {
+	m.nameMatcher = matcher
+	return m
+}
+
+// Balance adds a matcher for the Balance property (via GetBalance).
+func (m BankAccountMatcher) Balance(matcher testgen.Matcher[int]) BankAccountMatcher {
+	m.balanceMatcher = matcher
+	return m
+}
+
 // Matcher returns the composed matcher for BankAccount.
 func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 	return testgen.MatcherFunc[showcase.BankAccount](func(actual showcase.BankAccount) testgen.MatchResult {
 		var failures []string
+		if m.nameMatcher != nil {
+			value := actual.GetName()
+			result := m.nameMatcher.Matches(value)
+			if !result.Matched {
+				failures = append(failures, "Name: "+result.Message)
+				for _, detail := range result.Details {
+					failures = append(failures, "  "+detail)
+				}
+			}
+		}
+		if m.balanceMatcher != nil {
+			value := actual.GetBalance()
+			result := m.balanceMatcher.Matches(value)
+			if !result.Matched {
+				failures = append(failures, "Balance: "+result.Message)
+				for _, detail := range result.Details {
+					failures = append(failures, "  "+detail)
+				}
+			}
+		}
 
 		if len(failures) > 0 {
 			return testgen.MatchResult{
