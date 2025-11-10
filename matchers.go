@@ -271,3 +271,33 @@ func AnyOf[T any](matchers ...Matcher[T]) Matcher[T] {
 		}
 	})
 }
+
+// ==============================================================================
+// Field Extractors
+// ==============================================================================
+
+// Field creates a matcher that extracts a value from T using an extractor function,
+// then applies a matcher to the extracted value. This is useful for:
+// - Matching on computed/derived values
+// - Matching on values from getter methods
+// - Matching on unexported fields (via getters)
+//
+// Example:
+//
+//	Field("balance * 2", func(acc BankAccount) int {
+//	    return acc.GetBalance() * 2
+//	}, Equal(2000))
+func Field[T any, V any](name string, extractor func(T) V, matcher Matcher[V]) Matcher[T] {
+	return MatcherFunc[T](func(actual T) MatchResult {
+		value := extractor(actual)
+		result := matcher.Matches(value)
+		if !result.Matched {
+			return MatchResult{
+				Matched: false,
+				Message: fmt.Sprintf("%s: %s", name, result.Message),
+				Details: result.Details,
+			}
+		}
+		return MatchResult{Matched: true}
+	})
+}

@@ -1,6 +1,7 @@
 package showcase_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -382,6 +383,129 @@ func TestEmailMatcher(t *testing.T) {
 		result := matcher.Matcher().Matches(email)
 		if result.Matched {
 			t.Error("Expected no match but got match")
+		}
+	})
+}
+
+func TestFieldExtractor(t *testing.T) {
+	p := gomatchers.New()
+
+	t.Run("matches computed value", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+
+		// Match on double the balance
+		matcher := gomatchers.Field("double balance",
+			func(acc showcase.BankAccount) int {
+				return acc.GetBalance() * 2
+			},
+			gomatchers.Equal(2000),
+		)
+
+		result := matcher.Matches(account)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+		}
+	})
+
+	t.Run("fails with clear error message", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+
+		matcher := gomatchers.Field("double balance",
+			func(acc showcase.BankAccount) int {
+				return acc.GetBalance() * 2
+			},
+			gomatchers.Equal(3000),
+		)
+
+		result := matcher.Matches(account)
+		if result.Matched {
+			t.Error("Expected no match but got match")
+		}
+		// Error message should include field name
+		if !strings.Contains(result.Message, "double balance") {
+			t.Errorf("Expected error to mention 'double balance', got: %s", result.Message)
+		}
+	})
+
+	t.Run("combines with generated matchers", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+
+		// Use both generated matcher and Field extractor
+		genMatcher := factory.BankAccountMatches().
+			Name(gomatchers.Equal("Alice"))
+
+		fieldMatcher := gomatchers.Field("double balance",
+			func(acc showcase.BankAccount) int {
+				return acc.GetBalance() * 2
+			},
+			gomatchers.GreaterThan(1500),
+		)
+
+		combined := gomatchers.AllOf(
+			genMatcher.Matcher(),
+			fieldMatcher,
+		)
+
+		result := combined.Matches(account)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+			for _, detail := range result.Details {
+				t.Errorf("  %s", detail)
+			}
+		}
+	})
+
+	t.Run("multiple field extractors with AllOf", func(t *testing.T) {
+		account := factory.BankAccount().Name("Alice").Balance(1500).Build(p)
+
+		matcher := gomatchers.AllOf(
+			gomatchers.Field("name length",
+				func(acc showcase.BankAccount) int {
+					return len(acc.GetName())
+				},
+				gomatchers.Equal(5),
+			),
+			gomatchers.Field("balance >= 1000",
+				func(acc showcase.BankAccount) bool {
+					return acc.GetBalance() >= 1000
+				},
+				gomatchers.IsTrue(),
+			),
+			gomatchers.Field("double balance",
+				func(acc showcase.BankAccount) int {
+					return acc.GetBalance() * 2
+				},
+				gomatchers.GreaterThan(2000),
+			),
+		)
+
+		result := matcher.Matches(account)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+			for _, detail := range result.Details {
+				t.Errorf("  %s", detail)
+			}
+		}
+	})
+
+	t.Run("works with nested matchers", func(t *testing.T) {
+		user := factory.User().
+			FirstName("Alice").
+			Email("alice@example.com").
+			AddressFromRecipe(factory.Address().City("NYC")).
+			Build(p)
+
+		// Extract and match on nested Address
+		matcher := gomatchers.Field("address city",
+			func(u showcase.User) string {
+				return u.Address.City
+			},
+			gomatchers.Equal("NYC"),
+		)
+
+		result := matcher.Matches(user)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
 		}
 	})
 }
