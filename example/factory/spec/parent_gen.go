@@ -2,6 +2,31 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package spec provides low-level specifications for building test data.
+//
+// Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := NewParentSpec()
+//	opts := []testgen.Opt[ParentSpec]{
+//
+//
+//		WithParentChild(value),
+//
+//
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := BuildParent(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := NewParentFactory(testgen.New())
+//
+//
+//	result := factory.Make(WithParentChild(value))
 package spec
 
 import (

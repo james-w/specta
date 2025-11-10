@@ -586,6 +586,41 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package spec provides low-level specifications for building test data.
+//
+// Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := New{{.TypeName}}Spec()
+//	opts := []testgen.Opt[{{.TypeName}}Spec]{
+//		{{- if .HasConstructor}}
+//		{{- with index .ConstructorParams 0}}
+//		With{{$.TypeName}}{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}),
+//		{{- end}}
+//		{{- else}}
+//		{{- with index .Fields 0}}
+//		With{{$.TypeName}}{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}),
+//		{{- end}}
+//		{{- end}}
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := Build{{.TypeName}}(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := New{{.TypeName}}Factory(testgen.New())
+//	{{- if .HasConstructor}}
+//	{{- with index .ConstructorParams 0}}
+//	result := factory.Make(With{{$.TypeName}}{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}))
+//	{{- end}}
+//	{{- else}}
+//	{{- with index .Fields 0}}
+//	result := factory.Make(With{{$.TypeName}}{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}))
+//	{{- end}}
+//	{{- end}}
 package spec
 
 import (
@@ -752,6 +787,47 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package factory provides a fluent Recipe API for building test data and matchers.
+//
+// Example usage:
+//
+//	// Build a single instance with custom fields
+//	{{- if .HasConstructor}}
+//	{{- with index .ConstructorParams 0}}
+//	result := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}).Build(testgen.New())
+//	{{- end}}
+//	{{- else}}
+//	{{- with index .Fields 0}}
+//	result := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}).Build(testgen.New())
+//	{{- end}}
+//	{{- end}}
+//
+//	// Build many instances with unique values
+//	results := {{$.TypeName}}().Many(5, testgen.New())
+//
+//	// Build a matcher to verify specific fields
+//	{{- if .HasConstructor}}
+//	{{- with index .ConstructorParams 0}}
+//	matcher := {{$.TypeName}}Matches().{{.Name}}(testgen.DeepEqual({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}expectedValue{{end}}))
+//	{{- end}}
+//	{{- else}}
+//	{{- with index .Fields 0}}
+//	matcher := {{$.TypeName}}Matches().{{.Name}}(testgen.DeepEqual({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}expectedValue{{end}}))
+//	{{- end}}
+//	{{- end}}
+//	testgen.AssertThat(t, actual, matcher.Matcher())
+//
+//	// Convert a recipe to a matcher for partial matching
+//	{{- if .HasConstructor}}
+//	{{- with index .ConstructorParams 0}}
+//	partialMatcher := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}99{{else}}expected{{end}}).AsEqualMatcher()
+//	{{- end}}
+//	{{- else}}
+//	{{- with index .Fields 0}}
+//	partialMatcher := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}99{{else}}expected{{end}}).AsEqualMatcher()
+//	{{- end}}
+//	{{- end}}
+//	testgen.AssertThat(t, actual, partialMatcher)
 package factory
 
 import (

@@ -2,6 +2,31 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package spec provides low-level specifications for building test data.
+//
+// Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := NewUserViewSpec()
+//	opts := []testgen.Opt[UserViewSpec]{
+//
+//
+//		WithUserViewID("example"),
+//
+//
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := BuildUserView(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := NewUserViewFactory(testgen.New())
+//
+//
+//	result := factory.Make(WithUserViewID("example"))
 package spec
 
 import (
