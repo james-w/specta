@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
-	"github.com/james-w/gomatchers/showcase/factory"
+	"github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
+	"github.com/james-w/specta/showcase/factory"
 )
 
 func TestAddressFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("default values", func(t *testing.T) {
 		addr := factory.Address().Build(p)
@@ -77,7 +77,7 @@ func TestAddressFactory(t *testing.T) {
 }
 
 func TestUserFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("default values with nested address", func(t *testing.T) {
 		user := factory.User().Build(p)
@@ -175,7 +175,7 @@ func TestUserFactory(t *testing.T) {
 }
 
 func TestProductFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("product with price and stock", func(t *testing.T) {
 		product := factory.Product().
@@ -200,7 +200,7 @@ func TestProductFactory(t *testing.T) {
 }
 
 func TestOrderFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("order with nested user", func(t *testing.T) {
 		order := factory.Order().
@@ -255,7 +255,7 @@ func TestOrderFactory(t *testing.T) {
 }
 
 func TestBlogPostFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("published blog post", func(t *testing.T) {
 		now := time.Now()
@@ -286,7 +286,7 @@ func TestBlogPostFactory(t *testing.T) {
 }
 
 func TestCommentFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("comment with nested post and author", func(t *testing.T) {
 		comment := factory.Comment().
@@ -335,8 +335,8 @@ func TestCommentFactory(t *testing.T) {
 
 func TestDeterministicGeneration(t *testing.T) {
 	t.Run("same primitives produce same values", func(t *testing.T) {
-		p1 := gomatchers.New()
-		p2 := gomatchers.New()
+		p1 := specta.New()
+		p2 := specta.New()
 
 		user1 := factory.User().FirstName("Test").Build(p1)
 		user2 := factory.User().FirstName("Test").Build(p2)
@@ -350,7 +350,7 @@ func TestDeterministicGeneration(t *testing.T) {
 	})
 
 	t.Run("sequential generation increments counter", func(t *testing.T) {
-		p := gomatchers.New()
+		p := specta.New()
 
 		addr1 := factory.Address().Build(p)
 		addr2 := factory.Address().Build(p)
@@ -365,7 +365,7 @@ func TestDeterministicGeneration(t *testing.T) {
 }
 
 func TestProviderComposition(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("provider creates unique instances", func(t *testing.T) {
 		// Create a user recipe
@@ -391,12 +391,12 @@ func TestProviderComposition(t *testing.T) {
 }
 
 func TestTimeHandling(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("default times are deterministic", func(t *testing.T) {
 		user1 := factory.User().Build(p)
 		// Reset primitives
-		p = gomatchers.New()
+		p = specta.New()
 		user2 := factory.User().Build(p)
 
 		if !user1.CreatedAt.Equal(user2.CreatedAt) {
@@ -424,7 +424,7 @@ func TestTimeHandling(t *testing.T) {
 }
 
 func TestBankAccountFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("constructor-based factory with default values", func(t *testing.T) {
 		account := factory.BankAccount().Build(p)
@@ -479,7 +479,7 @@ func TestBankAccountFactory(t *testing.T) {
 }
 
 func TestEmailFactory(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("Build with valid email returns no error", func(t *testing.T) {
 		email, err := factory.Email().Address("user@example.com").Build(p)
@@ -552,7 +552,7 @@ func TestEmailFactory(t *testing.T) {
 }
 
 func TestIDGeneration(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("IDs are unique", func(t *testing.T) {
 		users := factory.User().Many(5, p)

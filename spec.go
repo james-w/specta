@@ -1,4 +1,4 @@
-package gomatchers
+package specta
 
 // Provider returns a value (literal or computed from Primitives).
 type Provider[V any] func(p Primitives) V

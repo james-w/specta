@@ -5,9 +5,8 @@
 package factory
 
 import (
-	"fmt"
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // EmailMatcher provides a fluent API for matching Email instances.
@@ -29,32 +28,31 @@ func (m EmailMatcher) Address(matcher testgen.Matcher[string]) EmailMatcher {
 // Matcher returns the composed matcher for Email.
 func (m EmailMatcher) Matcher() testgen.Matcher[showcase.Email] {
 	return testgen.MatcherFunc[showcase.Email](func(actual showcase.Email) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		addressValue := actual.GetAddress()
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"Address": addressValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.addressMatcher != nil {
-			value := actual.GetAddress()
-			result := m.addressMatcher.Matches(value)
+			result := m.addressMatcher.Matches(addressValue)
+			fieldResults["Address"] = &result
 			if !result.Matched {
-				// Add path context
-				path := "Email.Address"
-				if result.Path != "" {
-					path = "Email." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Address: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("Email", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "Email did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

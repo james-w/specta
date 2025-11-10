@@ -3,13 +3,13 @@ package showcase_test
 import (
 	"testing"
 
-	"github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase/factory"
+	"github.com/james-w/specta"
+	"github.com/james-w/specta/showcase/factory"
 )
 
 // TestIntegrationExamples demonstrates using factories and matchers together
 func TestIntegrationExamples(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("verify factory output with matchers", func(t *testing.T) {
 		// Build a user with factory
@@ -19,10 +19,10 @@ func TestIntegrationExamples(t *testing.T) {
 			Build(p)
 
 		// Verify with explicit matchers
-		gomatchers.AssertThat(t, user,
+		specta.AssertThat(t, user,
 			factory.UserMatches().
-				Email(gomatchers.Contains("@example.com")).
-				Active(gomatchers.IsTrue()).
+				Email(specta.Contains("@example.com")).
+				Active(specta.IsTrue()).
 				Matcher())
 	})
 
@@ -34,12 +34,12 @@ func TestIntegrationExamples(t *testing.T) {
 			Build(p)
 
 		// Verify nested fields - only check what matters
-		gomatchers.AssertThat(t, user,
+		specta.AssertThat(t, user,
 			factory.UserMatches().
-				FirstName(gomatchers.Equal("Alice")).
+				FirstName(specta.Equal("Alice")).
 				AddressMatches(
 					factory.AddressMatches().
-						City(gomatchers.Equal("Boston")),
+						City(specta.Equal("Boston")),
 				).
 				Matcher())
 	})
@@ -51,11 +51,11 @@ func TestIntegrationExamples(t *testing.T) {
 
 		// Use explicit matcher to check only Active status
 		matcher := factory.UserMatches().
-			Active(gomatchers.IsTrue()).
+			Active(specta.IsTrue()).
 			Matcher()
 
-		gomatchers.AssertThat(t, activeUser1, matcher)
-		gomatchers.AssertThat(t, activeUser2, matcher)
+		specta.AssertThat(t, activeUser1, matcher)
+		specta.AssertThat(t, activeUser2, matcher)
 	})
 
 	t.Run("combining factory and explicit matchers", func(t *testing.T) {
@@ -67,13 +67,13 @@ func TestIntegrationExamples(t *testing.T) {
 			Build(p)
 
 		// Use explicit matchers for flexible assertions
-		gomatchers.AssertThat(t, order,
+		specta.AssertThat(t, order,
 			factory.OrderMatches().
-				Total(gomatchers.GreaterThan(200.0)).
-				Status(gomatchers.Equal("shipped")).
+				Total(specta.GreaterThan(200.0)).
+				Status(specta.Equal("shipped")).
 				UserMatches(
 					factory.UserMatches().
-						Email(gomatchers.Contains("premium")),
+						Email(specta.Contains("premium")),
 				).
 				Matcher())
 	})
@@ -83,7 +83,7 @@ func TestIntegrationExamples(t *testing.T) {
 // when you want the matcher to verify the same fields that the recipe/generator
 // would set, allowing you to create reusable templates.
 func TestAsEqualMatcher(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("use case: reusable template matcher", func(t *testing.T) {
 		// AsEqualMatcher shines when you want to match exactly what the recipe specifies.
@@ -112,8 +112,8 @@ func TestAsEqualMatcher(t *testing.T) {
 			AddressFromRecipe(factory.Address().City("Boston").ZipCode("02101")).
 			Build(p)
 
-		gomatchers.AssertThat(t, user1, matcher)
-		gomatchers.AssertThat(t, user2, matcher)
+		specta.AssertThat(t, user1, matcher)
+		specta.AssertThat(t, user2, matcher)
 
 		// Users not matching the template should fail
 		inactiveBoston := factory.User().
@@ -144,23 +144,23 @@ func TestAsEqualMatcher(t *testing.T) {
 
 		// Equivalent explicit matcher
 		explicitMatcher := factory.UserMatches().
-			FirstName(gomatchers.Equal("Alice")).
-			Active(gomatchers.Equal(true)).
+			FirstName(specta.Equal("Alice")).
+			Active(specta.Equal(true)).
 			Matcher()
 
 		// Both should behave the same way
 		user := factory.User().FirstName("Alice").Active(true).Email("alice@example.com").Build(p)
 
-		gomatchers.AssertThat(t, user, asEqualMatcher)
-		gomatchers.AssertThat(t, user, explicitMatcher)
+		specta.AssertThat(t, user, asEqualMatcher)
+		specta.AssertThat(t, user, explicitMatcher)
 
 		// Use explicit matchers when you need different constraints (not just equality)
 		constraintMatcher := factory.UserMatches().
-			FirstName(gomatchers.Contains("Ali")).  // Substring match instead of exact
-			Active(gomatchers.IsTrue()).            // Boolean check
+			FirstName(specta.Contains("Ali")).  // Substring match instead of exact
+			Active(specta.IsTrue()).            // Boolean check
 			Matcher()
 
-		gomatchers.AssertThat(t, user, constraintMatcher)
+		specta.AssertThat(t, user, constraintMatcher)
 	})
 
 	t.Run("empty recipe matches everything", func(t *testing.T) {
@@ -171,7 +171,7 @@ func TestAsEqualMatcher(t *testing.T) {
 		user1 := factory.User().FirstName("Alice").Build(p)
 		user2 := factory.User().FirstName("Bob").Active(true).Build(p)
 
-		gomatchers.AssertThat(t, user1, matcher)
-		gomatchers.AssertThat(t, user2, matcher)
+		specta.AssertThat(t, user1, matcher)
+		specta.AssertThat(t, user2, matcher)
 	})
 }

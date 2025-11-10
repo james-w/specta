@@ -5,9 +5,8 @@
 package factory
 
 import (
-	"fmt"
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // AddressMatcher provides a fluent API for matching Address instances.
@@ -57,103 +56,67 @@ func (m AddressMatcher) Country(matcher testgen.Matcher[string]) AddressMatcher 
 // Matcher returns the composed matcher for Address.
 func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 	return testgen.MatcherFunc[showcase.Address](func(actual showcase.Address) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		streetValue := actual.Street
+		cityValue := actual.City
+		stateValue := actual.State
+		zipCodeValue := actual.ZipCode
+		countryValue := actual.Country
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"Street":  streetValue,
+			"City":    cityValue,
+			"State":   stateValue,
+			"ZipCode": zipCodeValue,
+			"Country": countryValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.streetMatcher != nil {
-			result := m.streetMatcher.Matches(actual.Street)
+			result := m.streetMatcher.Matches(streetValue)
+			fieldResults["Street"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Address.Street"
-				if result.Path != "" {
-					path = "Address." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Street: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.cityMatcher != nil {
-			result := m.cityMatcher.Matches(actual.City)
+			result := m.cityMatcher.Matches(cityValue)
+			fieldResults["City"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Address.City"
-				if result.Path != "" {
-					path = "Address." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "City: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.stateMatcher != nil {
-			result := m.stateMatcher.Matches(actual.State)
+			result := m.stateMatcher.Matches(stateValue)
+			fieldResults["State"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Address.State"
-				if result.Path != "" {
-					path = "Address." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "State: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.zipCodeMatcher != nil {
-			result := m.zipCodeMatcher.Matches(actual.ZipCode)
+			result := m.zipCodeMatcher.Matches(zipCodeValue)
+			fieldResults["ZipCode"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Address.ZipCode"
-				if result.Path != "" {
-					path = "Address." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "ZipCode: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.countryMatcher != nil {
-			result := m.countryMatcher.Matches(actual.Country)
+			result := m.countryMatcher.Matches(countryValue)
+			fieldResults["Country"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Address.Country"
-				if result.Path != "" {
-					path = "Address." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Country: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("Address", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "Address did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

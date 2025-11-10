@@ -5,9 +5,8 @@
 package factory
 
 import (
-	"fmt"
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // BankAccountMatcher provides a fluent API for matching BankAccount instances.
@@ -36,51 +35,40 @@ func (m BankAccountMatcher) Balance(matcher testgen.Matcher[int]) BankAccountMat
 // Matcher returns the composed matcher for BankAccount.
 func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 	return testgen.MatcherFunc[showcase.BankAccount](func(actual showcase.BankAccount) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		nameValue := actual.GetName()
+		balanceValue := actual.GetBalance()
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"Name":    nameValue,
+			"Balance": balanceValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.nameMatcher != nil {
-			value := actual.GetName()
-			result := m.nameMatcher.Matches(value)
+			result := m.nameMatcher.Matches(nameValue)
+			fieldResults["Name"] = &result
 			if !result.Matched {
-				// Add path context
-				path := "BankAccount.Name"
-				if result.Path != "" {
-					path = "BankAccount." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Name: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.balanceMatcher != nil {
-			value := actual.GetBalance()
-			result := m.balanceMatcher.Matches(value)
+			result := m.balanceMatcher.Matches(balanceValue)
+			fieldResults["Balance"] = &result
 			if !result.Matched {
-				// Add path context
-				path := "BankAccount.Balance"
-				if result.Path != "" {
-					path = "BankAccount." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Balance: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("BankAccount", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "BankAccount did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

@@ -5,11 +5,10 @@
 package factory
 
 import (
-	"fmt"
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // ProductMatcher provides a fluent API for matching Product instances.
@@ -66,121 +65,76 @@ func (m ProductMatcher) CreatedAt(matcher testgen.Matcher[time.Time]) ProductMat
 // Matcher returns the composed matcher for Product.
 func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 	return testgen.MatcherFunc[showcase.Product](func(actual showcase.Product) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		iDValue := actual.ID
+		nameValue := actual.Name
+		descriptionValue := actual.Description
+		priceValue := actual.Price
+		inStockValue := actual.InStock
+		createdAtValue := actual.CreatedAt
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"ID":          iDValue,
+			"Name":        nameValue,
+			"Description": descriptionValue,
+			"Price":       priceValue,
+			"InStock":     inStockValue,
+			"CreatedAt":   createdAtValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(actual.ID)
+			result := m.iDMatcher.Matches(iDValue)
+			fieldResults["ID"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Product.ID"
-				if result.Path != "" {
-					path = "Product." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "ID: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.nameMatcher != nil {
-			result := m.nameMatcher.Matches(actual.Name)
+			result := m.nameMatcher.Matches(nameValue)
+			fieldResults["Name"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Product.Name"
-				if result.Path != "" {
-					path = "Product." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Name: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.descriptionMatcher != nil {
-			result := m.descriptionMatcher.Matches(actual.Description)
+			result := m.descriptionMatcher.Matches(descriptionValue)
+			fieldResults["Description"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Product.Description"
-				if result.Path != "" {
-					path = "Product." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Description: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.priceMatcher != nil {
-			result := m.priceMatcher.Matches(actual.Price)
+			result := m.priceMatcher.Matches(priceValue)
+			fieldResults["Price"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Product.Price"
-				if result.Path != "" {
-					path = "Product." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Price: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.inStockMatcher != nil {
-			result := m.inStockMatcher.Matches(actual.InStock)
+			result := m.inStockMatcher.Matches(inStockValue)
+			fieldResults["InStock"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Product.InStock"
-				if result.Path != "" {
-					path = "Product." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "InStock: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(actual.CreatedAt)
+			result := m.createdAtMatcher.Matches(createdAtValue)
+			fieldResults["CreatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Product.CreatedAt"
-				if result.Path != "" {
-					path = "Product." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "CreatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("Product", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "Product did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

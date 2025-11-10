@@ -1,4 +1,4 @@
-module github.com/james-w/gomatchers
+module github.com/james-w/specta
 
 go 1.22.0
 

@@ -3,9 +3,9 @@ package example_test
 import (
 	"testing"
 
-	"github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/example"
-	"github.com/james-w/gomatchers/example/factory"
+	"github.com/james-w/specta"
+	"github.com/james-w/specta/example"
+	"github.com/james-w/specta/example/factory"
 )
 
 // TestStructuredDiffDemo demonstrates the new structured diff output
@@ -24,7 +24,7 @@ func TestStructuredDiffDemo(t *testing.T) {
 			Score:  50,
 		}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		// This should fail and show structured diff
@@ -32,13 +32,13 @@ func TestStructuredDiffDemo(t *testing.T) {
 	})
 
 	t.Run("Generated matcher struct diff", func(t *testing.T) {
-		p := gomatchers.New()
+		p := specta.New()
 		actual := factory.UserView().Build(p)
 
 		// Create a matcher that will fail on some fields
 		matcher := factory.UserViewMatches().
-			Name(gomatchers.Equal("WrongName")).
-			Score(gomatchers.GreaterThan(1000)).
+			Name(specta.Equal("WrongName")).
+			Score(specta.GreaterThan(1000)).
 			Matcher()
 
 		result := matcher.Matches(actual)
@@ -48,12 +48,12 @@ func TestStructuredDiffDemo(t *testing.T) {
 	})
 
 	t.Run("All fields match", func(t *testing.T) {
-		p := gomatchers.New()
+		p := specta.New()
 		user := factory.UserView().Name("Alice").Score(100).Build(p)
 
 		matcher := factory.UserViewMatches().
-			Name(gomatchers.Equal("Alice")).
-			Score(gomatchers.Equal(100)).
+			Name(specta.Equal("Alice")).
+			Score(specta.Equal(100)).
 			Matcher()
 
 		result := matcher.Matches(user)

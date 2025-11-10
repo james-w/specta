@@ -2,11 +2,36 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package spec provides low-level specifications for building test data.
+//
+// Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := NewBankAccountSpec()
+//	opts := []testgen.Opt[BankAccountSpec]{
+//
+//
+//		WithBankAccountName("example"),
+//
+//
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := BuildBankAccount(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := NewBankAccountFactory(testgen.New())
+//
+//
+//	result := factory.Make(WithBankAccountName("example"))
 package spec
 
 import (
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // BankAccountSpec is the low-level specification for building BankAccount instances.

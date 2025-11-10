@@ -2,14 +2,43 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package factory provides a fluent Recipe API for building test data and matchers.
+//
+// Example usage:
+//
+//	// Build a single instance with custom fields
+//
+//
+//	result := User().ID("example").Build(testgen.New())
+//
+//
+//
+//	// Build many instances with unique values
+//	results := User().Many(5, testgen.New())
+//
+//	// Build a matcher to verify specific fields
+//
+//
+//	matcher := UserMatches().ID(testgen.DeepEqual("expected"))
+//
+//
+//	testgen.AssertThat(t, actual, matcher.Matcher())
+//
+//	// Convert a recipe to a matcher for partial matching
+//
+//
+//	partialMatcher := User().ID("expected").AsEqualMatcher()
+//
+//
+//	testgen.AssertThat(t, actual, partialMatcher)
 package factory
 
 import (
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
-	"github.com/james-w/gomatchers/showcase/factory/spec"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
+	"github.com/james-w/specta/showcase/factory/spec"
 )
 
 // UserRecipe provides a fluent API for building User instances.

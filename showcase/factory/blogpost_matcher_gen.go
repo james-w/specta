@@ -5,11 +5,10 @@
 package factory
 
 import (
-	"fmt"
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // BlogPostMatcher provides a fluent API for matching BlogPost instances.
@@ -86,157 +85,94 @@ func (m BlogPostMatcher) UpdatedAt(matcher testgen.Matcher[time.Time]) BlogPostM
 // Matcher returns the composed matcher for BlogPost.
 func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 	return testgen.MatcherFunc[showcase.BlogPost](func(actual showcase.BlogPost) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		iDValue := actual.ID
+		titleValue := actual.Title
+		contentValue := actual.Content
+		authorValue := actual.Author
+		publishedValue := actual.Published
+		publishedAtValue := actual.PublishedAt
+		createdAtValue := actual.CreatedAt
+		updatedAtValue := actual.UpdatedAt
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"ID":          iDValue,
+			"Title":       titleValue,
+			"Content":     contentValue,
+			"Author":      authorValue,
+			"Published":   publishedValue,
+			"PublishedAt": publishedAtValue,
+			"CreatedAt":   createdAtValue,
+			"UpdatedAt":   updatedAtValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(actual.ID)
+			result := m.iDMatcher.Matches(iDValue)
+			fieldResults["ID"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.ID"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "ID: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.titleMatcher != nil {
-			result := m.titleMatcher.Matches(actual.Title)
+			result := m.titleMatcher.Matches(titleValue)
+			fieldResults["Title"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.Title"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Title: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.contentMatcher != nil {
-			result := m.contentMatcher.Matches(actual.Content)
+			result := m.contentMatcher.Matches(contentValue)
+			fieldResults["Content"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.Content"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Content: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.authorMatcher != nil {
-			result := m.authorMatcher.Matches(actual.Author)
+			result := m.authorMatcher.Matches(authorValue)
+			fieldResults["Author"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.Author"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Author: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.publishedMatcher != nil {
-			result := m.publishedMatcher.Matches(actual.Published)
+			result := m.publishedMatcher.Matches(publishedValue)
+			fieldResults["Published"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.Published"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Published: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.publishedAtMatcher != nil {
-			result := m.publishedAtMatcher.Matches(actual.PublishedAt)
+			result := m.publishedAtMatcher.Matches(publishedAtValue)
+			fieldResults["PublishedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.PublishedAt"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "PublishedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(actual.CreatedAt)
+			result := m.createdAtMatcher.Matches(createdAtValue)
+			fieldResults["CreatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.CreatedAt"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "CreatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.updatedAtMatcher != nil {
-			result := m.updatedAtMatcher.Matches(actual.UpdatedAt)
+			result := m.updatedAtMatcher.Matches(updatedAtValue)
+			fieldResults["UpdatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "BlogPost.UpdatedAt"
-				if result.Path != "" {
-					path = "BlogPost." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "UpdatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("BlogPost", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "BlogPost did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

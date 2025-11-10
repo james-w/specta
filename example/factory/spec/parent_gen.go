@@ -30,8 +30,8 @@
 package spec
 
 import (
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/example"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/example"
 )
 
 // ParentSpec is the low-level specification for building Parent instances.

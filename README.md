@@ -1,12 +1,12 @@
-# gomatchers
+# specta
 
 A Go testing library that emphasizes **composition** and **reuse** through matchers and test data factories.
 
-Unlike traditional assertion libraries that simply provide syntactic sugar for comparisons, gomatchers enables you to build reusable, composable test components that scale with your test suite.
+Unlike traditional assertion libraries that simply provide syntactic sugar for comparisons, specta enables you to build reusable, composable test components that scale with your test suite.
 
 ## Core Philosophy
 
-Testing isn't just about asserting values—it's about building maintainable test suites. gomatchers provides:
+Testing isn't just about asserting values—it's about building maintainable test suites. specta provides:
 
 1. **Composable Matchers**: Build complex assertions from simple, reusable pieces
 2. **Generated Factories**: Automatically generate test data builders from your types
@@ -16,24 +16,24 @@ Testing isn't just about asserting values—it's about building maintainable tes
 ## Installation
 
 ```bash
-go get github.com/james-w/gomatchers
+go get github.com/james-w/specta
 ```
 
 ## Quick Start
 
 ```go
-import "github.com/james-w/gomatchers"
+import "github.com/james-w/specta"
 
 func TestUserRegistration(t *testing.T) {
     // Register a new user
     user := registerUser("alice@example.com", 30)
 
     // Match multiple fields at once
-    gomatchers.AssertThat(t, user,
+    specta.AssertThat(t, user,
         UserMatches().
-            Name(gomatchers.Equal("Alice")).
-            Age(gomatchers.GreaterThan(18)).
-            Email(gomatchers.Contains("@example.com")).
+            Name(specta.Equal("Alice")).
+            Age(specta.GreaterThan(18)).
+            Email(specta.Contains("@example.com")).
             Matcher())
 }
 ```
@@ -80,35 +80,63 @@ func TestAnotherActiveUser(t *testing.T) {
 }
 ```
 
-### gomatchers Approach: Reusable Matchers
+### specta Approach: Reusable Matchers
 
 ```go
 // Define once
 var IsActiveAdmin = UserMatches().
-    Active(gomatchers.IsTrue()).
-    Role(gomatchers.Equal("admin")).
+    Active(specta.IsTrue()).
+    Role(specta.Equal("admin")).
     Matcher()
 
 // Reuse everywhere
 func TestActiveUser(t *testing.T) {
     user := createUser()
-    gomatchers.AssertThat(t, user, IsActiveAdmin)
+    specta.AssertThat(t, user, IsActiveAdmin)
 }
 
 func TestAnotherActiveUser(t *testing.T) {
     user := createAnotherUser()
-    gomatchers.AssertThat(t, user, IsActiveAdmin) // Same check, zero duplication
+    specta.AssertThat(t, user, IsActiveAdmin) // Same check, zero duplication
 }
 
 func TestBulkOperation(t *testing.T) {
     users := bulkCreateUsers()
     for _, user := range users {
-        gomatchers.AssertThat(t, user, IsActiveAdmin) // Consistent everywhere
+        specta.AssertThat(t, user, IsActiveAdmin) // Consistent everywhere
     }
 }
 ```
 
 **The difference**: When requirements change (e.g., "admins must also have verified email"), you update the matcher **once** instead of hunting through dozens of test files.
+
+### Factories and Matchers: Two Sides of the Same Coin
+
+A powerful pattern: define a "shape" once, then use it for both generation and validation.
+
+```go
+// Define what a "valid user" looks like
+var ValidUser = factory.User().
+    Email("user@example.com").
+    Active(true)
+
+// Generate valid users for test inputs
+func TestSomeFunction(t *testing.T) {
+    p := specta.New()
+    user := ValidUser.Build(p)  // Create a valid user
+    result := someFunction(user)
+    // ... assertions
+}
+
+// Validate that outputs are valid users
+func TestAnotherFunction(t *testing.T) {
+    result := anotherFunction()
+    // Check result matches the "valid user" shape
+    specta.AssertThat(t, result, ValidUser.AsEqualMatcher())
+}
+```
+
+**This mirrors real application contracts**: If `createUser()` produces users and `validateUser()` checks them, you want one definition of "valid user" that works for both generating test data and asserting outputs.
 
 ### Composition Across Test Layers
 
@@ -117,8 +145,8 @@ Both matchers and factories compose naturally across different layers of your ap
 ```go
 // Unit tests: Define valid users
 var IsValidUser = UserMatches().
-    Email(gomatchers.Contains("@")).
-    Active(gomatchers.IsTrue()).
+    Email(specta.Contains("@")).
+    Active(specta.IsTrue()).
     Matcher()
 
 var ValidUserRecipe = factory.User().
@@ -126,9 +154,9 @@ var ValidUserRecipe = factory.User().
     Active(true)
 
 func TestUserCreation(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
     user := ValidUserRecipe.Build(p)
-    gomatchers.AssertThat(t, user, IsValidUser)
+    specta.AssertThat(t, user, IsValidUser)
 }
 
 // Integration tests: Build orders with valid users
@@ -137,19 +165,19 @@ var ValidOrderRecipe = factory.Order().
     Total(100.0)
 
 var IsValidOrder = OrderMatches().
-    Total(gomatchers.GreaterThan(0.0)).
+    Total(specta.GreaterThan(0.0)).
     UserMatches(IsValidUser).  // Reuse the user matcher!
     Matcher()
 
 func TestOrderCreation(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
     order := ValidOrderRecipe.Build(p)
-    gomatchers.AssertThat(t, order, IsValidOrder)
+    specta.AssertThat(t, order, IsValidOrder)
 }
 
 // End-to-end tests: Build payments with valid orders
 func TestPaymentFlow(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
 
     // Create payment with a valid order (which has a valid user)
     payment := factory.Payment().
@@ -158,9 +186,9 @@ func TestPaymentFlow(t *testing.T) {
 
     result := processPayment(payment)
 
-    gomatchers.AssertThat(t, result,
+    specta.AssertThat(t, result,
         PaymentMatches().
-            Status(gomatchers.Equal("completed")).
+            Status(specta.Equal("completed")).
             OrderMatches(IsValidOrder).  // Reuse order matcher (includes user)!
             Matcher())
 }
@@ -177,25 +205,25 @@ func TestPaymentFlow(t *testing.T) {
 
 ```go
 // Equality
-gomatchers.Equal(42)
-gomatchers.DeepEqual(expected)
+specta.Equal(42)
+specta.DeepEqual(expected)
 
 // Numeric comparisons
-gomatchers.GreaterThan(18)
-gomatchers.LessThan(100)
-gomatchers.GreaterThanOrEqual(21)
+specta.GreaterThan(18)
+specta.LessThan(100)
+specta.GreaterThanOrEqual(21)
 
 // String matchers
-gomatchers.Contains("@example.com")
-gomatchers.HasPrefix("user_")
-gomatchers.HasSuffix(".json")
+specta.Contains("@example.com")
+specta.HasPrefix("user_")
+specta.HasSuffix(".json")
 
 // Boolean matchers
-gomatchers.IsTrue()
-gomatchers.IsFalse()
+specta.IsTrue()
+specta.IsFalse()
 
 // Zero value checking
-gomatchers.IsZero[int]()
+specta.IsZero[int]()
 ```
 
 ### 2. Composable Matchers
@@ -204,35 +232,35 @@ Matchers can be combined to express complex conditions:
 
 ```go
 // All conditions must match
-gomatchers.AllOf(
-    gomatchers.GreaterThan(0),
-    gomatchers.LessThan(100),
+specta.AllOf(
+    specta.GreaterThan(0),
+    specta.LessThan(100),
 )
 
 // At least one condition must match
-gomatchers.AnyOf(
-    gomatchers.Equal("admin"),
-    gomatchers.Equal("moderator"),
+specta.AnyOf(
+    specta.Equal("admin"),
+    specta.Equal("moderator"),
 )
 
 // Invert a matcher
-gomatchers.Not(gomatchers.Contains("test"))
+specta.Not(specta.Contains("test"))
 ```
 
 **Real-world example: Valid email check**
 
 ```go
 // Define once, reuse everywhere
-var IsValidEmail = gomatchers.AllOf(
-    gomatchers.Contains("@"),
-    gomatchers.Not(gomatchers.Contains(" ")),
-    gomatchers.Not(gomatchers.HasPrefix("@")),
+var IsValidEmail = specta.AllOf(
+    specta.Contains("@"),
+    specta.Not(specta.Contains(" ")),
+    specta.Not(specta.HasPrefix("@")),
 )
 
 // Use in multiple contexts
-gomatchers.AssertThat(t, user.Email, IsValidEmail)
-gomatchers.AssertThat(t, admin.ContactEmail, IsValidEmail)
-gomatchers.AssertThat(t, invoice.BillingEmail, IsValidEmail)
+specta.AssertThat(t, user.Email, IsValidEmail)
+specta.AssertThat(t, admin.ContactEmail, IsValidEmail)
+specta.AssertThat(t, invoice.BillingEmail, IsValidEmail)
 ```
 
 ### 3. Structured Matchers (Generated)
@@ -258,9 +286,9 @@ targets:
 ```go
 // Fluent matcher builder
 UserMatches().
-    Name(gomatchers.Equal("Alice")).
-    Age(gomatchers.GreaterThan(18)).
-    Email(gomatchers.Contains("@example.com"))
+    Name(specta.Equal("Alice")).
+    Age(specta.GreaterThan(18)).
+    Email(specta.Contains("@example.com"))
 ```
 
 ### 4. Partial Matching: The Killer Feature
@@ -272,9 +300,9 @@ func TestUserRegistration(t *testing.T) {
     user := registerUser("alice@example.com")
 
     // Only care about email being set correctly
-    gomatchers.AssertThat(t, user,
+    specta.AssertThat(t, user,
         UserMatches().
-            Email(gomatchers.Equal("alice@example.com")).
+            Email(specta.Equal("alice@example.com")).
             Matcher())
     // Don't care about ID, CreatedAt, etc.
 }
@@ -283,9 +311,9 @@ func TestUserActivation(t *testing.T) {
     user := activateUser(existingUser)
 
     // Only care about activation status
-    gomatchers.AssertThat(t, user,
+    specta.AssertThat(t, user,
         UserMatches().
-            Active(gomatchers.IsTrue()).
+            Active(specta.IsTrue()).
             Matcher())
     // Don't care about name, email, etc.
 }
@@ -301,15 +329,15 @@ func TestUserActivation(t *testing.T) {
 Matchers compose naturally for nested structures:
 
 ```go
-gomatchers.AssertThat(t, order,
+specta.AssertThat(t, order,
     OrderMatches().
-        Total(gomatchers.GreaterThan(100.0)).
-        Status(gomatchers.Equal("shipped")).
+        Total(specta.GreaterThan(100.0)).
+        Status(specta.Equal("shipped")).
         // Match nested user fields
         UserMatches(
             UserMatches().
-                Email(gomatchers.Contains("@premium.com")).
-                AccountType(gomatchers.Equal("premium")),
+                Email(specta.Contains("@premium.com")).
+                AccountType(specta.Equal("premium")),
         ).
         Matcher())
 ```
@@ -320,18 +348,18 @@ For computed values or custom logic:
 
 ```go
 // Match based on a computed property
-gomatchers.Field("FullName",
+specta.Field("FullName",
     func(u User) string {
         return u.FirstName + " " + u.LastName
     },
-    gomatchers.Equal("Alice Smith"))
+    specta.Equal("Alice Smith"))
 
 // Match based on method result
-gomatchers.Field("IsExpired",
+specta.Field("IsExpired",
     func(token Token) bool {
         return token.ExpiresAt.Before(time.Now())
     },
-    gomatchers.IsFalse())
+    specta.IsFalse())
 ```
 
 ## Test Data Factories
@@ -341,7 +369,7 @@ Generate factories alongside matchers for consistent test data.
 **Key insight**: Only specify what matters to your test. This makes tests clearer and avoids unintended dependencies on irrelevant test data details.
 
 ```go
-p := gomatchers.New()
+p := specta.New()
 
 // Build with defaults - gets realistic random data for all fields
 user := factory.User().Build(p)
@@ -370,7 +398,7 @@ The real power comes from using both together:
 
 ```go
 func TestOrderProcessing(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
 
     // Create test order with specific properties
     order := factory.Order().
@@ -385,10 +413,10 @@ func TestOrderProcessing(t *testing.T) {
     processed := processOrder(order)
 
     // Verify only what changed
-    gomatchers.AssertThat(t, processed,
+    specta.AssertThat(t, processed,
         OrderMatches().
-            Status(gomatchers.Equal("completed")).
-            ProcessedAt(gomatchers.Not(gomatchers.IsZero[time.Time]())).
+            Status(specta.Equal("completed")).
+            ProcessedAt(specta.Not(specta.IsZero[time.Time]())).
             Matcher())
 }
 ```
@@ -399,34 +427,34 @@ func TestOrderProcessing(t *testing.T) {
 // Define reusable matchers for business rules
 var (
     IsPremiumUser = UserMatches().
-        AccountType(gomatchers.Equal("premium")).
-        Active(gomatchers.IsTrue()).
+        AccountType(specta.Equal("premium")).
+        Active(specta.IsTrue()).
         Matcher()
 
     IsValidOrder = OrderMatches().
-        Total(gomatchers.GreaterThan(0.0)).
-        Status(gomatchers.AnyOf(
-            gomatchers.Equal("pending"),
-            gomatchers.Equal("processing"),
-            gomatchers.Equal("completed"),
+        Total(specta.GreaterThan(0.0)).
+        Status(specta.AnyOf(
+            specta.Equal("pending"),
+            specta.Equal("processing"),
+            specta.Equal("completed"),
         )).
         Matcher()
 
-    IsShippedOrder = gomatchers.AllOf(
+    IsShippedOrder = specta.AllOf(
         IsValidOrder,
         OrderMatches().
-            Status(gomatchers.Equal("shipped")).
-            ShippedAt(gomatchers.Not(gomatchers.IsZero[time.Time]())).
+            Status(specta.Equal("shipped")).
+            ShippedAt(specta.Not(specta.IsZero[time.Time]())).
             Matcher(),
     )
 )
 
 func TestPremiumUserDiscount(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
 
     // Create premium user
     user := factory.User().AccountType("premium").Active(true).Build(p)
-    gomatchers.AssertThat(t, user, IsPremiumUser) // Verify setup
+    specta.AssertThat(t, user, IsPremiumUser) // Verify setup
 
     // Create order
     order := factory.Order().
@@ -438,15 +466,15 @@ func TestPremiumUserDiscount(t *testing.T) {
     discounted := applyDiscount(order)
 
     // Verify discount applied
-    gomatchers.AssertThat(t, discounted,
+    specta.AssertThat(t, discounted,
         OrderMatches().
-            Total(gomatchers.LessThan(100.0)).
-            DiscountApplied(gomatchers.IsTrue()).
+            Total(specta.LessThan(100.0)).
+            DiscountApplied(specta.IsTrue()).
             Matcher())
 }
 
 func TestOrderShipment(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
 
     // Create pending order
     order := factory.Order().Status("pending").Build(p)
@@ -455,11 +483,11 @@ func TestOrderShipment(t *testing.T) {
     shipped := shipOrder(order)
 
     // Verify using reusable matcher
-    gomatchers.AssertThat(t, shipped, IsShippedOrder)
+    specta.AssertThat(t, shipped, IsShippedOrder)
 }
 
 func TestBulkOrderProcessing(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
 
     // Create multiple orders
     orders := []Order{
@@ -473,7 +501,7 @@ func TestBulkOrderProcessing(t *testing.T) {
 
     // Verify all results are valid
     for i, result := range results {
-        gomatchers.AssertThat(t, result, IsValidOrder,
+        specta.AssertThat(t, result, IsValidOrder,
             "Order %d should be valid", i)
     }
 }
@@ -494,7 +522,7 @@ Factories shine in table-driven tests by letting you vary inputs while keeping i
 
 ```go
 func TestOrderDiscount(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
 
     tests := []struct {
         name           string
@@ -537,10 +565,10 @@ func TestOrderDiscount(t *testing.T) {
             result := applyDiscountRules(order)
 
             // Verify expected outcomes
-            gomatchers.AssertThat(t, result,
+            specta.AssertThat(t, result,
                 OrderMatches().
-                    Status(gomatchers.Equal(tt.expectedStatus)).
-                    DiscountApplied(gomatchers.Equal(tt.shouldDiscount)).
+                    Status(specta.Equal(tt.expectedStatus)).
+                    DiscountApplied(specta.Equal(tt.shouldDiscount)).
                     Matcher())
         })
     }
@@ -562,31 +590,31 @@ type Notification interface {
 }
 
 // Create a matcher that works for ANY notification type
-func IsUrgentNotification[T Notification]() gomatchers.Matcher[T] {
-    return gomatchers.AllOf(
-        gomatchers.Field("Priority",
+func IsUrgentNotification[T Notification]() specta.Matcher[T] {
+    return specta.AllOf(
+        specta.Field("Priority",
             func(n T) int { return n.GetPriority() },
-            gomatchers.GreaterThanOrEqual(5)),
-        gomatchers.Field("Sent",
+            specta.GreaterThanOrEqual(5)),
+        specta.Field("Sent",
             func(n T) bool { return n.IsSent() },
-            gomatchers.IsTrue()),
+            specta.IsTrue()),
     )
 }
 
 // Same matcher works for all concrete types
 func TestEmailNotification(t *testing.T) {
     email := EmailNotification{Priority: 5, Sent: true, ...}
-    gomatchers.AssertThat(t, email, IsUrgentNotification[EmailNotification]())
+    specta.AssertThat(t, email, IsUrgentNotification[EmailNotification]())
 }
 
 func TestSMSNotification(t *testing.T) {
     sms := SMSNotification{Priority: 8, Sent: true, ...}
-    gomatchers.AssertThat(t, sms, IsUrgentNotification[SMSNotification]())
+    specta.AssertThat(t, sms, IsUrgentNotification[SMSNotification]())
 }
 
 func TestPushNotification(t *testing.T) {
     push := PushNotification{Priority: 7, Sent: true, ...}
-    gomatchers.AssertThat(t, push, IsUrgentNotification[PushNotification]())
+    specta.AssertThat(t, push, IsUrgentNotification[PushNotification]())
 }
 ```
 
@@ -599,14 +627,14 @@ Generate matchers and factories for your types:
 ```bash
 # Create testgen.yaml configuration
 # Run generator
-go run github.com/james-w/gomatchers/cmd/main.go
+go run github.com/james-w/specta/cmd/main.go
 ```
 
 See [Configuration Guide](docs/configuration.md) for full details.
 
 ## Comparison with Other Libraries
 
-| Feature | gomatchers | testify | gomega |
+| Feature | specta | testify | gomega |
 |---------|------------|---------|--------|
 | Composable matchers | ✅ Core feature | ❌ | ✅ |
 | Reusable matchers | ✅ First-class | ⚠️ Via functions | ⚠️ Via functions |
@@ -617,7 +645,7 @@ See [Configuration Guide](docs/configuration.md) for full details.
 | Structured diffs | ✅ With symbols/colors | ⚠️ Basic | ⚠️ Basic |
 | Type-safe | ✅ Generics | ⚠️ Interface{} | ⚠️ Interface{} |
 
-**gomatchers is for teams that want:**
+**specta is for teams that want:**
 - Tests that scale with growing test suites
 - Reusable test components (not just assertions)
 - Consistent test patterns across the codebase
@@ -632,7 +660,7 @@ See [Configuration Guide](docs/configuration.md) for full details.
 
 Most assertion libraries ask: *"How can we make this comparison easier to write?"*
 
-gomatchers asks: *"How can we make our test suite maintainable at scale?"*
+specta asks: *"How can we make our test suite maintainable at scale?"*
 
 The answer: **composition and reuse**.
 
@@ -646,7 +674,7 @@ Example: Imagine you have 50 tests checking "valid users". With traditional asse
 - When validation rules change (e.g., "active users must also have verified email"), update 50 places
 - Easy to miss one, causing inconsistent test coverage and maintenance burden
 
-With gomatchers:
+With specta:
 - One `IsValidUser` matcher
 - 50 tests use it
 - Change validation rule → update matcher → all tests updated consistently

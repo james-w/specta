@@ -2,13 +2,38 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package spec provides low-level specifications for building test data.
+//
+// Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := NewUserSpec()
+//	opts := []testgen.Opt[UserSpec]{
+//
+//
+//		WithUserID("example"),
+//
+//
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := BuildUser(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := NewUserFactory(testgen.New())
+//
+//
+//	result := factory.Make(WithUserID("example"))
 package spec
 
 import (
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // UserSpec is the low-level specification for building User instances.

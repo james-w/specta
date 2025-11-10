@@ -1,4 +1,4 @@
-package gomatchers
+package specta
 
 import (
 	"fmt"

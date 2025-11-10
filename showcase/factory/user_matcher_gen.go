@@ -5,11 +5,10 @@
 package factory
 
 import (
-	"fmt"
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // UserMatcher provides a fluent API for matching User instances.
@@ -86,157 +85,94 @@ func (m UserMatcher) UpdatedAt(matcher testgen.Matcher[time.Time]) UserMatcher {
 // Matcher returns the composed matcher for User.
 func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 	return testgen.MatcherFunc[showcase.User](func(actual showcase.User) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		iDValue := actual.ID
+		emailValue := actual.Email
+		firstNameValue := actual.FirstName
+		lastNameValue := actual.LastName
+		activeValue := actual.Active
+		addressValue := actual.Address
+		createdAtValue := actual.CreatedAt
+		updatedAtValue := actual.UpdatedAt
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"ID":        iDValue,
+			"Email":     emailValue,
+			"FirstName": firstNameValue,
+			"LastName":  lastNameValue,
+			"Active":    activeValue,
+			"Address":   addressValue,
+			"CreatedAt": createdAtValue,
+			"UpdatedAt": updatedAtValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(actual.ID)
+			result := m.iDMatcher.Matches(iDValue)
+			fieldResults["ID"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.ID"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "ID: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.emailMatcher != nil {
-			result := m.emailMatcher.Matches(actual.Email)
+			result := m.emailMatcher.Matches(emailValue)
+			fieldResults["Email"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.Email"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Email: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.firstNameMatcher != nil {
-			result := m.firstNameMatcher.Matches(actual.FirstName)
+			result := m.firstNameMatcher.Matches(firstNameValue)
+			fieldResults["FirstName"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.FirstName"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "FirstName: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.lastNameMatcher != nil {
-			result := m.lastNameMatcher.Matches(actual.LastName)
+			result := m.lastNameMatcher.Matches(lastNameValue)
+			fieldResults["LastName"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.LastName"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "LastName: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.activeMatcher != nil {
-			result := m.activeMatcher.Matches(actual.Active)
+			result := m.activeMatcher.Matches(activeValue)
+			fieldResults["Active"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.Active"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Active: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.addressMatcher != nil {
-			result := m.addressMatcher.Matches(actual.Address)
+			result := m.addressMatcher.Matches(addressValue)
+			fieldResults["Address"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.Address"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Address: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(actual.CreatedAt)
+			result := m.createdAtMatcher.Matches(createdAtValue)
+			fieldResults["CreatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.CreatedAt"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "CreatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.updatedAtMatcher != nil {
-			result := m.updatedAtMatcher.Matches(actual.UpdatedAt)
+			result := m.updatedAtMatcher.Matches(updatedAtValue)
+			fieldResults["UpdatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "User.UpdatedAt"
-				if result.Path != "" {
-					path = "User." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "UpdatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("User", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "User did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

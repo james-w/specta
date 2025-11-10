@@ -2,13 +2,38 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package spec provides low-level specifications for building test data.
+//
+// Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := NewProductSpec()
+//	opts := []testgen.Opt[ProductSpec]{
+//
+//
+//		WithProductID("example"),
+//
+//
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := BuildProduct(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := NewProductFactory(testgen.New())
+//
+//
+//	result := factory.Make(WithProductID("example"))
 package spec
 
 import (
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // ProductSpec is the low-level specification for building Product instances.

@@ -5,11 +5,10 @@
 package factory
 
 import (
-	"fmt"
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // CommentMatcher provides a fluent API for matching Comment instances.
@@ -71,103 +70,67 @@ func (m CommentMatcher) CreatedAt(matcher testgen.Matcher[time.Time]) CommentMat
 // Matcher returns the composed matcher for Comment.
 func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 	return testgen.MatcherFunc[showcase.Comment](func(actual showcase.Comment) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		iDValue := actual.ID
+		postValue := actual.Post
+		authorValue := actual.Author
+		contentValue := actual.Content
+		createdAtValue := actual.CreatedAt
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"ID":        iDValue,
+			"Post":      postValue,
+			"Author":    authorValue,
+			"Content":   contentValue,
+			"CreatedAt": createdAtValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(actual.ID)
+			result := m.iDMatcher.Matches(iDValue)
+			fieldResults["ID"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Comment.ID"
-				if result.Path != "" {
-					path = "Comment." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "ID: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.postMatcher != nil {
-			result := m.postMatcher.Matches(actual.Post)
+			result := m.postMatcher.Matches(postValue)
+			fieldResults["Post"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Comment.Post"
-				if result.Path != "" {
-					path = "Comment." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Post: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.authorMatcher != nil {
-			result := m.authorMatcher.Matches(actual.Author)
+			result := m.authorMatcher.Matches(authorValue)
+			fieldResults["Author"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Comment.Author"
-				if result.Path != "" {
-					path = "Comment." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Author: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.contentMatcher != nil {
-			result := m.contentMatcher.Matches(actual.Content)
+			result := m.contentMatcher.Matches(contentValue)
+			fieldResults["Content"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Comment.Content"
-				if result.Path != "" {
-					path = "Comment." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Content: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(actual.CreatedAt)
+			result := m.createdAtMatcher.Matches(createdAtValue)
+			fieldResults["CreatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Comment.CreatedAt"
-				if result.Path != "" {
-					path = "Comment." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "CreatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("Comment", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "Comment did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

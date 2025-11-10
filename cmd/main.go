@@ -280,7 +280,7 @@ func processTarget(cfg *Config, tgt struct {
 			TypeName:       typeName,
 			SpecName:       typeName + "Spec",
 			RecipeName:     typeName + "Recipe",
-			ImportTestgen:  "github.com/james-w/gomatchers",
+			ImportTestgen:  "github.com/james-w/specta",
 		}
 
 		// Check if this type has a constructor configured

@@ -1,25 +1,16 @@
 package example_test
 
 import (
-    "fmt"
     "testing"
-    "github.com/james-w/gomatchers"
-    "github.com/james-w/gomatchers/example/factory"
+    "github.com/james-w/specta"
+    "github.com/james-w/specta/example/factory"
 )
 
 func TestFoo(t *testing.T) {
-    p := gomatchers.New()
+    p := specta.New()
 
 	child := factory.UserView().Name("foo").Build(p)
 
-    fmt.Printf("%+v\n", child)
-
-	// Test nested with recipe - each parent gets unique child
-	fmt.Printf("%+v\n", factory.Parent().ChildFromRecipe(
-		factory.UserView().Active(true).Name("bar"),
-	).Many(2, p))
-
-	// Test nested with literal - same child reused
-	fmt.Printf("%+v\n", factory.Parent().Child(child).Many(2, p))
+	specta.AssertThat(t, child, factory.UserViewMatches().Name(specta.Equal("bar")).Matcher())
 }
 

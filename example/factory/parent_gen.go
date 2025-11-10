@@ -34,9 +34,9 @@
 package factory
 
 import (
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/example"
-	"github.com/james-w/gomatchers/example/factory/spec"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/example"
+	"github.com/james-w/specta/example/factory/spec"
 )
 
 // ParentRecipe provides a fluent API for building Parent instances.

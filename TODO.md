@@ -1,4 +1,4 @@
-# TODO: gomatchers Improvements
+# TODO: specta Improvements
 
 ## High Priority
 
@@ -262,7 +262,7 @@ func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
 ```go
 // Example usage:
 //
-//	p := gomatchers.New()
+//	p := specta.New()
 //	user := factory.User().
 //	    FirstName("Alice").
 //	    Email("alice@example.com").
@@ -270,8 +270,8 @@ func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
 //
 //	// Matching
 //	factory.UserMatches().
-//	    FirstName(gomatchers.Equal("Alice")).
-//	    Email(gomatchers.Contains("@example.com"))
+//	    FirstName(specta.Equal("Alice")).
+//	    Email(specta.Contains("@example.com"))
 ```
 
 #### Field Documentation
@@ -301,8 +301,8 @@ func BankAccount() BankAccountRecipe
 //
 // Example:
 //   factory.BankAccountMatches().
-//       Name(gomatchers.Equal("Alice")).
-//       Balance(gomatchers.GreaterThan(1000))
+//       Name(specta.Equal("Alice")).
+//       Balance(specta.GreaterThan(1000))
 func BankAccountMatches() BankAccountMatcher
 ```
 
@@ -485,7 +485,7 @@ Transform("name uppercase",
 
 ### 14. Migration Tools
 - Migrate from other testing libraries
-- Convert existing matchers to gomatchers
+- Convert existing matchers to specta
 - Generate config from existing code
 
 ---
@@ -502,8 +502,8 @@ The use case: Define validation rules as matchers, then generate test data that 
 ```go
 // Define validation rules
 var IsValidUser = UserMatches().
-    Email(gomatchers.Contains("@")).
-    Age(gomatchers.GreaterThan(18)).
+    Email(specta.Contains("@")).
+    Age(specta.GreaterThan(18)).
     Matcher()
 
 // Generate test data satisfying those rules
@@ -601,7 +601,7 @@ var ValidUser = factory.User().
 user := ValidUser.Build(p)
 
 // Validate outputs
-gomatchers.AssertThat(t, result, ValidUser.AsEqualMatcher())
+specta.AssertThat(t, result, ValidUser.AsEqualMatcher())
 ```
 
 This works well but requires thinking in "generators" rather than "validators". The recipe becomes the single source of truth.

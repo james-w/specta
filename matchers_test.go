@@ -1,14 +1,14 @@
-package gomatchers_test
+package specta_test
 
 import (
 	"testing"
 
-	"github.com/james-w/gomatchers"
+	"github.com/james-w/specta"
 )
 
 func TestEqual(t *testing.T) {
 	t.Run("matches equal values", func(t *testing.T) {
-		matcher := gomatchers.Equal(42)
+		matcher := specta.Equal(42)
 		result := matcher.Matches(42)
 		if !result.Matched {
 			t.Error("Expected match but got mismatch")
@@ -16,7 +16,7 @@ func TestEqual(t *testing.T) {
 	})
 
 	t.Run("rejects unequal values", func(t *testing.T) {
-		matcher := gomatchers.Equal(42)
+		matcher := specta.Equal(42)
 		result := matcher.Matches(99)
 		if result.Matched {
 			t.Error("Expected mismatch but got match")
@@ -27,7 +27,7 @@ func TestEqual(t *testing.T) {
 	})
 
 	t.Run("works with strings", func(t *testing.T) {
-		matcher := gomatchers.Equal("hello")
+		matcher := specta.Equal("hello")
 		if !matcher.Matches("hello").Matched {
 			t.Error("Expected match")
 		}
@@ -39,7 +39,7 @@ func TestEqual(t *testing.T) {
 
 func TestIs(t *testing.T) {
 	t.Run("is alias for Equal", func(t *testing.T) {
-		matcher := gomatchers.Is(true)
+		matcher := specta.Is(true)
 		if !matcher.Matches(true).Matched {
 			t.Error("Expected match")
 		}
@@ -51,7 +51,7 @@ func TestIs(t *testing.T) {
 
 func TestNot(t *testing.T) {
 	t.Run("negates matcher", func(t *testing.T) {
-		matcher := gomatchers.Not(gomatchers.Equal(42))
+		matcher := specta.Not(specta.Equal(42))
 		if !matcher.Matches(99).Matched {
 			t.Error("Expected match for non-42")
 		}
@@ -63,7 +63,7 @@ func TestNot(t *testing.T) {
 
 func TestIsZero(t *testing.T) {
 	t.Run("matches zero int", func(t *testing.T) {
-		matcher := gomatchers.IsZero[int]()
+		matcher := specta.IsZero[int]()
 		if !matcher.Matches(0).Matched {
 			t.Error("Expected match for 0")
 		}
@@ -73,7 +73,7 @@ func TestIsZero(t *testing.T) {
 	})
 
 	t.Run("matches zero string", func(t *testing.T) {
-		matcher := gomatchers.IsZero[string]()
+		matcher := specta.IsZero[string]()
 		if !matcher.Matches("").Matched {
 			t.Error("Expected match for empty string")
 		}
@@ -85,7 +85,7 @@ func TestIsZero(t *testing.T) {
 
 func TestGreaterThan(t *testing.T) {
 	t.Run("matches greater values", func(t *testing.T) {
-		matcher := gomatchers.GreaterThan(10)
+		matcher := specta.GreaterThan(10)
 		if !matcher.Matches(20).Matched {
 			t.Error("Expected 20 > 10")
 		}
@@ -98,7 +98,7 @@ func TestGreaterThan(t *testing.T) {
 	})
 
 	t.Run("works with floats", func(t *testing.T) {
-		matcher := gomatchers.GreaterThan(3.14)
+		matcher := specta.GreaterThan(3.14)
 		if !matcher.Matches(3.15).Matched {
 			t.Error("Expected 3.15 > 3.14")
 		}
@@ -110,7 +110,7 @@ func TestGreaterThan(t *testing.T) {
 
 func TestLessThan(t *testing.T) {
 	t.Run("matches lesser values", func(t *testing.T) {
-		matcher := gomatchers.LessThan(10)
+		matcher := specta.LessThan(10)
 		if !matcher.Matches(5).Matched {
 			t.Error("Expected 5 < 10")
 		}
@@ -125,7 +125,7 @@ func TestLessThan(t *testing.T) {
 
 func TestGreaterThanOrEqual(t *testing.T) {
 	t.Run("matches greater or equal values", func(t *testing.T) {
-		matcher := gomatchers.GreaterThanOrEqual(10)
+		matcher := specta.GreaterThanOrEqual(10)
 		if !matcher.Matches(20).Matched {
 			t.Error("Expected 20 >= 10")
 		}
@@ -140,7 +140,7 @@ func TestGreaterThanOrEqual(t *testing.T) {
 
 func TestContains(t *testing.T) {
 	t.Run("matches substring", func(t *testing.T) {
-		matcher := gomatchers.Contains("world")
+		matcher := specta.Contains("world")
 		if !matcher.Matches("hello world").Matched {
 			t.Error("Expected 'hello world' to contain 'world'")
 		}
@@ -152,7 +152,7 @@ func TestContains(t *testing.T) {
 
 func TestHasPrefix(t *testing.T) {
 	t.Run("matches prefix", func(t *testing.T) {
-		matcher := gomatchers.HasPrefix("hello")
+		matcher := specta.HasPrefix("hello")
 		if !matcher.Matches("hello world").Matched {
 			t.Error("Expected 'hello world' to start with 'hello'")
 		}
@@ -164,7 +164,7 @@ func TestHasPrefix(t *testing.T) {
 
 func TestHasSuffix(t *testing.T) {
 	t.Run("matches suffix", func(t *testing.T) {
-		matcher := gomatchers.HasSuffix("world")
+		matcher := specta.HasSuffix("world")
 		if !matcher.Matches("hello world").Matched {
 			t.Error("Expected 'hello world' to end with 'world'")
 		}
@@ -176,7 +176,7 @@ func TestHasSuffix(t *testing.T) {
 
 func TestIsTrue(t *testing.T) {
 	t.Run("matches true", func(t *testing.T) {
-		matcher := gomatchers.IsTrue()
+		matcher := specta.IsTrue()
 		if !matcher.Matches(true).Matched {
 			t.Error("Expected match for true")
 		}
@@ -188,7 +188,7 @@ func TestIsTrue(t *testing.T) {
 
 func TestIsFalse(t *testing.T) {
 	t.Run("matches false", func(t *testing.T) {
-		matcher := gomatchers.IsFalse()
+		matcher := specta.IsFalse()
 		if !matcher.Matches(false).Matched {
 			t.Error("Expected match for false")
 		}
@@ -200,9 +200,9 @@ func TestIsFalse(t *testing.T) {
 
 func TestAllOf(t *testing.T) {
 	t.Run("all matchers must succeed", func(t *testing.T) {
-		matcher := gomatchers.AllOf(
-			gomatchers.GreaterThan(10),
-			gomatchers.LessThan(20),
+		matcher := specta.AllOf(
+			specta.GreaterThan(10),
+			specta.LessThan(20),
 		)
 
 		if !matcher.Matches(15).Matched {
@@ -217,9 +217,9 @@ func TestAllOf(t *testing.T) {
 	})
 
 	t.Run("provides details on failure", func(t *testing.T) {
-		matcher := gomatchers.AllOf(
-			gomatchers.Equal(42),
-			gomatchers.GreaterThan(50),
+		matcher := specta.AllOf(
+			specta.Equal(42),
+			specta.GreaterThan(50),
 		)
 
 		result := matcher.Matches(42)
@@ -234,10 +234,10 @@ func TestAllOf(t *testing.T) {
 
 func TestAnyOf(t *testing.T) {
 	t.Run("at least one matcher must succeed", func(t *testing.T) {
-		matcher := gomatchers.AnyOf(
-			gomatchers.Equal(10),
-			gomatchers.Equal(20),
-			gomatchers.Equal(30),
+		matcher := specta.AnyOf(
+			specta.Equal(10),
+			specta.Equal(20),
+			specta.Equal(30),
 		)
 
 		if !matcher.Matches(10).Matched {
@@ -256,20 +256,20 @@ func TestAssertThat(t *testing.T) {
 	// We can't easily test failures without subtests that are expected to fail
 	// So we just test the happy path
 	t.Run("does not fail on match", func(t *testing.T) {
-		gomatchers.AssertThat(t, 42, gomatchers.Equal(42))
-		gomatchers.AssertThat(t, "hello", gomatchers.Contains("ell"))
-		gomatchers.AssertThat(t, true, gomatchers.IsTrue())
+		specta.AssertThat(t, 42, specta.Equal(42))
+		specta.AssertThat(t, "hello", specta.Contains("ell"))
+		specta.AssertThat(t, true, specta.IsTrue())
 	})
 }
 
 func TestMatcherComposition(t *testing.T) {
 	t.Run("complex matcher combinations", func(t *testing.T) {
 		// Value must be > 10 AND (< 20 OR > 30)
-		matcher := gomatchers.AllOf(
-			gomatchers.GreaterThan(10),
-			gomatchers.AnyOf(
-				gomatchers.LessThan(20),
-				gomatchers.GreaterThan(30),
+		matcher := specta.AllOf(
+			specta.GreaterThan(10),
+			specta.AnyOf(
+				specta.LessThan(20),
+				specta.GreaterThan(30),
 			),
 		)
 
@@ -316,7 +316,7 @@ func TestStructuredDiff_DeepEqual(t *testing.T) {
 		expected := TestPerson{Name: "Alice", Age: 30, Email: "alice@example.com"}
 		actual := TestPerson{Name: "Alice", Age: 25, Email: "bob@example.com"}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		if result.Matched {
@@ -340,7 +340,7 @@ func TestStructuredDiff_DeepEqual(t *testing.T) {
 	})
 
 	t.Run("uses simple format for non-struct types", func(t *testing.T) {
-		matcher := gomatchers.DeepEqual(42)
+		matcher := specta.DeepEqual(42)
 		result := matcher.Matches(99)
 
 		if result.Matched {
@@ -374,7 +374,7 @@ func TestStructuredDiff_DeepEqual(t *testing.T) {
 			},
 		}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		if result.Matched {
@@ -396,7 +396,7 @@ func TestStructuredDiff_SliceTruncation(t *testing.T) {
 		expected := SmallList{Items: []int{1, 2, 3}}
 		actual := SmallList{Items: []int{1, 2, 4}}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		if result.Matched {
@@ -423,7 +423,7 @@ func TestStructuredDiff_SliceTruncation(t *testing.T) {
 		expected := LargeList{Items: expectedItems}
 		actual := LargeList{Items: actualItems}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		if result.Matched {
@@ -444,7 +444,7 @@ func TestStructuredDiff_MapTruncation(t *testing.T) {
 		expected := Config{Settings: map[string]string{"a": "1", "b": "2"}}
 		actual := Config{Settings: map[string]string{"a": "1", "b": "3"}}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		if result.Matched {
@@ -470,7 +470,7 @@ func TestStructuredDiff_MapTruncation(t *testing.T) {
 		expected := Config{Settings: expectedSettings}
 		actual := Config{Settings: actualSettings}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		if result.Matched {
@@ -487,7 +487,7 @@ func TestStructuredDiff_AllMatched(t *testing.T) {
 		expected := TestPerson{Name: "Alice", Age: 30, Email: "alice@example.com"}
 		actual := TestPerson{Name: "Alice", Age: 30, Email: "alice@example.com"}
 
-		matcher := gomatchers.DeepEqual(expected)
+		matcher := specta.DeepEqual(expected)
 		result := matcher.Matches(actual)
 
 		if !result.Matched {

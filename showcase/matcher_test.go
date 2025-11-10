@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
-	"github.com/james-w/gomatchers/showcase/factory"
+	"github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
+	"github.com/james-w/specta/showcase/factory"
 )
 
 func TestUserMatcher(t *testing.T) {
@@ -19,9 +19,9 @@ func TestUserMatcher(t *testing.T) {
 		}
 
 		matcher := factory.UserMatches().
-			Email(gomatchers.Equal("alice@example.com")).
-			FirstName(gomatchers.Equal("Alice")).
-			Active(gomatchers.IsTrue())
+			Email(specta.Equal("alice@example.com")).
+			FirstName(specta.Equal("Alice")).
+			Active(specta.IsTrue())
 
 		result := matcher.Matcher().Matches(user)
 		if !result.Matched {
@@ -36,14 +36,11 @@ func TestUserMatcher(t *testing.T) {
 		user := showcase.User{Email: "alice@example.com"}
 
 		matcher := factory.UserMatches().
-			Email(gomatchers.Equal("bob@example.com"))
+			Email(specta.Equal("bob@example.com"))
 
 		result := matcher.Matcher().Matches(user)
 		if result.Matched {
 			t.Error("Expected mismatch but got match")
-		}
-		if len(result.Details) == 0 {
-			t.Error("Expected failure details")
 		}
 	})
 
@@ -55,7 +52,7 @@ func TestUserMatcher(t *testing.T) {
 
 		// Only check email, ignore other fields
 		matcher := factory.UserMatches().
-			Email(gomatchers.Equal("alice@example.com"))
+			Email(specta.Equal("alice@example.com"))
 
 		result := matcher.Matcher().Matches(user)
 		if !result.Matched {
@@ -67,7 +64,7 @@ func TestUserMatcher(t *testing.T) {
 		user := showcase.User{Email: "alice@example.com"}
 
 		matcher := factory.UserMatches().
-			Email(gomatchers.Contains("@example.com"))
+			Email(specta.Contains("@example.com"))
 
 		result := matcher.Matcher().Matches(user)
 		if !result.Matched {
@@ -85,7 +82,7 @@ func TestUserMatcher(t *testing.T) {
 
 		matcher := factory.UserMatches().
 			AddressMatches(
-				factory.AddressMatches().City(gomatchers.Equal("Boston")),
+				factory.AddressMatches().City(specta.Equal("Boston")),
 			)
 
 		result := matcher.Matcher().Matches(user)
@@ -107,9 +104,9 @@ func TestAddressMatcher(t *testing.T) {
 		}
 
 		matcher := factory.AddressMatches().
-			Street(gomatchers.Equal("123 Main St")).
-			City(gomatchers.Equal("Springfield")).
-			State(gomatchers.Equal("IL"))
+			Street(specta.Equal("123 Main St")).
+			City(specta.Equal("Springfield")).
+			State(specta.Equal("IL"))
 
 		result := matcher.Matcher().Matches(addr)
 		if !result.Matched {
@@ -126,7 +123,7 @@ func TestAddressMatcher(t *testing.T) {
 
 		// Only check city
 		matcher := factory.AddressMatches().
-			City(gomatchers.Equal("Boston"))
+			City(specta.Equal("Boston"))
 
 		result := matcher.Matcher().Matches(addr)
 		if !result.Matched {
@@ -144,9 +141,9 @@ func TestProductMatcher(t *testing.T) {
 		}
 
 		matcher := factory.ProductMatches().
-			Name(gomatchers.Equal("Widget")).
-			Price(gomatchers.GreaterThan(10.0)).
-			InStock(gomatchers.IsTrue())
+			Name(specta.Equal("Widget")).
+			Price(specta.GreaterThan(10.0)).
+			InStock(specta.IsTrue())
 
 		result := matcher.Matcher().Matches(product)
 		if !result.Matched {
@@ -158,7 +155,7 @@ func TestProductMatcher(t *testing.T) {
 		product := showcase.Product{Price: 5.0}
 
 		matcher := factory.ProductMatches().
-			Price(gomatchers.GreaterThan(10.0))
+			Price(specta.GreaterThan(10.0))
 
 		result := matcher.Matcher().Matches(product)
 		if result.Matched {
@@ -180,10 +177,10 @@ func TestOrderMatcher(t *testing.T) {
 		matcher := factory.OrderMatches().
 			UserMatches(
 				factory.UserMatches().
-					Email(gomatchers.Equal("customer@example.com")),
+					Email(specta.Equal("customer@example.com")),
 			).
-			Status(gomatchers.Equal("pending")).
-			Total(gomatchers.GreaterThan(100.0))
+			Status(specta.Equal("pending")).
+			Total(specta.GreaterThan(100.0))
 
 		result := matcher.Matcher().Matches(order)
 		if !result.Matched {
@@ -204,16 +201,12 @@ func TestOrderMatcher(t *testing.T) {
 		matcher := factory.OrderMatches().
 			UserMatches(
 				factory.UserMatches().
-					Email(gomatchers.Equal("right@example.com")),
+					Email(specta.Equal("right@example.com")),
 			)
 
 		result := matcher.Matcher().Matches(order)
 		if result.Matched {
 			t.Error("Expected mismatch")
-		}
-		// Should have details about the nested field mismatch
-		if len(result.Details) == 0 {
-			t.Error("Expected detailed error message")
 		}
 	})
 }
@@ -225,12 +218,12 @@ func TestMatcherCombinations(t *testing.T) {
 			FirstName: "Alice",
 		}
 
-		matcher := gomatchers.AllOf(
+		matcher := specta.AllOf(
 			factory.UserMatches().
-				Email(gomatchers.Contains("@example.com")).
+				Email(specta.Contains("@example.com")).
 				Matcher(),
 			factory.UserMatches().
-				FirstName(gomatchers.Equal("Alice")).
+				FirstName(specta.Equal("Alice")).
 				Matcher(),
 		)
 
@@ -243,12 +236,12 @@ func TestMatcherCombinations(t *testing.T) {
 	t.Run("AnyOf with matchers", func(t *testing.T) {
 		user := showcase.User{Email: "alice@example.com"}
 
-		matcher := gomatchers.AnyOf(
+		matcher := specta.AnyOf(
 			factory.UserMatches().
-				Email(gomatchers.Equal("bob@example.com")).
+				Email(specta.Equal("bob@example.com")).
 				Matcher(),
 			factory.UserMatches().
-				Email(gomatchers.Equal("alice@example.com")).
+				Email(specta.Equal("alice@example.com")).
 				Matcher(),
 		)
 
@@ -265,7 +258,7 @@ func TestNotMatcher(t *testing.T) {
 
 		// Not(IsTrue()) should match when Active is false
 		matcher := factory.UserMatches().
-			Active(gomatchers.Not(gomatchers.IsTrue()))
+			Active(specta.Not(specta.IsTrue()))
 
 		result := matcher.Matcher().Matches(user)
 		if !result.Matched {
@@ -283,7 +276,7 @@ func TestTimeMatcher(t *testing.T) {
 		}
 
 		matcher := factory.ProductMatches().
-			CreatedAt(gomatchers.Equal(now))
+			CreatedAt(specta.Equal(now))
 
 		result := matcher.Matcher().Matches(product)
 		if !result.Matched {
@@ -293,14 +286,14 @@ func TestTimeMatcher(t *testing.T) {
 }
 
 func TestBankAccountMatcher(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("matches via getter methods", func(t *testing.T) {
 		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
 
 		matcher := factory.BankAccountMatches().
-			Name(gomatchers.Equal("Alice")).
-			Balance(gomatchers.Equal(1000))
+			Name(specta.Equal("Alice")).
+			Balance(specta.Equal(1000))
 
 		result := matcher.Matcher().Matches(account)
 		if !result.Matched {
@@ -315,14 +308,11 @@ func TestBankAccountMatcher(t *testing.T) {
 		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
 
 		matcher := factory.BankAccountMatches().
-			Name(gomatchers.Equal("Bob"))
+			Name(specta.Equal("Bob"))
 
 		result := matcher.Matcher().Matches(account)
 		if result.Matched {
 			t.Error("Expected no match but got match")
-		}
-		if len(result.Details) == 0 || result.Details[0] == "" {
-			t.Errorf("Expected error details, got: %v", result.Details)
 		}
 	})
 
@@ -331,7 +321,7 @@ func TestBankAccountMatcher(t *testing.T) {
 
 		// Only check Name, ignore Balance
 		matcher := factory.BankAccountMatches().
-			Name(gomatchers.Equal("Alice"))
+			Name(specta.Equal("Alice"))
 
 		result := matcher.Matcher().Matches(account)
 		if !result.Matched {
@@ -343,7 +333,7 @@ func TestBankAccountMatcher(t *testing.T) {
 		account := factory.BankAccount().Name("Alice").Balance(1500).Build(p)
 
 		matcher := factory.BankAccountMatches().
-			Balance(gomatchers.GreaterThan(1000))
+			Balance(specta.GreaterThan(1000))
 
 		result := matcher.Matcher().Matches(account)
 		if !result.Matched {
@@ -360,7 +350,7 @@ func TestEmailMatcher(t *testing.T) {
 		}
 
 		matcher := factory.EmailMatches().
-			Address(gomatchers.Equal("alice@example.com"))
+			Address(specta.Equal("alice@example.com"))
 
 		result := matcher.Matcher().Matches(email)
 		if !result.Matched {
@@ -378,7 +368,7 @@ func TestEmailMatcher(t *testing.T) {
 		}
 
 		matcher := factory.EmailMatches().
-			Address(gomatchers.Equal("bob@example.com"))
+			Address(specta.Equal("bob@example.com"))
 
 		result := matcher.Matcher().Matches(email)
 		if result.Matched {
@@ -388,17 +378,17 @@ func TestEmailMatcher(t *testing.T) {
 }
 
 func TestFieldExtractor(t *testing.T) {
-	p := gomatchers.New()
+	p := specta.New()
 
 	t.Run("matches computed value", func(t *testing.T) {
 		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
 
 		// Match on double the balance
-		matcher := gomatchers.Field("double balance",
+		matcher := specta.Field("double balance",
 			func(acc showcase.BankAccount) int {
 				return acc.GetBalance() * 2
 			},
-			gomatchers.Equal(2000),
+			specta.Equal(2000),
 		)
 
 		result := matcher.Matches(account)
@@ -410,11 +400,11 @@ func TestFieldExtractor(t *testing.T) {
 	t.Run("fails with clear error message", func(t *testing.T) {
 		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
 
-		matcher := gomatchers.Field("double balance",
+		matcher := specta.Field("double balance",
 			func(acc showcase.BankAccount) int {
 				return acc.GetBalance() * 2
 			},
-			gomatchers.Equal(3000),
+			specta.Equal(3000),
 		)
 
 		result := matcher.Matches(account)
@@ -432,16 +422,16 @@ func TestFieldExtractor(t *testing.T) {
 
 		// Use both generated matcher and Field extractor
 		genMatcher := factory.BankAccountMatches().
-			Name(gomatchers.Equal("Alice"))
+			Name(specta.Equal("Alice"))
 
-		fieldMatcher := gomatchers.Field("double balance",
+		fieldMatcher := specta.Field("double balance",
 			func(acc showcase.BankAccount) int {
 				return acc.GetBalance() * 2
 			},
-			gomatchers.GreaterThan(1500),
+			specta.GreaterThan(1500),
 		)
 
-		combined := gomatchers.AllOf(
+		combined := specta.AllOf(
 			genMatcher.Matcher(),
 			fieldMatcher,
 		)
@@ -458,24 +448,24 @@ func TestFieldExtractor(t *testing.T) {
 	t.Run("multiple field extractors with AllOf", func(t *testing.T) {
 		account := factory.BankAccount().Name("Alice").Balance(1500).Build(p)
 
-		matcher := gomatchers.AllOf(
-			gomatchers.Field("name length",
+		matcher := specta.AllOf(
+			specta.Field("name length",
 				func(acc showcase.BankAccount) int {
 					return len(acc.GetName())
 				},
-				gomatchers.Equal(5),
+				specta.Equal(5),
 			),
-			gomatchers.Field("balance >= 1000",
+			specta.Field("balance >= 1000",
 				func(acc showcase.BankAccount) bool {
 					return acc.GetBalance() >= 1000
 				},
-				gomatchers.IsTrue(),
+				specta.IsTrue(),
 			),
-			gomatchers.Field("double balance",
+			specta.Field("double balance",
 				func(acc showcase.BankAccount) int {
 					return acc.GetBalance() * 2
 				},
-				gomatchers.GreaterThan(2000),
+				specta.GreaterThan(2000),
 			),
 		)
 
@@ -496,11 +486,11 @@ func TestFieldExtractor(t *testing.T) {
 			Build(p)
 
 		// Extract and match on nested Address
-		matcher := gomatchers.Field("address city",
+		matcher := specta.Field("address city",
 			func(u showcase.User) string {
 				return u.Address.City
 			},
-			gomatchers.Equal("NYC"),
+			specta.Equal("NYC"),
 		)
 
 		result := matcher.Matches(user)

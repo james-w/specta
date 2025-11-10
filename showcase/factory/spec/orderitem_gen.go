@@ -2,11 +2,36 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package spec provides low-level specifications for building test data.
+//
+// Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := NewOrderItemSpec()
+//	opts := []testgen.Opt[OrderItemSpec]{
+//
+//
+//		WithOrderItemProduct(value),
+//
+//
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := BuildOrderItem(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := NewOrderItemFactory(testgen.New())
+//
+//
+//	result := factory.Make(WithOrderItemProduct(value))
 package spec
 
 import (
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // OrderItemSpec is the low-level specification for building OrderItem instances.

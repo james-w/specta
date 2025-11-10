@@ -5,11 +5,10 @@
 package factory
 
 import (
-	"fmt"
 	"time"
 
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // OrderMatcher provides a fluent API for matching Order instances.
@@ -79,139 +78,85 @@ func (m OrderMatcher) UpdatedAt(matcher testgen.Matcher[time.Time]) OrderMatcher
 // Matcher returns the composed matcher for Order.
 func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 	return testgen.MatcherFunc[showcase.Order](func(actual showcase.Order) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		iDValue := actual.ID
+		userValue := actual.User
+		itemsValue := actual.Items
+		totalValue := actual.Total
+		statusValue := actual.Status
+		createdAtValue := actual.CreatedAt
+		updatedAtValue := actual.UpdatedAt
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"ID":        iDValue,
+			"User":      userValue,
+			"Items":     itemsValue,
+			"Total":     totalValue,
+			"Status":    statusValue,
+			"CreatedAt": createdAtValue,
+			"UpdatedAt": updatedAtValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(actual.ID)
+			result := m.iDMatcher.Matches(iDValue)
+			fieldResults["ID"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Order.ID"
-				if result.Path != "" {
-					path = "Order." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "ID: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.userMatcher != nil {
-			result := m.userMatcher.Matches(actual.User)
+			result := m.userMatcher.Matches(userValue)
+			fieldResults["User"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Order.User"
-				if result.Path != "" {
-					path = "Order." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "User: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.itemsMatcher != nil {
-			result := m.itemsMatcher.Matches(actual.Items)
+			result := m.itemsMatcher.Matches(itemsValue)
+			fieldResults["Items"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Order.Items"
-				if result.Path != "" {
-					path = "Order." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Items: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.totalMatcher != nil {
-			result := m.totalMatcher.Matches(actual.Total)
+			result := m.totalMatcher.Matches(totalValue)
+			fieldResults["Total"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Order.Total"
-				if result.Path != "" {
-					path = "Order." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Total: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.statusMatcher != nil {
-			result := m.statusMatcher.Matches(actual.Status)
+			result := m.statusMatcher.Matches(statusValue)
+			fieldResults["Status"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Order.Status"
-				if result.Path != "" {
-					path = "Order." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Status: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(actual.CreatedAt)
+			result := m.createdAtMatcher.Matches(createdAtValue)
+			fieldResults["CreatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Order.CreatedAt"
-				if result.Path != "" {
-					path = "Order." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "CreatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.updatedAtMatcher != nil {
-			result := m.updatedAtMatcher.Matches(actual.UpdatedAt)
+			result := m.updatedAtMatcher.Matches(updatedAtValue)
+			fieldResults["UpdatedAt"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "Order.UpdatedAt"
-				if result.Path != "" {
-					path = "Order." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "UpdatedAt: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("Order", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "Order did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

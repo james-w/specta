@@ -5,8 +5,8 @@
 package factory
 
 import (
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/example"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/example"
 )
 
 // ParentMatcher provides a fluent API for matching Parent instances.

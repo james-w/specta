@@ -5,9 +5,8 @@
 package factory
 
 import (
-	"fmt"
-	testgen "github.com/james-w/gomatchers"
-	"github.com/james-w/gomatchers/showcase"
+	testgen "github.com/james-w/specta"
+	"github.com/james-w/specta/showcase"
 )
 
 // OrderItemMatcher provides a fluent API for matching OrderItem instances.
@@ -49,67 +48,49 @@ func (m OrderItemMatcher) Price(matcher testgen.Matcher[float64]) OrderItemMatch
 // Matcher returns the composed matcher for OrderItem.
 func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 	return testgen.MatcherFunc[showcase.OrderItem](func(actual showcase.OrderItem) testgen.MatchResult {
-		var failures []string
+		// Extract all field values upfront (call each getter exactly once)
+		productValue := actual.Product
+		quantityValue := actual.Quantity
+		priceValue := actual.Price
+
+		// Build fieldValues map for structured diff
+		fieldValues := map[string]any{
+			"Product":  productValue,
+			"Quantity": quantityValue,
+			"Price":    priceValue,
+		}
+
+		// Check matchers using cached values and store results
+		fieldResults := make(map[string]*testgen.MatchResult)
+		hasFailures := false
 		if m.productMatcher != nil {
-			result := m.productMatcher.Matches(actual.Product)
+			result := m.productMatcher.Matches(productValue)
+			fieldResults["Product"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "OrderItem.Product"
-				if result.Path != "" {
-					path = "OrderItem." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Product: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.quantityMatcher != nil {
-			result := m.quantityMatcher.Matches(actual.Quantity)
+			result := m.quantityMatcher.Matches(quantityValue)
+			fieldResults["Quantity"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "OrderItem.Quantity"
-				if result.Path != "" {
-					path = "OrderItem." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Quantity: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 		if m.priceMatcher != nil {
-			result := m.priceMatcher.Matches(actual.Price)
+			result := m.priceMatcher.Matches(priceValue)
+			fieldResults["Price"] = &result
 			if !result.Matched {
-				// Add path context if not already present
-				path := "OrderItem.Price"
-				if result.Path != "" {
-					path = "OrderItem." + result.Path
-				}
-				msg := result.Message
-				if result.Expected != nil && result.Actual != nil {
-					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
-				}
-				failures = append(failures, "Price: "+msg)
-				for _, detail := range result.Details {
-					failures = append(failures, "  "+detail)
-				}
+				hasFailures = true
 			}
 		}
 
-		if len(failures) > 0 {
+		if hasFailures {
+			// Use structured diff for struct types
+			structDiff := testgen.BuildMatcherStructDiff("OrderItem", fieldValues, fieldResults)
 			return testgen.MatchResult{
 				Matched: false,
-				Message: "OrderItem did not match",
-				Details: failures,
+				Message: structDiff,
 			}
 		}
 		return testgen.MatchResult{Matched: true}

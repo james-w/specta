@@ -1,6 +1,4 @@
-// Package testgen provides deterministic, concurrency-safe generators
-// of primitive values for use in tests, plus spec-first factory utilities.
-package gomatchers
+package specta
 
 import (
 	"fmt"
