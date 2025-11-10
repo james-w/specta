@@ -68,10 +68,10 @@ func TestAnotherActiveUser(t *testing.T) {
 
 ```go
 // Define once
-var IsActiveAdmin = gomatchers.AllOf(
-    UserMatches().Active(gomatchers.IsTrue()),
-    UserMatches().Role(gomatchers.Equal("admin")),
-)
+var IsActiveAdmin = UserMatches().
+    Active(gomatchers.IsTrue()).
+    Role(gomatchers.Equal("admin")).
+    Matcher()
 
 // Reuse everywhere
 func TestActiveUser(t *testing.T) {
