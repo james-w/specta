@@ -3,33 +3,63 @@
 ## High Priority
 
 ### 1. Better Error Messages (IN PROGRESS)
-**Goal:** Improve matcher failure messages with actual vs expected values and diffs
+**Goal:** Improve matcher failure messages with actual vs expected values and structured diffs
 
-**Tasks:**
-- [ ] Add actual/expected fields to MatchResult
-- [ ] Update all basic matchers (Equal, GreaterThan, etc.) to include both values
-- [ ] Add diff output for struct mismatches
-- [ ] Show field paths for nested failures (e.g., "User.Address.City")
-- [ ] Consider adding diff library for complex structures
-- [ ] Update all generated matchers to show actual values
+**Completed:**
+- [x] Add actual/expected fields to MatchResult
+- [x] Update all basic matchers (Equal, GreaterThan, etc.) to include both values
+- [x] Show field paths for nested failures (e.g., "User.Address.City")
+- [x] Update all generated matchers to show actual values
 
-**Examples:**
+**Remaining - Structured Diff Output:**
+- [ ] Add structured diff with status symbols (✓/✗/~)
+- [ ] Implement indented block format for nested structs
+- [ ] Add terminal color detection (auto-detect TTY)
+- [ ] Smart truncation for collections (show first 5, summarize rest)
+- [ ] Handle both equality and constraint matchers appropriately
+
+**Desired Output Format:**
 ```
-Before: "Name: expected Alice but got Bob"
-After:  "Name: expected 'Alice' but got 'Bob'"
-
-Before: "User did not match"
-After:  "User did not match:
-  Name: expected 'Alice' but got 'Bob' (at User.Name)
-  Address.City: expected 'NYC' but got 'LA' (at User.Address.City)"
+User {
+  ✓ FirstName: "Alice"                         // Matched
+  ✗ Email: expected "alice@..." got "bob@..."  // Failed equality
+  ✗ Age: expected > 18 but got 15              // Failed constraint
+  ~ Active: true                                // Not checked (no matcher)
+    Address: {
+      ✓ Street: "123 Main"
+      ✗ City: expected "NYC" but got "LA"
+      ~ ZipCode: "10001"
+    }
+    Tags: [
+      ✓ [0]: "verified"
+      ✗ [1]: expected "premium" but got "basic"
+      ~ [2]: "active"
+      ... and 15 more items
+    ]
+}
 ```
 
-**Tests needed:**
-- Verify error messages include actual/expected
-- Test nested path construction
-- Test diff output for structs
+**Status Symbols:**
+- `✓` = matcher passed (green in terminal)
+- `✗` = matcher failed (red in terminal)
+- `~` = no matcher provided, shown for context (grey/dim in terminal)
 
-**Commit point:** "feat: improve matcher error messages with actual/expected values"
+**Implementation Details:**
+- Hybrid approach: generated matchers use matcher-based diffs, DeepEqual uses reflection
+- Detect equality vs constraint via `result.Expected != nil && result.Actual != nil`
+- For equality: show both expected and actual values
+- For constraints: show actual value + constraint message
+- Auto-detect terminal for ANSI colors (colorGreen=32, colorRed=31, colorGrey=90)
+
+**Files to modify:**
+- `TODO.md` - this file
+- `matchers_diff.go` - new file with reflection-based diff logic
+- `cmd/main.go` - update matcher template for structured output
+- `matchers.go` - update DeepEqual to use structDiff
+- `matchers_test.go` - add tests for diff output
+
+**Commit points:**
+- "feat: add structured diff output with status symbols"
 
 ---
 
