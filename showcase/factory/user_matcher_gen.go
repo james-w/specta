@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"fmt"
 	"time"
 
 	testgen "github.com/james-w/gomatchers"
@@ -89,7 +90,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(actual.ID)
 			if !result.Matched {
-				failures = append(failures, "ID: "+result.Message)
+				// Add path context if not already present
+				path := "User.ID"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "ID: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -98,7 +108,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.emailMatcher != nil {
 			result := m.emailMatcher.Matches(actual.Email)
 			if !result.Matched {
-				failures = append(failures, "Email: "+result.Message)
+				// Add path context if not already present
+				path := "User.Email"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Email: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -107,7 +126,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.firstNameMatcher != nil {
 			result := m.firstNameMatcher.Matches(actual.FirstName)
 			if !result.Matched {
-				failures = append(failures, "FirstName: "+result.Message)
+				// Add path context if not already present
+				path := "User.FirstName"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "FirstName: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -116,7 +144,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.lastNameMatcher != nil {
 			result := m.lastNameMatcher.Matches(actual.LastName)
 			if !result.Matched {
-				failures = append(failures, "LastName: "+result.Message)
+				// Add path context if not already present
+				path := "User.LastName"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "LastName: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -125,7 +162,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.activeMatcher != nil {
 			result := m.activeMatcher.Matches(actual.Active)
 			if !result.Matched {
-				failures = append(failures, "Active: "+result.Message)
+				// Add path context if not already present
+				path := "User.Active"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Active: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -134,7 +180,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.addressMatcher != nil {
 			result := m.addressMatcher.Matches(actual.Address)
 			if !result.Matched {
-				failures = append(failures, "Address: "+result.Message)
+				// Add path context if not already present
+				path := "User.Address"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Address: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -143,7 +198,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(actual.CreatedAt)
 			if !result.Matched {
-				failures = append(failures, "CreatedAt: "+result.Message)
+				// Add path context if not already present
+				path := "User.CreatedAt"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "CreatedAt: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -152,7 +216,16 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		if m.updatedAtMatcher != nil {
 			result := m.updatedAtMatcher.Matches(actual.UpdatedAt)
 			if !result.Matched {
-				failures = append(failures, "UpdatedAt: "+result.Message)
+				// Add path context if not already present
+				path := "User.UpdatedAt"
+				if result.Path != "" {
+					path = "User." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "UpdatedAt: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}

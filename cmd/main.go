@@ -962,6 +962,7 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 package factory
 
 import (
+	"fmt"
 {{- if .ImportTime }}
 	"time"
 {{end}}
@@ -1016,7 +1017,16 @@ func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.Ty
 		if m.{{lower .Name}}Matcher != nil {
 			result := m.{{lower .Name}}Matcher.Matches(actual.{{.Name}})
 			if !result.Matched {
-				failures = append(failures, "{{.Name}}: " + result.Message)
+				// Add path context if not already present
+				path := "{{$.TypeName}}.{{.Name}}"
+				if result.Path != "" {
+					path = "{{$.TypeName}}." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "{{.Name}}: " + msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  " + detail)
 				}
@@ -1029,7 +1039,16 @@ func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.Ty
 			value := actual.{{.Getter}}()
 			result := m.{{lower .Name}}Matcher.Matches(value)
 			if !result.Matched {
-				failures = append(failures, "{{.Name}}: " + result.Message)
+				// Add path context
+				path := "{{$.TypeName}}.{{.Name}}"
+				if result.Path != "" {
+					path = "{{$.TypeName}}." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "{{.Name}}: " + msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  " + detail)
 				}

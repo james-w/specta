@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"fmt"
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
 )
@@ -33,7 +34,16 @@ func (m EmailMatcher) Matcher() testgen.Matcher[showcase.Email] {
 			value := actual.GetAddress()
 			result := m.addressMatcher.Matches(value)
 			if !result.Matched {
-				failures = append(failures, "Address: "+result.Message)
+				// Add path context
+				path := "Email.Address"
+				if result.Path != "" {
+					path = "Email." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Address: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}

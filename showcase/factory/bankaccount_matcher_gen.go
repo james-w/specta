@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"fmt"
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
 )
@@ -40,7 +41,16 @@ func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 			value := actual.GetName()
 			result := m.nameMatcher.Matches(value)
 			if !result.Matched {
-				failures = append(failures, "Name: "+result.Message)
+				// Add path context
+				path := "BankAccount.Name"
+				if result.Path != "" {
+					path = "BankAccount." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Name: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -50,7 +60,16 @@ func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 			value := actual.GetBalance()
 			result := m.balanceMatcher.Matches(value)
 			if !result.Matched {
-				failures = append(failures, "Balance: "+result.Message)
+				// Add path context
+				path := "BankAccount.Balance"
+				if result.Path != "" {
+					path = "BankAccount." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Balance: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}

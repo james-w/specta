@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"fmt"
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
 )
@@ -60,7 +61,16 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 		if m.streetMatcher != nil {
 			result := m.streetMatcher.Matches(actual.Street)
 			if !result.Matched {
-				failures = append(failures, "Street: "+result.Message)
+				// Add path context if not already present
+				path := "Address.Street"
+				if result.Path != "" {
+					path = "Address." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Street: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -69,7 +79,16 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 		if m.cityMatcher != nil {
 			result := m.cityMatcher.Matches(actual.City)
 			if !result.Matched {
-				failures = append(failures, "City: "+result.Message)
+				// Add path context if not already present
+				path := "Address.City"
+				if result.Path != "" {
+					path = "Address." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "City: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -78,7 +97,16 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 		if m.stateMatcher != nil {
 			result := m.stateMatcher.Matches(actual.State)
 			if !result.Matched {
-				failures = append(failures, "State: "+result.Message)
+				// Add path context if not already present
+				path := "Address.State"
+				if result.Path != "" {
+					path = "Address." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "State: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -87,7 +115,16 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 		if m.zipCodeMatcher != nil {
 			result := m.zipCodeMatcher.Matches(actual.ZipCode)
 			if !result.Matched {
-				failures = append(failures, "ZipCode: "+result.Message)
+				// Add path context if not already present
+				path := "Address.ZipCode"
+				if result.Path != "" {
+					path = "Address." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "ZipCode: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -96,7 +133,16 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 		if m.countryMatcher != nil {
 			result := m.countryMatcher.Matches(actual.Country)
 			if !result.Matched {
-				failures = append(failures, "Country: "+result.Message)
+				// Add path context if not already present
+				path := "Address.Country"
+				if result.Path != "" {
+					path = "Address." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Country: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}

@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"fmt"
 	"time"
 
 	testgen "github.com/james-w/gomatchers"
@@ -74,7 +75,16 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(actual.ID)
 			if !result.Matched {
-				failures = append(failures, "ID: "+result.Message)
+				// Add path context if not already present
+				path := "Comment.ID"
+				if result.Path != "" {
+					path = "Comment." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "ID: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -83,7 +93,16 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 		if m.postMatcher != nil {
 			result := m.postMatcher.Matches(actual.Post)
 			if !result.Matched {
-				failures = append(failures, "Post: "+result.Message)
+				// Add path context if not already present
+				path := "Comment.Post"
+				if result.Path != "" {
+					path = "Comment." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Post: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -92,7 +111,16 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 		if m.authorMatcher != nil {
 			result := m.authorMatcher.Matches(actual.Author)
 			if !result.Matched {
-				failures = append(failures, "Author: "+result.Message)
+				// Add path context if not already present
+				path := "Comment.Author"
+				if result.Path != "" {
+					path = "Comment." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Author: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -101,7 +129,16 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 		if m.contentMatcher != nil {
 			result := m.contentMatcher.Matches(actual.Content)
 			if !result.Matched {
-				failures = append(failures, "Content: "+result.Message)
+				// Add path context if not already present
+				path := "Comment.Content"
+				if result.Path != "" {
+					path = "Comment." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Content: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -110,7 +147,16 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(actual.CreatedAt)
 			if !result.Matched {
-				failures = append(failures, "CreatedAt: "+result.Message)
+				// Add path context if not already present
+				path := "Comment.CreatedAt"
+				if result.Path != "" {
+					path = "Comment." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "CreatedAt: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}

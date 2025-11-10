@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"fmt"
 	"time"
 
 	testgen "github.com/james-w/gomatchers"
@@ -89,7 +90,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(actual.ID)
 			if !result.Matched {
-				failures = append(failures, "ID: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.ID"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "ID: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -98,7 +108,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.titleMatcher != nil {
 			result := m.titleMatcher.Matches(actual.Title)
 			if !result.Matched {
-				failures = append(failures, "Title: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.Title"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Title: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -107,7 +126,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.contentMatcher != nil {
 			result := m.contentMatcher.Matches(actual.Content)
 			if !result.Matched {
-				failures = append(failures, "Content: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.Content"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Content: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -116,7 +144,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.authorMatcher != nil {
 			result := m.authorMatcher.Matches(actual.Author)
 			if !result.Matched {
-				failures = append(failures, "Author: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.Author"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Author: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -125,7 +162,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.publishedMatcher != nil {
 			result := m.publishedMatcher.Matches(actual.Published)
 			if !result.Matched {
-				failures = append(failures, "Published: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.Published"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Published: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -134,7 +180,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.publishedAtMatcher != nil {
 			result := m.publishedAtMatcher.Matches(actual.PublishedAt)
 			if !result.Matched {
-				failures = append(failures, "PublishedAt: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.PublishedAt"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "PublishedAt: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -143,7 +198,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(actual.CreatedAt)
 			if !result.Matched {
-				failures = append(failures, "CreatedAt: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.CreatedAt"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "CreatedAt: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -152,7 +216,16 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		if m.updatedAtMatcher != nil {
 			result := m.updatedAtMatcher.Matches(actual.UpdatedAt)
 			if !result.Matched {
-				failures = append(failures, "UpdatedAt: "+result.Message)
+				// Add path context if not already present
+				path := "BlogPost.UpdatedAt"
+				if result.Path != "" {
+					path = "BlogPost." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "UpdatedAt: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}

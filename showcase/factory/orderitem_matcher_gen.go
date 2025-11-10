@@ -5,6 +5,7 @@
 package factory
 
 import (
+	"fmt"
 	testgen "github.com/james-w/gomatchers"
 	"github.com/james-w/gomatchers/showcase"
 )
@@ -52,7 +53,16 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 		if m.productMatcher != nil {
 			result := m.productMatcher.Matches(actual.Product)
 			if !result.Matched {
-				failures = append(failures, "Product: "+result.Message)
+				// Add path context if not already present
+				path := "OrderItem.Product"
+				if result.Path != "" {
+					path = "OrderItem." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Product: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -61,7 +71,16 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 		if m.quantityMatcher != nil {
 			result := m.quantityMatcher.Matches(actual.Quantity)
 			if !result.Matched {
-				failures = append(failures, "Quantity: "+result.Message)
+				// Add path context if not already present
+				path := "OrderItem.Quantity"
+				if result.Path != "" {
+					path = "OrderItem." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Quantity: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}
@@ -70,7 +89,16 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 		if m.priceMatcher != nil {
 			result := m.priceMatcher.Matches(actual.Price)
 			if !result.Matched {
-				failures = append(failures, "Price: "+result.Message)
+				// Add path context if not already present
+				path := "OrderItem.Price"
+				if result.Path != "" {
+					path = "OrderItem." + result.Path
+				}
+				msg := result.Message
+				if result.Expected != nil && result.Actual != nil {
+					msg = fmt.Sprintf("%s (at %s)", result.Message, path)
+				}
+				failures = append(failures, "Price: "+msg)
 				for _, detail := range result.Details {
 					failures = append(failures, "  "+detail)
 				}

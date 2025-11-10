@@ -14,9 +14,12 @@ type Matcher[T any] interface {
 
 // MatchResult represents the result of a match operation.
 type MatchResult struct {
-	Matched bool     // Whether the match succeeded
-	Message string   // Human-readable description of the failure
-	Details []string // Additional details about what didn't match
+	Matched  bool     // Whether the match succeeded
+	Message  string   // Human-readable description of the failure
+	Details  []string // Additional details about what didn't match
+	Expected any      // Expected value (optional, for better error messages)
+	Actual   any      // Actual value (optional, for better error messages)
+	Path     string   // Field path for nested failures (e.g., "User.Address.City")
 }
 
 // MatcherFunc is a function that implements the Matcher interface.
@@ -49,8 +52,10 @@ func Equal[T comparable](expected T) Matcher[T] {
 			return MatchResult{Matched: true}
 		}
 		return MatchResult{
-			Matched: false,
-			Message: fmt.Sprintf("expected %v but got %v", expected, actual),
+			Matched:  false,
+			Message:  fmt.Sprintf("expected %#v but got %#v", expected, actual),
+			Expected: expected,
+			Actual:   actual,
 		}
 	})
 }
@@ -63,8 +68,10 @@ func DeepEqual[T any](expected T) Matcher[T] {
 			return MatchResult{Matched: true}
 		}
 		return MatchResult{
-			Matched: false,
-			Message: fmt.Sprintf("expected %v but got %v", expected, actual),
+			Matched:  false,
+			Message:  fmt.Sprintf("expected %#v but got %#v", expected, actual),
+			Expected: expected,
+			Actual:   actual,
 		}
 	})
 }
@@ -117,8 +124,10 @@ func GreaterThan[T interface {
 			return MatchResult{Matched: true}
 		}
 		return MatchResult{
-			Matched: false,
-			Message: fmt.Sprintf("expected value > %v but got %v", threshold, actual),
+			Matched:  false,
+			Message:  fmt.Sprintf("expected value > %v but got %v", threshold, actual),
+			Expected: fmt.Sprintf("> %v", threshold),
+			Actual:   actual,
 		}
 	})
 }
@@ -134,8 +143,10 @@ func LessThan[T interface {
 			return MatchResult{Matched: true}
 		}
 		return MatchResult{
-			Matched: false,
-			Message: fmt.Sprintf("expected value < %v but got %v", threshold, actual),
+			Matched:  false,
+			Message:  fmt.Sprintf("expected value < %v but got %v", threshold, actual),
+			Expected: fmt.Sprintf("< %v", threshold),
+			Actual:   actual,
 		}
 	})
 }
@@ -151,8 +162,10 @@ func GreaterThanOrEqual[T interface {
 			return MatchResult{Matched: true}
 		}
 		return MatchResult{
-			Matched: false,
-			Message: fmt.Sprintf("expected value >= %v but got %v", threshold, actual),
+			Matched:  false,
+			Message:  fmt.Sprintf("expected value >= %v but got %v", threshold, actual),
+			Expected: fmt.Sprintf(">= %v", threshold),
+			Actual:   actual,
 		}
 	})
 }
