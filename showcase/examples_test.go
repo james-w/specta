@@ -18,7 +18,7 @@ func TestIntegrationExamples(t *testing.T) {
 			Active(true).
 			Build(p)
 
-		// Verify with matcher
+		// Verify with explicit matchers
 		gomatchers.AssertThat(t, user,
 			factory.UserMatches().
 				Email(gomatchers.Contains("@example.com")).
@@ -26,55 +26,36 @@ func TestIntegrationExamples(t *testing.T) {
 				Matcher())
 	})
 
-	t.Run("partial matching with AsEqualMatcher", func(t *testing.T) {
-		// Create a template that only checks specific fields
-		template := factory.User().Active(true)
-		matcher := template.AsEqualMatcher()
-
-		// Build various users and check they match
-		user1 := factory.User().Active(true).Email("alice@example.com").Build(p)
-		user2 := factory.User().Active(true).Email("bob@example.com").Build(p)
-
-		gomatchers.AssertThat(t, user1, matcher)
-		gomatchers.AssertThat(t, user2, matcher)
-	})
-
-	t.Run("nested partial matching", func(t *testing.T) {
-		// Template checks only Address.City
-		template := factory.User().
-			AddressFromRecipe(factory.Address().City("Boston"))
-		matcher := template.AsEqualMatcher()
-
-		// User in Boston matches, regardless of other address fields
+	t.Run("nested matching with explicit matchers", func(t *testing.T) {
+		// Build user with specific address
 		user := factory.User().
 			FirstName("Alice").
 			AddressFromRecipe(factory.Address().City("Boston").State("MA")).
 			Build(p)
 
-		gomatchers.AssertThat(t, user, matcher)
+		// Verify nested fields - only check what matters
+		gomatchers.AssertThat(t, user,
+			factory.UserMatches().
+				FirstName(gomatchers.Equal("Alice")).
+				AddressMatches(
+					factory.AddressMatches().
+						City(gomatchers.Equal("Boston")),
+				).
+				Matcher())
 	})
 
-	t.Run("template matching pattern", func(t *testing.T) {
-		// Define a reusable template
-		activeUserTemplate := factory.User().Active(true)
-		matcher := activeUserTemplate.AsEqualMatcher()
-
-		// Test that active users match
+	t.Run("flexible constraint matchers", func(t *testing.T) {
+		// Build active users with different attributes
 		activeUser1 := factory.User().Active(true).Email("alice@example.com").Build(p)
 		activeUser2 := factory.User().Active(true).FirstName("Bob").Build(p)
 
-		if !matcher.Matches(activeUser1).Matched {
-			t.Error("Expected active user 1 to match")
-		}
-		if !matcher.Matches(activeUser2).Matched {
-			t.Error("Expected active user 2 to match")
-		}
+		// Use explicit matcher to check only Active status
+		matcher := factory.UserMatches().
+			Active(gomatchers.IsTrue()).
+			Matcher()
 
-		// Test that inactive user doesn't match
-		inactiveUser := factory.User().Active(false).Build(p)
-		if matcher.Matches(inactiveUser).Matched {
-			t.Error("Expected inactive user not to match")
-		}
+		gomatchers.AssertThat(t, activeUser1, matcher)
+		gomatchers.AssertThat(t, activeUser2, matcher)
 	})
 
 	t.Run("combining factory and explicit matchers", func(t *testing.T) {
@@ -98,131 +79,99 @@ func TestIntegrationExamples(t *testing.T) {
 	})
 }
 
-// TestAsEqualMatcherBasics demonstrates core AsEqualMatcher functionality
-func TestAsEqualMatcherBasics(t *testing.T) {
+// TestAsEqualMatcher demonstrates when AsEqualMatcher is useful:
+// when you want the matcher to verify the same fields that the recipe/generator
+// would set, allowing you to create reusable templates.
+func TestAsEqualMatcher(t *testing.T) {
 	p := gomatchers.New()
 
-	t.Run("partial matching - only checks set fields", func(t *testing.T) {
-		template := factory.User().FirstName("Alice")
-		matcher := template.AsEqualMatcher()
+	t.Run("use case: reusable template matcher", func(t *testing.T) {
+		// AsEqualMatcher shines when you want to match exactly what the recipe specifies.
+		// This is useful for creating reusable test templates where the recipe defines
+		// both the generation pattern AND the matching pattern.
 
-		// Matches any user with FirstName="Alice"
-		user1 := factory.User().FirstName("Alice").Email("alice@example.com").Active(true).Build(p)
-		user2 := factory.User().FirstName("Alice").Email("different@example.com").Active(false).Build(p)
-
-		result1 := matcher.Matches(user1)
-		if !result1.Matched {
-			t.Errorf("Expected match for user1 but got: %s", result1.Message)
-		}
-
-		result2 := matcher.Matches(user2)
-		if !result2.Matched {
-			t.Errorf("Expected match for user2 but got: %s", result2.Message)
-		}
-
-		// Doesn't match different name
-		user3 := factory.User().FirstName("Bob").Email("alice@example.com").Build(p)
-		result3 := matcher.Matches(user3)
-		if result3.Matched {
-			t.Error("Expected mismatch for user3 with different name")
-		}
-	})
-
-	t.Run("multiple fields - all must match", func(t *testing.T) {
-		template := factory.User().FirstName("Alice").Active(true)
-		matcher := template.AsEqualMatcher()
-
-		user1 := factory.User().FirstName("Alice").Active(true).Email("any@example.com").Build(p)
-		if !matcher.Matches(user1).Matched {
-			t.Error("Expected match when both FirstName and Active match")
-		}
-
-		user2 := factory.User().FirstName("Alice").Active(false).Build(p)
-		if matcher.Matches(user2).Matched {
-			t.Error("Expected mismatch when Active doesn't match")
-		}
-	})
-
-	t.Run("nested partial matching", func(t *testing.T) {
-		template := factory.User().
+		// Define a template: "active Boston users"
+		activeBostonTemplate := factory.User().
+			Active(true).
 			AddressFromRecipe(factory.Address().City("Boston"))
-		matcher := template.AsEqualMatcher()
 
+		// Create matcher that checks exactly what the template specifies
+		matcher := activeBostonTemplate.AsEqualMatcher()
+
+		// Any user matching the template (active + Boston) should pass,
+		// regardless of other fields
 		user1 := factory.User().
+			Active(true).
 			FirstName("Alice").
 			AddressFromRecipe(factory.Address().City("Boston").State("MA").Street("123 Main")).
 			Build(p)
-		result1 := matcher.Matches(user1)
-		if !result1.Matched {
-			t.Errorf("Expected match for user1 but got: %s", result1.Message)
-			for _, detail := range result1.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
 
 		user2 := factory.User().
-			FirstName("Bob").
-			AddressFromRecipe(factory.Address().City("Boston").State("CA").ZipCode("90210")).
-			Build(p)
-		result2 := matcher.Matches(user2)
-		if !result2.Matched {
-			t.Errorf("Expected match for user2 but got: %s", result2.Message)
-		}
-
-		user3 := factory.User().
-			FirstName("Charlie").
-			AddressFromRecipe(factory.Address().City("NYC").State("NY")).
-			Build(p)
-		result3 := matcher.Matches(user3)
-		if result3.Matched {
-			t.Error("Expected mismatch for user3 with different city")
-		}
-	})
-
-	t.Run("combined top-level and nested matching", func(t *testing.T) {
-		template := factory.User().
 			Active(true).
-			AddressFromRecipe(factory.Address().City("Boston"))
-		matcher := template.AsEqualMatcher()
-
-		user1 := factory.User().
-			Active(true).
-			FirstName("Alice").
-			AddressFromRecipe(factory.Address().City("Boston").State("MA")).
+			Email("bob@example.com").
+			AddressFromRecipe(factory.Address().City("Boston").ZipCode("02101")).
 			Build(p)
-		if !matcher.Matches(user1).Matched {
-			t.Error("Expected match when both Active and City match")
-		}
 
-		user2 := factory.User().
+		gomatchers.AssertThat(t, user1, matcher)
+		gomatchers.AssertThat(t, user2, matcher)
+
+		// Users not matching the template should fail
+		inactiveBoston := factory.User().
 			Active(false).
 			AddressFromRecipe(factory.Address().City("Boston")).
 			Build(p)
-		if matcher.Matches(user2).Matched {
-			t.Error("Expected mismatch when Active doesn't match")
-		}
 
-		user3 := factory.User().
+		activeNYC := factory.User().
 			Active(true).
 			AddressFromRecipe(factory.Address().City("NYC")).
 			Build(p)
-		if matcher.Matches(user3).Matched {
-			t.Error("Expected mismatch when City doesn't match")
+
+		result1 := matcher.Matches(inactiveBoston)
+		if result1.Matched {
+			t.Error("Expected mismatch for inactive Boston user")
+		}
+
+		result2 := matcher.Matches(activeNYC)
+		if result2.Matched {
+			t.Error("Expected mismatch for active NYC user")
 		}
 	})
 
+	t.Run("comparison: AsEqualMatcher vs explicit matchers", func(t *testing.T) {
+		// AsEqualMatcher automatically creates Equal matchers for set fields
+		template := factory.User().FirstName("Alice").Active(true)
+		asEqualMatcher := template.AsEqualMatcher()
+
+		// Equivalent explicit matcher
+		explicitMatcher := factory.UserMatches().
+			FirstName(gomatchers.Equal("Alice")).
+			Active(gomatchers.Equal(true)).
+			Matcher()
+
+		// Both should behave the same way
+		user := factory.User().FirstName("Alice").Active(true).Email("alice@example.com").Build(p)
+
+		gomatchers.AssertThat(t, user, asEqualMatcher)
+		gomatchers.AssertThat(t, user, explicitMatcher)
+
+		// Use explicit matchers when you need different constraints (not just equality)
+		constraintMatcher := factory.UserMatches().
+			FirstName(gomatchers.Contains("Ali")).  // Substring match instead of exact
+			Active(gomatchers.IsTrue()).            // Boolean check
+			Matcher()
+
+		gomatchers.AssertThat(t, user, constraintMatcher)
+	})
+
 	t.Run("empty recipe matches everything", func(t *testing.T) {
-		template := factory.User()
-		matcher := template.AsEqualMatcher()
+		// An empty recipe has no constraints, so matches any user
+		emptyTemplate := factory.User()
+		matcher := emptyTemplate.AsEqualMatcher()
 
 		user1 := factory.User().FirstName("Alice").Build(p)
 		user2 := factory.User().FirstName("Bob").Active(true).Build(p)
 
-		if !matcher.Matches(user1).Matched {
-			t.Error("Expected empty recipe to match user1")
-		}
-		if !matcher.Matches(user2).Matched {
-			t.Error("Expected empty recipe to match user2")
-		}
+		gomatchers.AssertThat(t, user1, matcher)
+		gomatchers.AssertThat(t, user2, matcher)
 	})
 }
