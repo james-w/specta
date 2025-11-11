@@ -387,8 +387,14 @@ func loadPackage(packagePath string) (*packages.Package, error) {
 		Dir:  ".",
 	}
 	pkgs, err := packages.Load(pkgCfg, packagePath)
-	if err != nil || packages.PrintErrors(pkgs) > 0 {
-		return nil, fmt.Errorf("load: %v", err)
+	if err != nil {
+		return nil, fmt.Errorf("load error: %v", err)
+	}
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("no packages loaded")
+	}
+	if packages.PrintErrors(pkgs) > 0 {
+		return nil, fmt.Errorf("package has errors")
 	}
 	return pkgs[0], nil
 }
@@ -1088,7 +1094,15 @@ import (
 // {{.RecipeName}} provides a fluent API for building {{.TypeName}} instances.
 type {{.RecipeName}} struct{
 	opts []testgen.Opt[spec.{{.SpecName}}]
-	{{- if not .HasConstructor}}
+	{{- if .HasConstructor}}
+	{{- range .ConstructorParams}}
+	{{- if .IsCustomType}}
+	{{- if not (hasPrefix .TypeExpr "[]")}}
+	{{lower .Name}}Recipe *{{.TypeExpr}}Recipe
+	{{- end}}
+	{{- end}}
+	{{- end}}
+	{{- else}}
 	{{- range .Fields}}
 	{{- if .IsCustomType}}
 	{{- if not (hasPrefix .TypeExpr "[]")}}
@@ -1107,6 +1121,11 @@ func {{.TypeName}}() {{.RecipeName}} { return {{.RecipeName}}{} }
 // {{.Name}} sets the {{.Name}} parameter.
 func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedTypeParam $.ParentPackage .}}) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}(v))
+	{{- if .IsCustomType}}
+	{{- if not (hasPrefix .TypeExpr "[]")}}
+	r.{{lower .Name}}Recipe = nil
+	{{- end}}
+	{{- end}}
 	return r
 }
 {{if .IsCustomType}}
@@ -1114,6 +1133,7 @@ func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedTypeParam $.ParentPackage .}}) 
 // {{.Name}}FromRecipe sets the {{.Name}} parameter using another Recipe (creates unique instances).
 func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(v.Provider()))
+	r.{{lower .Name}}Recipe = &v
 	return r
 }
 {{- end}}
@@ -1212,7 +1232,25 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 	m := {{.TypeName}}Matches()
 	{{- range .GetterMatchers}}
 	if s.{{.Name}}.IsSet() {
+		{{- $matcherName := .Name -}}
+		{{- $isCustomType := false -}}
+		{{- range $.ConstructorParams -}}
+			{{- if eq .Name $matcherName -}}
+				{{- if and .IsCustomType (not (hasPrefix .TypeExpr "[]")) -}}
+					{{- $isCustomType = true -}}
+				{{- end -}}
+			{{- end -}}
+		{{- end -}}
+		{{- if $isCustomType}}
+		// Check if we have a nested recipe for partial matching
+		if r.{{lower .Name}}Recipe != nil {
+			m = m.{{.Name}}(r.{{lower .Name}}Recipe.AsEqualMatcher())
+		} else {
+			m = m.{{.Name}}(testgen.Equal(s.{{.Name}}.Value(p)))
+		}
+		{{- else}}
 		m = m.{{.Name}}(testgen.Equal(s.{{.Name}}.Value(p)))
+		{{- end}}
 	}
 	{{- end}}
 	return m.Matcher()
@@ -1232,6 +1270,7 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 	expected := spec.Build{{.TypeName}}(p, s)
 	{{- end}}
 	return testgen.DeepEqual(expected)
+	{{- end}}
 	{{- else}}
 	// Apply opts to a spec to see what was set
 	s := spec.New{{.SpecName}}()

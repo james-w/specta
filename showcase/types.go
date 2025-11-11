@@ -127,3 +127,30 @@ func NewEmail(address string) (Email, error) {
 func (e Email) GetAddress() string {
 	return e.address
 }
+
+// Account represents a user account with an associated user
+// This demonstrates constructor-based factories with custom type parameters
+type Account struct {
+	id     string
+	user   User
+	status string
+}
+
+// NewAccount creates a new Account for the given user
+func NewAccount(user User, status string) Account {
+	return Account{
+		id:     "account_" + user.ID,
+		user:   user,
+		status: status,
+	}
+}
+
+// GetUser returns the associated user
+func (a Account) GetUser() User {
+	return a.user
+}
+
+// GetStatus returns the account status
+func (a Account) GetStatus() string {
+	return a.status
+}

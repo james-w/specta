@@ -15,6 +15,13 @@ types:
     matchers:
       - name: Address
         getter: GetAddress
+  - name: Account
+    constructor: NewAccount
+    matchers:
+      - name: User
+        getter: GetUser
+      - name: Status
+        getter: GetStatus
 targets:
   - package: .
     types:
@@ -28,6 +35,7 @@ targets:
         - Comment
         - BankAccount
         - Email
+        - Account
     file_suffix: _gen.go
 
 defaults:
