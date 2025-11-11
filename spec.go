@@ -144,4 +144,3 @@ func SliceOf[T any](provs ...Provider[T]) Provider[[]T] {
 		return out
 	}
 }
-

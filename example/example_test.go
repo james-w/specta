@@ -124,4 +124,3 @@ func ExampleContains_failure() {
 	// Output:
 	// expected string to contain "hello" but got "goodbye world"
 }
-

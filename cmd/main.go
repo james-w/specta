@@ -13,8 +13,8 @@ import (
 	"strings"
 	"text/template"
 
-	"gopkg.in/yaml.v3"
 	"golang.org/x/tools/go/packages"
+	"gopkg.in/yaml.v3"
 )
 
 type MatcherField struct {
@@ -29,12 +29,14 @@ type TypeConfig struct {
 }
 
 type Config struct {
-	Version int `yaml:"version"`
+	Version int          `yaml:"version"`
 	Types   []TypeConfig `yaml:"types"`
 	Targets []struct {
-		Package    string                                       `yaml:"package"`
-		Types      struct{ Include []string `yaml:"include"` } `yaml:"types"`
-		FileSuffix string                                       `yaml:"file_suffix"`
+		Package string `yaml:"package"`
+		Types   struct {
+			Include []string `yaml:"include"`
+		} `yaml:"types"`
+		FileSuffix string `yaml:"file_suffix"`
 	} `yaml:"targets"`
 }
 
@@ -43,7 +45,9 @@ var cfgPath = flag.String("config", "testgen.yaml", "path to config (JSON for th
 func main() {
 	flag.Parse()
 	cfg, err := loadConfig(*cfgPath)
-	if err != nil { log.Fatal(err) }
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for _, t := range cfg.Targets {
 		if err := processTarget(cfg, t); err != nil {
@@ -55,7 +59,9 @@ func main() {
 
 func loadConfig(path string) (*Config, error) {
 	b, err := os.ReadFile(path)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var c Config
 	// NOTE: For brevity this sample expects JSON; swap to yaml.v3 in your repo.
 	if err := yaml.Unmarshal(b, &c); err != nil {
@@ -67,7 +73,7 @@ func loadConfig(path string) (*Config, error) {
 type field struct {
 	Name         string
 	TypeExpr     string
-	IsCustomType bool  // true if this is a local struct type (not primitive)
+	IsCustomType bool   // true if this is a local struct type (not primitive)
 	RecipeName   string // e.g., "UserRecipe" if IsCustomType
 }
 
@@ -84,15 +90,15 @@ type GetterInfo struct {
 }
 
 type data struct {
-	Package        string // "factory"
-	ParentPackage  string // e.g., "example"
-	ParentImport   string // import path to parent package
-	TypeName       string
-	SpecName       string
-	RecipeName     string
-	Fields         []field
-	ImportTime     bool
-	ImportTestgen  string
+	Package       string // "factory"
+	ParentPackage string // e.g., "example"
+	ParentImport  string // import path to parent package
+	TypeName      string
+	SpecName      string
+	RecipeName    string
+	Fields        []field
+	ImportTime    bool
+	ImportTestgen string
 
 	// Constructor-based generation
 	HasConstructor     bool
@@ -243,14 +249,20 @@ func analyzeGetterMethod(fn *ast.FuncDecl, pkg *packages.Package) string {
 }
 
 func processTarget(cfg *Config, tgt struct {
-	Package    string                                       `yaml:"package"`
-	Types      struct{ Include []string `yaml:"include"` } `yaml:"types"`
-	FileSuffix string                                       `yaml:"file_suffix"`
+	Package string `yaml:"package"`
+	Types   struct {
+		Include []string `yaml:"include"`
+	} `yaml:"types"`
+	FileSuffix string `yaml:"file_suffix"`
 }) error {
-	if tgt.FileSuffix == "" { tgt.FileSuffix = "_testgen_gen.go" }
-	pkgCfg := &packages.Config{Mode: packages.NeedName|packages.NeedSyntax|packages.NeedTypes|packages.NeedFiles, Dir: "."}
+	if tgt.FileSuffix == "" {
+		tgt.FileSuffix = "_testgen_gen.go"
+	}
+	pkgCfg := &packages.Config{Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedFiles, Dir: "."}
 	pkgs, err := packages.Load(pkgCfg, tgt.Package)
-	if err != nil || packages.PrintErrors(pkgs) > 0 { return fmt.Errorf("load: %v", err) }
+	if err != nil || packages.PrintErrors(pkgs) > 0 {
+		return fmt.Errorf("load: %v", err)
+	}
 	pkg := pkgs[0]
 
 	// Collect all type names for detecting custom types
@@ -274,13 +286,13 @@ func processTarget(cfg *Config, tgt struct {
 		}
 
 		d := data{
-			Package:        "factory",
-			ParentPackage:  pkg.Name,
-			ParentImport:   pkg.PkgPath,
-			TypeName:       typeName,
-			SpecName:       typeName + "Spec",
-			RecipeName:     typeName + "Recipe",
-			ImportTestgen:  "github.com/james-w/specta",
+			Package:       "factory",
+			ParentPackage: pkg.Name,
+			ParentImport:  pkg.PkgPath,
+			TypeName:      typeName,
+			SpecName:      typeName + "Spec",
+			RecipeName:    typeName + "Recipe",
+			ImportTestgen: "github.com/james-w/specta",
 		}
 
 		// Check if this type has a constructor configured
@@ -336,17 +348,23 @@ func processTarget(cfg *Config, tgt struct {
 
 		// Generate spec file (low-level API)
 		specOut := filepath.Join(specDir, strings.ToLower(typeName)+"_gen.go")
-		if err := renderSpec(specOut, d); err != nil { return err }
+		if err := renderSpec(specOut, d); err != nil {
+			return err
+		}
 		log.Printf("wrote %s", specOut)
 
 		// Generate recipe file (high-level API)
 		recipeOut := filepath.Join(factoryDir, strings.ToLower(typeName)+"_gen.go")
-		if err := renderRecipe(recipeOut, d); err != nil { return err }
+		if err := renderRecipe(recipeOut, d); err != nil {
+			return err
+		}
 		log.Printf("wrote %s", recipeOut)
 
 		// Generate matcher file
 		matcherOut := filepath.Join(factoryDir, strings.ToLower(typeName)+"_matcher_gen.go")
-		if err := renderMatcher(matcherOut, d); err != nil { return err }
+		if err := renderMatcher(matcherOut, d); err != nil {
+			return err
+		}
 		log.Printf("wrote %s", matcherOut)
 	}
 	return nil
@@ -357,56 +375,66 @@ func findStruct(files []*ast.File, typeName string) *ast.StructType {
 	for _, f := range files {
 		ast.Inspect(f, func(n ast.Node) bool {
 			ts, ok := n.(*ast.TypeSpec)
-			if !ok || ts.Name.Name != typeName { return true }
-			if st, ok := ts.Type.(*ast.StructType); ok { out = st }
+			if !ok || ts.Name.Name != typeName {
+				return true
+			}
+			if st, ok := ts.Type.(*ast.StructType); ok {
+				out = st
+			}
 			return false
 		})
-		if out != nil { break }
+		if out != nil {
+			break
+		}
 	}
 	return out
 }
 
 func collectFields(pkg *packages.Package, st *ast.StructType, typeNames map[string]bool) []field {
-    var out []field
-    for _, f := range st.Fields.List {
-        if len(f.Names) == 0 {
-            continue // skip embedded/anon for now
-        }
-        name := f.Names[0].Name
+	var out []field
+	for _, f := range st.Fields.List {
+		if len(f.Names) == 0 {
+			continue // skip embedded/anon for now
+		}
+		name := f.Names[0].Name
 
-        // Render ONLY the type node. This never includes tags.
-        var buf bytes.Buffer
-        // Either printer.Fprint or format.Node works; printer is fine here.
-        if err := printer.Fprint(&buf, pkg.Fset, f.Type); err != nil {
-            // fallback: extremely conservative
-            buf.WriteString("interface{}")
-        }
-        typ := buf.String()
+		// Render ONLY the type node. This never includes tags.
+		var buf bytes.Buffer
+		// Either printer.Fprint or format.Node works; printer is fine here.
+		if err := printer.Fprint(&buf, pkg.Fset, f.Type); err != nil {
+			// fallback: extremely conservative
+			buf.WriteString("interface{}")
+		}
+		typ := buf.String()
 
-        // Just in case: if weird spacing left a tag tail, drop anything after a backtick.
-        if i := strings.IndexByte(typ, '`'); i >= 0 {
-            typ = strings.TrimSpace(typ[:i])
-        }
+		// Just in case: if weird spacing left a tag tail, drop anything after a backtick.
+		if i := strings.IndexByte(typ, '`'); i >= 0 {
+			typ = strings.TrimSpace(typ[:i])
+		}
 
-        // Detect if this is a custom struct type (not slices)
-        isCustomType := typeNames[typ]
-        recipeName := ""
-        if isCustomType {
-            recipeName = typ + "Recipe"
-        }
+		// Detect if this is a custom struct type (not slices)
+		isCustomType := typeNames[typ]
+		recipeName := ""
+		if isCustomType {
+			recipeName = typ + "Recipe"
+		}
 
-        out = append(out, field{
-            Name:         name,
-            TypeExpr:     typ,
-            IsCustomType: isCustomType,
-            RecipeName:   recipeName,
-        })
-    }
-    return out
+		out = append(out, field{
+			Name:         name,
+			TypeExpr:     typ,
+			IsCustomType: isCustomType,
+			RecipeName:   recipeName,
+		})
+	}
+	return out
 }
 
 func anyHas(fields []field, typ string) bool {
-	for _, f := range fields { if f.TypeExpr == typ { return true } }
+	for _, f := range fields {
+		if f.TypeExpr == typ {
+			return true
+		}
+	}
 	return false
 }
 
@@ -449,7 +477,9 @@ func verifyCompiles(src []byte, filename string) error {
 func renderSpec(out string, d data) error {
 	os.MkdirAll(filepath.Dir(out), 0o755)
 	var buf bytes.Buffer
-	if err := specTmpl.Execute(&buf, d); err != nil { return err }
+	if err := specTmpl.Execute(&buf, d); err != nil {
+		return err
+	}
 	src, err := format.Source(buf.Bytes())
 	if err != nil {
 		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
@@ -468,7 +498,9 @@ func renderSpec(out string, d data) error {
 func renderRecipe(out string, d data) error {
 	os.MkdirAll(filepath.Dir(out), 0o755)
 	var buf bytes.Buffer
-	if err := recipeTmpl.Execute(&buf, d); err != nil { return err }
+	if err := recipeTmpl.Execute(&buf, d); err != nil {
+		return err
+	}
 	src, err := format.Source(buf.Bytes())
 	if err != nil {
 		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
@@ -487,7 +519,9 @@ func renderRecipe(out string, d data) error {
 func renderMatcher(out string, d data) error {
 	os.MkdirAll(filepath.Dir(out), 0o755)
 	var buf bytes.Buffer
-	if err := matcherTmpl.Execute(&buf, d); err != nil { return err }
+	if err := matcherTmpl.Execute(&buf, d); err != nil {
+		return err
+	}
 	src, err := format.Source(buf.Bytes())
 	if err != nil {
 		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
@@ -504,7 +538,14 @@ func renderMatcher(out string, d data) error {
 }
 
 var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
-	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
+	"lower": func(s string) string {
+		if s == "" {
+			return s
+		}
+		r := []rune(s)
+		r[0] = []rune(strings.ToLower(string(r[0])))[0]
+		return string(r)
+	},
 	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
@@ -735,7 +776,14 @@ func With{{$.TypeName}}{{.Name}}FromProvider(prov testgen.Provider[{{qualifiedTy
 `))
 
 var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
-	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
+	"lower": func(s string) string {
+		if s == "" {
+			return s
+		}
+		r := []rune(s)
+		r[0] = []rune(strings.ToLower(string(r[0])))[0]
+		return string(r)
+	},
 	"hasPrefix": strings.HasPrefix,
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
@@ -1012,7 +1060,14 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 `))
 
 var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
-	"lower": func(s string) string { if s=="" {return s}; r:=[]rune(s); r[0] = []rune(strings.ToLower(string(r[0])))[0]; return string(r) },
+	"lower": func(s string) string {
+		if s == "" {
+			return s
+		}
+		r := []rune(s)
+		r[0] = []rune(strings.ToLower(string(r[0])))[0]
+		return string(r)
+	},
 	"qualifiedType": func(pkg string, f field) string {
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
@@ -1169,7 +1224,9 @@ func defaultProvider(pkg string, f field) string {
 	switch typ {
 	case "string":
 		ln := strings.ToLower(name)
-		if strings.HasSuffix(ln, "id") || ln == "id" { return "func(p testgen.Primitives) string { return p.ID() }" }
+		if strings.HasSuffix(ln, "id") || ln == "id" {
+			return "func(p testgen.Primitives) string { return p.ID() }"
+		}
 		return fmt.Sprintf("func(p testgen.Primitives) string { return p.StringWith(%q) }", strings.ToLower(name)+"_")
 	case "int":
 		return "func(p testgen.Primitives) int { return p.Int() }"
@@ -1190,4 +1247,3 @@ func defaultProvider(pkg string, f field) string {
 		return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 	}
 }
-

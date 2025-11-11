@@ -83,7 +83,7 @@ func (g *Gen) BytesN(n int) []byte {
 	}
 	seq := g.Next()
 	b := make([]byte, n)
-	for i := range(n) {
+	for i := range n {
 		b[i] = byte(seq + uint64(i))
 	}
 	return b
@@ -98,5 +98,5 @@ func (g *Gen) UUID() uuid.UUID { return DeterministicUUIDFromInt(g.Next()) }
 var ns = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 
 func DeterministicUUIDFromInt(i uint64) uuid.UUID {
-    return uuid.NewSHA1(ns, []byte(fmt.Sprintf("%d", i)))
+	return uuid.NewSHA1(ns, []byte(fmt.Sprintf("%d", i)))
 }

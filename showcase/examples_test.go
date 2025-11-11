@@ -156,8 +156,8 @@ func TestAsEqualMatcher(t *testing.T) {
 
 		// Use explicit matchers when you need different constraints (not just equality)
 		constraintMatcher := factory.UserMatches().
-			FirstName(specta.Contains("Ali")).  // Substring match instead of exact
-			Active(specta.IsTrue()).            // Boolean check
+			FirstName(specta.Contains("Ali")). // Substring match instead of exact
+			Active(specta.IsTrue()).           // Boolean check
 			Matcher()
 
 		specta.AssertThat(t, user, constraintMatcher)
