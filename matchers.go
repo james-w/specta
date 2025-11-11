@@ -107,7 +107,7 @@ func Not[T any](matcher Matcher[T]) Matcher[T] {
 		if result.Matched {
 			return MatchResult{
 				Matched: false,
-				Message: fmt.Sprintf("expected not to match, but it did"),
+				Message: "expected not to match, but it did",
 			}
 		}
 		return MatchResult{Matched: true}
@@ -270,13 +270,10 @@ func IsFalse() Matcher[bool] {
 func AllOf[T any](matchers ...Matcher[T]) Matcher[T] {
 	return MatcherFunc[T](func(actual T) MatchResult {
 		var failures []string
-		var successes []string
 		for i, matcher := range matchers {
 			result := matcher.Matches(actual)
 			if !result.Matched {
 				failures = append(failures, fmt.Sprintf("matcher %d: %s", i+1, result.Message))
-			} else {
-				successes = append(successes, fmt.Sprintf("matcher %d: %s", i+1, result.Message))
 			}
 		}
 		if len(failures) > 0 {

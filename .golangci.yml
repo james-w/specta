@@ -1,3 +1,5 @@
+version: 2
+
 linters-settings:
   errcheck:
     check-type-assertions: true
@@ -35,28 +37,14 @@ linters-settings:
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
-    - gocritic
     - gocyclo
     - dupl
-    - goconst
     - unconvert
-    - unparam
-    - prealloc
-    - exportloopref
-
-  disable:
-    - structcheck
-    - varcheck
-    - deadcode
-    - ifshort
 
   fast: false
 
@@ -66,8 +54,11 @@ issues:
     - path: _test\.go
       linters:
         - dupl
-        - goconst
         - gocyclo
+    # Exclude generated files
+    - path: _gen\.go$
+      linters:
+        - all
 
   max-issues-per-linter: 0
   max-same-issues: 0
@@ -78,9 +69,13 @@ run:
   skip-dirs:
     - vendor
 
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
 output:
-  formats:
-    - format: colored-line-number
+  format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
   sort-results: true
