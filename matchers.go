@@ -46,9 +46,9 @@ func AssertThat[T any](t *testing.T, actual T, matcher Matcher[T]) {
 	if !result.Matched {
 		var msg string
 		if strings.Contains(result.Message, "\n") {
-			// Multi-line: add labeled header
+			// Multi-line: add "didn't match:" header
 			if expr != "" {
-				msg = fmt.Sprintf("Assertion: %s\n\n%s", expr, result.Message)
+				msg = fmt.Sprintf("%s didn't match:\n%s", expr, result.Message)
 			} else {
 				msg = result.Message
 			}

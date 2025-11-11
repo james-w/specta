@@ -372,13 +372,10 @@ func ExampleAssertThat_structuredDiffWithExpression() {
 	result := matcher.Matches(actual)
 	if !result.Matched {
 		// This demonstrates multi-line output with expression header
-		fmt.Println("Assertion: actual")
-		fmt.Println()
-		fmt.Println(result.Message)
+		fmt.Printf("%s didn't match:\n%s\n", "actual", result.Message)
 	}
 	// Output:
-	// Assertion: actual
-	//
+	// actual didn't match:
 	// UserView {
 	//   ~ Active: false
 	//   ~ ID: "id_1"

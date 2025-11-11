@@ -41,8 +41,7 @@ func TestUserRegistration(t *testing.T) {
 **When tests fail**, you see exactly what went wrong with structured diffs:
 
 ```
-Assertion: user
-
+user didn't match:
 User {
   ✗ Age: expected > 18 but got 15
   ✗ Email: expected to contain "@example.com" but got "alice@test.org"

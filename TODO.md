@@ -484,7 +484,7 @@ What else?
 - Updated `AssertThat` to capture expression via AST parsing using `ghostlib.ArgsFromAST`
 - Smart formatting based on message type:
   - Single-line messages: prepend expression with colon (e.g., `user.Name: expected "Alice" but got "Bob"`)
-  - Multi-line messages: add labeled header (e.g., `Assertion: user.GetView()`)
+  - Multi-line messages: add "didn't match:" header (e.g., `user.GetView() didn't match:`)
 - Graceful degradation: if AST parsing fails, falls back to current behavior
 - Added comprehensive examples in `example/example_test.go`
 
