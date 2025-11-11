@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// maxCollectionItems is the maximum number of items to show in truncated slices/maps.
+const maxCollectionItems = 5
+
 // BuildMatcherStructDiff creates a structured diff output for generated matchers.
 // It shows matched (✓), failed (✗), and unchecked (~) fields with proper indentation.
 func BuildMatcherStructDiff(typeName string, fieldValues map[string]any, fieldResults map[string]*MatchResult) string {
@@ -92,8 +95,7 @@ func formatSlice(v reflect.Value, indent int) string {
 		return "[]"
 	}
 
-	const maxItems = 5
-	if length <= maxItems {
+	if length <= maxCollectionItems {
 		// Show all items
 		items := make([]string, length)
 		for i := range length {
@@ -103,11 +105,11 @@ func formatSlice(v reflect.Value, indent int) string {
 	}
 
 	// Show first few items and summarize rest
-	items := make([]string, maxItems)
-	for i := range maxItems {
+	items := make([]string, maxCollectionItems)
+	for i := range maxCollectionItems {
 		items[i] = fmt.Sprintf("%v", v.Index(i).Interface())
 	}
-	remaining := length - maxItems
+	remaining := length - maxCollectionItems
 	return fmt.Sprintf("[%s, ... and %d more]", strings.Join(items, ", "), remaining)
 }
 
@@ -118,9 +120,8 @@ func formatMap(v reflect.Value, indent int) string {
 		return "map[]"
 	}
 
-	const maxItems = 5
 	keys := v.MapKeys()
-	if length <= maxItems {
+	if length <= maxCollectionItems {
 		// Show all entries
 		pairs := make([]string, length)
 		for i, key := range keys {
@@ -131,13 +132,13 @@ func formatMap(v reflect.Value, indent int) string {
 	}
 
 	// Show first few entries and summarize rest
-	pairs := make([]string, maxItems)
-	for i := range maxItems {
+	pairs := make([]string, maxCollectionItems)
+	for i := range maxCollectionItems {
 		key := keys[i]
 		val := v.MapIndex(key)
 		pairs[i] = fmt.Sprintf("%v:%v", key.Interface(), val.Interface())
 	}
-	remaining := length - maxItems
+	remaining := length - maxCollectionItems
 	return fmt.Sprintf("map[%s ... and %d more]", strings.Join(pairs, " "), remaining)
 }
 
