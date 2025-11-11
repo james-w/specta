@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/rliebz/ghost v0.3.0 // indirect
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 )
