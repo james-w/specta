@@ -2,6 +2,7 @@ package example_test
 
 import (
 	"fmt"
+
 	"github.com/james-w/specta"
 	"github.com/james-w/specta/example"
 	"github.com/james-w/specta/example/factory"

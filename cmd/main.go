@@ -136,14 +136,9 @@ func validateConfig(c *Config) error {
 			includeSet[typeName] = true
 		}
 
-		for _, typeCfg := range c.Types {
-			// If a type is configured with constructor or matchers, it should be in the include list for at least one target
-			// We'll check this per-target to ensure configured types are actually used
-			if (typeCfg.Constructor != "" || len(typeCfg.Matchers) > 0) && !includeSet[typeCfg.Name] {
-				// This is just a warning case - type might be used in another target
-				// So we skip this check for now
-			}
-		}
+		// Note: If a type is configured with constructor or matchers, it should be in the include list for at least one target.
+		// We could validate this per-target to ensure configured types are actually used.
+		// For now, we skip this check as types might be used in other targets.
 	}
 	return nil
 }
@@ -665,7 +660,9 @@ func verifyCompiles(src []byte, filename string) error {
 }
 
 func renderSpec(out string, d data) error {
-	os.MkdirAll(filepath.Dir(out), 0o755)
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
 	var buf bytes.Buffer
 	if err := specTmpl.Execute(&buf, d); err != nil {
 		return err
@@ -686,7 +683,9 @@ func renderSpec(out string, d data) error {
 }
 
 func renderRecipe(out string, d data) error {
-	os.MkdirAll(filepath.Dir(out), 0o755)
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
 	var buf bytes.Buffer
 	if err := recipeTmpl.Execute(&buf, d); err != nil {
 		return err
@@ -707,7 +706,9 @@ func renderRecipe(out string, d data) error {
 }
 
 func renderMatcher(out string, d data) error {
-	os.MkdirAll(filepath.Dir(out), 0o755)
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return fmt.Errorf("mkdir: %w", err)
+	}
 	var buf bytes.Buffer
 	if err := matcherTmpl.Execute(&buf, d); err != nil {
 		return err

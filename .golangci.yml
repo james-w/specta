@@ -1,0 +1,40 @@
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - gocyclo
+    - dupl
+    - unconvert
+
+  disable:
+    - depguard
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on test files
+    - path: _test\.go
+      linters:
+        - dupl
+        - gocyclo
+    # Exclude generated files
+    - path: _gen\.go$
+      linters:
+        - errcheck
+        - govet
+        - ineffassign
+        - staticcheck
+        - unused
+        - misspell
+        - gocyclo
+        - dupl
+        - unconvert
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+run:
+  timeout: 5m
