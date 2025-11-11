@@ -12,7 +12,7 @@ func TestEqual(t *testing.T) {
 		matcher := specta.Equal(42)
 		result := matcher.Matches(42)
 		if !result.Matched {
-			t.Error("Expected match but got mismatch")
+			t.Errorf("Equal(42) should match 42, but got: %s", result.Message)
 		}
 	})
 
@@ -20,20 +20,23 @@ func TestEqual(t *testing.T) {
 		matcher := specta.Equal(42)
 		result := matcher.Matches(99)
 		if result.Matched {
-			t.Error("Expected mismatch but got match")
+			t.Error("Equal(42) should not match 99")
 		}
 		if result.Message == "" {
-			t.Error("Expected error message")
+			t.Error("Equal(42).Matches(99) should provide error message")
 		}
 	})
 
 	t.Run("works with strings", func(t *testing.T) {
 		matcher := specta.Equal("hello")
-		if !matcher.Matches("hello").Matched {
-			t.Error("Expected match")
+		result := matcher.Matches("hello")
+		if !result.Matched {
+			t.Errorf("Equal(\"hello\") should match \"hello\", but got: %s", result.Message)
 		}
-		if matcher.Matches("world").Matched {
-			t.Error("Expected mismatch")
+
+		result = matcher.Matches("world")
+		if result.Matched {
+			t.Error("Equal(\"hello\") should not match \"world\"")
 		}
 	})
 }
@@ -41,11 +44,14 @@ func TestEqual(t *testing.T) {
 func TestIs(t *testing.T) {
 	t.Run("is alias for Equal", func(t *testing.T) {
 		matcher := specta.Is(true)
-		if !matcher.Matches(true).Matched {
-			t.Error("Expected match")
+		result := matcher.Matches(true)
+		if !result.Matched {
+			t.Errorf("Is(true) should match true, but got: %s", result.Message)
 		}
-		if matcher.Matches(false).Matched {
-			t.Error("Expected mismatch")
+
+		result = matcher.Matches(false)
+		if result.Matched {
+			t.Error("Is(true) should not match false")
 		}
 	})
 }
@@ -53,11 +59,14 @@ func TestIs(t *testing.T) {
 func TestNot(t *testing.T) {
 	t.Run("negates matcher", func(t *testing.T) {
 		matcher := specta.Not(specta.Equal(42))
-		if !matcher.Matches(99).Matched {
-			t.Error("Expected match for non-42")
+		result := matcher.Matches(99)
+		if !result.Matched {
+			t.Errorf("Not(Equal(42)) should match 99, but got: %s", result.Message)
 		}
-		if matcher.Matches(42).Matched {
-			t.Error("Expected mismatch for 42")
+
+		result = matcher.Matches(42)
+		if result.Matched {
+			t.Error("Not(Equal(42)) should not match 42")
 		}
 	})
 }
@@ -65,21 +74,27 @@ func TestNot(t *testing.T) {
 func TestIsZero(t *testing.T) {
 	t.Run("matches zero int", func(t *testing.T) {
 		matcher := specta.IsZero[int]()
-		if !matcher.Matches(0).Matched {
-			t.Error("Expected match for 0")
+		result := matcher.Matches(0)
+		if !result.Matched {
+			t.Errorf("IsZero[int]() should match 0, but got: %s", result.Message)
 		}
-		if matcher.Matches(42).Matched {
-			t.Error("Expected mismatch for 42")
+
+		result = matcher.Matches(42)
+		if result.Matched {
+			t.Error("IsZero[int]() should not match 42")
 		}
 	})
 
 	t.Run("matches zero string", func(t *testing.T) {
 		matcher := specta.IsZero[string]()
-		if !matcher.Matches("").Matched {
-			t.Error("Expected match for empty string")
+		result := matcher.Matches("")
+		if !result.Matched {
+			t.Errorf("IsZero[string]() should match empty string, but got: %s", result.Message)
 		}
-		if matcher.Matches("hello").Matched {
-			t.Error("Expected mismatch for non-empty string")
+
+		result = matcher.Matches("hello")
+		if result.Matched {
+			t.Error("IsZero[string]() should not match \"hello\"")
 		}
 	})
 }
@@ -87,24 +102,32 @@ func TestIsZero(t *testing.T) {
 func TestGreaterThan(t *testing.T) {
 	t.Run("matches greater values", func(t *testing.T) {
 		matcher := specta.GreaterThan(10)
-		if !matcher.Matches(20).Matched {
-			t.Error("Expected 20 > 10")
+		result := matcher.Matches(20)
+		if !result.Matched {
+			t.Errorf("GreaterThan(10) should match 20, but got: %s", result.Message)
 		}
-		if matcher.Matches(5).Matched {
-			t.Error("Expected 5 not > 10")
+
+		result = matcher.Matches(5)
+		if result.Matched {
+			t.Error("GreaterThan(10) should not match 5")
 		}
-		if matcher.Matches(10).Matched {
-			t.Error("Expected 10 not > 10")
+
+		result = matcher.Matches(10)
+		if result.Matched {
+			t.Error("GreaterThan(10) should not match 10 (boundary)")
 		}
 	})
 
 	t.Run("works with floats", func(t *testing.T) {
 		matcher := specta.GreaterThan(3.14)
-		if !matcher.Matches(3.15).Matched {
-			t.Error("Expected 3.15 > 3.14")
+		result := matcher.Matches(3.15)
+		if !result.Matched {
+			t.Errorf("GreaterThan(3.14) should match 3.15, but got: %s", result.Message)
 		}
-		if matcher.Matches(3.13).Matched {
-			t.Error("Expected 3.13 not > 3.14")
+
+		result = matcher.Matches(3.13)
+		if result.Matched {
+			t.Error("GreaterThan(3.14) should not match 3.13")
 		}
 	})
 }
