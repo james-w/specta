@@ -325,3 +325,64 @@ func ExampleAllOf_failure() {
 	//   ✗ matcher 2: expected string to contain "admin" but got "user_123_pending"
 	//   ✗ matcher 3: expected string to end with "_verified" but got "user_123_pending"
 }
+
+// ExampleAssertThat_expressionCapture demonstrates how AssertThat captures and displays
+// the actual expression that was tested using AST parsing.
+func ExampleAssertThat_expressionCapture() {
+	user := example.UserView{Name: "Bob"}
+
+	// The expression "user.Name" will be captured and shown in the error
+	result := specta.Equal("Alice").Matches(user.Name)
+
+	if !result.Matched {
+		// This shows what happens with a simple expression
+		fmt.Printf("user.Name: %s\n", result.Message)
+	}
+	// Output:
+	// user.Name: expected "Alice" but got "Bob"
+}
+
+// ExampleAssertThat_complexExpression demonstrates AST capture with a complex expression.
+func ExampleAssertThat_complexExpression() {
+	p := specta.New()
+	user := factory.UserView().Name("Alice").Score(42).Build(p)
+
+	// Complex expressions like field access or arithmetic are captured
+	result := specta.GreaterThan(50).Matches(user.Score)
+
+	if !result.Matched {
+		fmt.Printf("user.Score: %s\n", result.Message)
+	}
+	// Output:
+	// user.Score: expected value > 50 but got 42
+}
+
+// ExampleAssertThat_structuredDiffWithExpression demonstrates how the expression
+// is displayed as a header for multi-line structured diffs.
+func ExampleAssertThat_structuredDiffWithExpression() {
+	p := specta.New()
+	actual := factory.UserView().Name("Bob").Score(50).Build(p)
+
+	// For structured diffs, the expression appears as a labeled header
+	matcher := factory.UserViewMatches().
+		Name(specta.Equal("Alice")).
+		Score(specta.GreaterThan(90)).
+		Matcher()
+
+	result := matcher.Matches(actual)
+	if !result.Matched {
+		// This demonstrates multi-line output with expression header
+		fmt.Println("Assertion: actual")
+		fmt.Println()
+		fmt.Println(result.Message)
+	}
+	// Output:
+	// Assertion: actual
+	//
+	// UserView {
+	//   ~ Active: false
+	//   ~ ID: "id_1"
+	//   ✗ Name: expected "Alice" but got "Bob"
+	//   ✗ Score: expected value > 90 but got 50
+	// }
+}

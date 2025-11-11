@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/rliebz/ghost/ghostlib"
 )
 
 // Matcher defines an interface for matching values of type T.
@@ -32,13 +34,33 @@ func (f MatcherFunc[T]) Matches(actual T) MatchResult {
 // AssertThat checks if actual matches the given matcher, failing the test if not.
 func AssertThat[T any](t *testing.T, actual T, matcher Matcher[T]) {
 	t.Helper()
+
+	// Capture the expression from AST for better error messages
+	args := ghostlib.ArgsFromAST(actual)
+	expr := ""
+	if len(args) > 0 {
+		expr = args[0]
+	}
+
 	result := matcher.Matches(actual)
 	if !result.Matched {
-		// For multi-line messages (like structured diffs), put on new line
+		var msg string
 		if strings.Contains(result.Message, "\n") {
-			t.Errorf("\n%s", result.Message)
+			// Multi-line: add labeled header
+			if expr != "" {
+				msg = fmt.Sprintf("Assertion: %s\n\n%s", expr, result.Message)
+			} else {
+				msg = result.Message
+			}
+			t.Errorf("\n%s", msg)
 		} else {
-			t.Errorf("%s", result.Message)
+			// Single-line: prepend with colon
+			if expr != "" {
+				msg = fmt.Sprintf("%s: %s", expr, result.Message)
+			} else {
+				msg = result.Message
+			}
+			t.Errorf("%s", msg)
 		}
 		for _, detail := range result.Details {
 			t.Errorf("  %s", detail)
