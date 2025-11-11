@@ -53,16 +53,7 @@ func formatFailedField(name string, value any, result *MatchResult, indent int) 
 	symbol := colorize("✗", colorRed)
 	indentStr := strings.Repeat("  ", indent)
 
-	// Determine if this is an equality check or constraint check
-	if result.Expected != nil && result.Actual != nil {
-		// Equality-style: show expected and actual
-		expectedStr := formatValue(result.Expected, indent)
-		actualStr := formatValue(result.Actual, indent)
-		return fmt.Sprintf("%s%s %s: expected %s but got %s\n", indentStr, symbol, name, expectedStr, actualStr)
-	} else {
-		// Constraint-style: show the message
-		return fmt.Sprintf("%s%s %s: %s\n", indentStr, symbol, name, result.Message)
-	}
+	return fmt.Sprintf("%s%s %s: %s\n", indentStr, symbol, name, result.Message)
 }
 
 // formatUncheckedField formats a field that had no matcher.
@@ -195,6 +186,7 @@ func buildReflectionStructDiff(expected, actual any) string {
 				Matched:  false,
 				Expected: expectedFieldVal,
 				Actual:   actualFieldVal,
+				Message:  fmt.Sprintf("expected %s but got %s", formatValue(expectedFieldVal, 1), formatValue(actualFieldVal, 1)),
 			}
 			buf.WriteString(formatFailedField(fieldName, actualFieldVal, result, 1))
 		}
