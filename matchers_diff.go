@@ -56,6 +56,20 @@ func formatFailedField(name string, value any, result *MatchResult, indent int) 
 	symbol := colorize("✗", colorRed)
 	indentStr := strings.Repeat("  ", indent)
 
+	// Check if message is multi-line (nested struct diff)
+	if strings.Contains(result.Message, "\n") {
+		// For multi-line messages, put on new line with proper indentation
+		lines := strings.Split(result.Message, "\n")
+		var buf strings.Builder
+		buf.WriteString(fmt.Sprintf("%s%s %s:\n", indentStr, symbol, name))
+		for _, line := range lines {
+			if line != "" {
+				buf.WriteString(fmt.Sprintf("%s  %s\n", indentStr, line))
+			}
+		}
+		return buf.String()
+	}
+
 	return fmt.Sprintf("%s%s %s: %s\n", indentStr, symbol, name, result.Message)
 }
 
@@ -182,12 +196,24 @@ func buildReflectionStructDiff(expected, actual any) string {
 			// Matched
 			buf.WriteString(formatMatchedField(fieldName, actualFieldVal, 1))
 		} else {
-			// Failed - create a result to pass to formatFailedField
+			// Failed - check if both are structs for recursive diff
+			expVal := reflect.ValueOf(expectedFieldVal)
+			actVal := reflect.ValueOf(actualFieldVal)
+
+			var message string
+			if expVal.Kind() == reflect.Struct && actVal.Kind() == reflect.Struct {
+				// Recursively build structured diff for nested structs
+				message = buildReflectionStructDiff(expectedFieldVal, actualFieldVal)
+			} else {
+				// For non-structs, use simple format
+				message = fmt.Sprintf("expected %s but got %s", formatValue(expectedFieldVal, 1), formatValue(actualFieldVal, 1))
+			}
+
 			result := &MatchResult{
 				Matched:  false,
 				Expected: expectedFieldVal,
 				Actual:   actualFieldVal,
-				Message:  fmt.Sprintf("expected %s but got %s", formatValue(expectedFieldVal, 1), formatValue(actualFieldVal, 1)),
+				Message:  message,
 			}
 			buf.WriteString(formatFailedField(fieldName, actualFieldVal, result, 1))
 		}

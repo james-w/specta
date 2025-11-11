@@ -103,8 +103,8 @@ func ExampleDeepEqual_structMismatch() {
 }
 
 // ExampleDeepEqual_nestedStruct demonstrates diff output for nested struct mismatches.
-// Note: Nested structures show as a single failed field with ellipsis (...) to indicate
-// the nested struct differs without expanding the full details.
+// Nested structures show full structured diff recursively, allowing you to see exactly
+// which fields differ at any level of nesting.
 func ExampleDeepEqual_nestedStruct() {
 	expected := example.Parent{
 		Child: example.UserView{
@@ -128,7 +128,13 @@ func ExampleDeepEqual_nestedStruct() {
 	}
 	// Output:
 	// Parent {
-	//   ✗ Child: expected UserView{...} but got UserView{...}
+	//   ✗ Child:
+	//     UserView {
+	//       ✗ ID: expected "123" but got "456"
+	//       ✓ Name: "Alice"
+	//       ✓ Active: false
+	//       ✓ Score: 0
+	//     }
 	// }
 }
 
