@@ -80,7 +80,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.5.0
           # Only show new issues in PR mode
           only-new-issues: ${{ github.event_name == 'pull_request' }}
           # Automatically adds annotations to the PR
