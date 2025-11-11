@@ -1,0 +1,8 @@
+version: 1
+targets:
+  - package: .
+    types:
+      include:
+        - UserView
+        - Parent
+    file_suffix: _gen.go

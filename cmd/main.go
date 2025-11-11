@@ -99,6 +99,7 @@ type data struct {
 	Fields        []field
 	ImportTime    bool
 	ImportTestgen string
+	ConfigPath    string // path to the config file for go:generate directive
 
 	// Constructor-based generation
 	HasConstructor     bool
@@ -293,6 +294,7 @@ func processTarget(cfg *Config, tgt struct {
 			SpecName:      typeName + "Spec",
 			RecipeName:    typeName + "Recipe",
 			ImportTestgen: "github.com/james-w/specta",
+			ConfigPath:    *cfgPath,
 		}
 
 		// Check if this type has a constructor configured

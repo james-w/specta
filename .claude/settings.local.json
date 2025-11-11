@@ -6,7 +6,9 @@
       "Bash(go build:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(go generate:*)",
+      "Bash(gofmt:*)"
     ],
     "deny": [],
     "ask": []
