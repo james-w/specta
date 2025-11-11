@@ -159,30 +159,37 @@ func (r EmailRecipe) AsEqualMatcher() Matcher[Email] {
 
 ---
 
-### 4. Collection Matchers
+### 4. Collection Matchers (COMPLETED)
 **Goal:** Add common collection matchers for slices, maps, and arrays
 
-**Matchers to implement:**
+**Completed:**
+- [x] Implemented 13 collection matchers (9 slice, 4 map)
+- [x] All matchers include Expected/Actual values for structured diffs
+- [x] Comprehensive test coverage (100+ test cases)
+- [x] Proper nil/empty handling
+- [x] Clear, descriptive error messages
 
-#### Slice Matchers
+**Implemented Matchers:**
+
+#### Slice Matchers (9 total)
 ```go
 // Size matchers
-HasSize[T any](size int) Matcher[[]T]
-IsEmpty[T any]() Matcher[[]T]
-IsNotEmpty[T any]() Matcher[[]T]
+HasSize[T any](size int) Matcher[[]T]           // Exact size check
+IsEmpty[T any]() Matcher[[]T]                    // Empty or nil
+IsNotEmpty[T any]() Matcher[[]T]                 // Has at least one element
 
-// Content matchers
-Contains[T comparable](item T) Matcher[[]T]
-ContainsAll[T comparable](items ...T) Matcher[[]T]
-ContainsAny[T comparable](items ...T) Matcher[[]T]
+// Content matchers (renamed to avoid string matcher conflicts)
+ContainsElement[T comparable](item T) Matcher[[]T]
+ContainsAllElements[T comparable](items ...T) Matcher[[]T]
+ContainsAnyElement[T comparable](items ...T) Matcher[[]T]
 
 // Predicate matchers
-Every[T any](matcher Matcher[T]) Matcher[[]T]  // All elements match
-Any[T any](matcher Matcher[T]) Matcher[[]T]    // At least one matches
-None[T any](matcher Matcher[T]) Matcher[[]T]   // No elements match
+Every[T any](matcher Matcher[T]) Matcher[[]T]   // All elements match
+Any[T any](matcher Matcher[T]) Matcher[[]T]     // At least one matches
+None[T any](matcher Matcher[T]) Matcher[[]T]    // No elements match
 ```
 
-#### Map Matchers
+#### Map Matchers (4 total)
 ```go
 HasKey[K comparable, V any](key K) Matcher[map[K]V]
 HasValue[K comparable, V comparable](value V) Matcher[map[K]V]
@@ -190,15 +197,18 @@ HasEntry[K comparable, V comparable](key K, value V) Matcher[map[K]V]
 MapHasSize[K comparable, V any](size int) Matcher[map[K]V]
 ```
 
-**Tasks:**
-- [ ] Implement HasSize, IsEmpty, IsNotEmpty
-- [ ] Implement Contains, ContainsAll, ContainsAny
-- [ ] Implement Every, Any, None with element matchers
-- [ ] Implement map matchers
-- [ ] Add comprehensive tests for each
-- [ ] Update documentation with examples
+**Implementation Notes:**
+- Slice content matchers renamed to `ContainsElement`, `ContainsAllElements`, `ContainsAnyElement` to avoid conflict with existing string `Contains` matcher
+- Predicate matchers (`Every`, `Any`, `None`) provide index information on failure
+- Map matchers handle nil maps gracefully
+- All matchers work with generic combinators (`AllOf`, `AnyOf`, `Not`)
 
-**Commit point:** "feat: add collection matchers for slices and maps"
+**Files Modified:**
+- `matchers_collection.go` - New file with all collection matchers
+- `matchers_collection_test.go` - Comprehensive test suite
+- `TODO.md` - This file
+
+**Commit:** "feat: add collection matchers for slices and maps"
 
 ---
 
