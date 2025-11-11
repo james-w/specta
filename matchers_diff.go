@@ -96,7 +96,7 @@ func formatSlice(v reflect.Value, indent int) string {
 	if length <= maxItems {
 		// Show all items
 		items := make([]string, length)
-		for i := 0; i < length; i++ {
+		for i := range length {
 			items[i] = fmt.Sprintf("%v", v.Index(i).Interface())
 		}
 		return fmt.Sprintf("[%s]", strings.Join(items, ", "))
@@ -104,7 +104,7 @@ func formatSlice(v reflect.Value, indent int) string {
 
 	// Show first few items and summarize rest
 	items := make([]string, maxItems)
-	for i := 0; i < maxItems; i++ {
+	for i := range maxItems {
 		items[i] = fmt.Sprintf("%v", v.Index(i).Interface())
 	}
 	remaining := length - maxItems
@@ -132,7 +132,7 @@ func formatMap(v reflect.Value, indent int) string {
 
 	// Show first few entries and summarize rest
 	pairs := make([]string, maxItems)
-	for i := 0; i < maxItems; i++ {
+	for i := range maxItems {
 		key := keys[i]
 		val := v.MapIndex(key)
 		pairs[i] = fmt.Sprintf("%v:%v", key.Interface(), val.Interface())
@@ -167,7 +167,7 @@ func buildReflectionStructDiff(expected, actual any) string {
 
 	// Iterate through struct fields
 	numFields := expectedVal.NumField()
-	for i := 0; i < numFields; i++ {
+	for i := range numFields {
 		field := expectedVal.Type().Field(i)
 		if !field.IsExported() {
 			continue // Skip unexported fields

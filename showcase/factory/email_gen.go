@@ -85,7 +85,7 @@ func (r EmailRecipe) Build(p testgen.Primitives) (showcase.Email, error) {
 func (r EmailRecipe) Many(n int, p testgen.Primitives) []showcase.Email {
 	// Wrap error-returning constructor - panic on first error
 	var results []showcase.Email
-	for i := 0; i < n; i++ {
+	for i := range n {
 		item, err := r.Build(p)
 		if err != nil {
 			panic("Many() failed on item " + fmt.Sprint(i) + ": " + err.Error())

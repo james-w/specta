@@ -68,7 +68,7 @@ func TestAddressFactory(t *testing.T) {
 		}
 
 		// Each address should have unique values due to deterministic generation
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			if addresses[i].Street == addresses[i+1].Street {
 				t.Errorf("addresses[%d] and addresses[%d] have same Street", i, i+1)
 			}

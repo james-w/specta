@@ -988,7 +988,7 @@ func (r {{.RecipeName}}) Many(n int, p testgen.Primitives) []{{.ParentPackage}}.
 	{{- if and .HasConstructor (gt (len .ConstructorReturns) 1)}}
 	// Wrap error-returning constructor - panic on first error
 	var results []{{.ParentPackage}}.{{.TypeName}}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		item, err := r.Build(p)
 		if err != nil {
 			panic("Many() failed on item " + fmt.Sprint(i) + ": " + err.Error())

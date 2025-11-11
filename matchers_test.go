@@ -461,7 +461,7 @@ func TestStructuredDiff_MapTruncation(t *testing.T) {
 		}
 		expectedSettings := make(map[string]int)
 		actualSettings := make(map[string]int)
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			key := string(rune('a' + i))
 			expectedSettings[key] = i
 			actualSettings[key] = i + 1
