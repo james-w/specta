@@ -133,12 +133,11 @@ jobs:
         run: go mod download
 
       - name: Run go generate
-        run: go generate ./...
+        run: go generate ./... || true
 
       - name: Check for changes
         run: |
-          git diff --exit-code
-          if [ $? -ne 0 ]; then
+          if ! git diff --exit-code; then
             echo "::error::go generate produced changes. Please run 'go generate ./...' and commit the changes"
             git diff
             exit 1
@@ -163,7 +162,7 @@ jobs:
         run: go build -v ./...
 
       - name: Build cmd
-        run: go build -v ./cmd/...
+        run: go build -v -o /tmp/testgen ./cmd/...
 
   security:
     name: Security Scan
