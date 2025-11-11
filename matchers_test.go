@@ -1,6 +1,7 @@
 package specta_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/james-w/specta"
@@ -326,15 +327,15 @@ func TestStructuredDiff_DeepEqual(t *testing.T) {
 			t.Error("Expected error message")
 		}
 		// Should contain struct name
-		if !contains(result.Message, "TestPerson") {
+		if !strings.Contains(result.Message, "TestPerson") {
 			t.Errorf("Expected message to contain struct name, got: %s", result.Message)
 		}
 		// Should show matched field (Name)
-		if !contains(result.Message, "Name") {
+		if !strings.Contains(result.Message, "Name") {
 			t.Errorf("Expected message to show Name field, got: %s", result.Message)
 		}
 		// Should show failed fields (Age, Email)
-		if !contains(result.Message, "Age") || !contains(result.Message, "Email") {
+		if !strings.Contains(result.Message, "Age") || !strings.Contains(result.Message, "Email") {
 			t.Errorf("Expected message to show failed fields, got: %s", result.Message)
 		}
 	})
@@ -347,7 +348,7 @@ func TestStructuredDiff_DeepEqual(t *testing.T) {
 			t.Error("Expected mismatch")
 		}
 		// Should use simple format (no structured diff)
-		if !contains(result.Message, "42") || !contains(result.Message, "99") {
+		if !strings.Contains(result.Message, "42") || !strings.Contains(result.Message, "99") {
 			t.Errorf("Expected simple format with values, got: %s", result.Message)
 		}
 	})
@@ -380,7 +381,7 @@ func TestStructuredDiff_DeepEqual(t *testing.T) {
 		if result.Matched {
 			t.Error("Expected mismatch due to nested Address.City difference")
 		}
-		if !contains(result.Message, "Address") {
+		if !strings.Contains(result.Message, "Address") {
 			t.Errorf("Expected message to show Address field, got: %s", result.Message)
 		}
 	})
@@ -403,7 +404,7 @@ func TestStructuredDiff_SliceTruncation(t *testing.T) {
 			t.Error("Expected mismatch")
 		}
 		// Should show Items field with difference
-		if !contains(result.Message, "Items") {
+		if !strings.Contains(result.Message, "Items") {
 			t.Errorf("Expected message to show Items field, got: %s", result.Message)
 		}
 	})
@@ -450,7 +451,7 @@ func TestStructuredDiff_MapTruncation(t *testing.T) {
 		if result.Matched {
 			t.Error("Expected mismatch")
 		}
-		if !contains(result.Message, "Settings") {
+		if !strings.Contains(result.Message, "Settings") {
 			t.Errorf("Expected message to show Settings field, got: %s", result.Message)
 		}
 	})
@@ -494,8 +495,4 @@ func TestStructuredDiff_AllMatched(t *testing.T) {
 			t.Error("Expected match")
 		}
 	})
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && contains(s[1:], substr) || s[:len(substr)] == substr)
 }
