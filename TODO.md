@@ -475,9 +475,25 @@ Panics?
 JSON?
 What else?
 
-### 10d. AST parsing?
+### 10d. AST parsing (COMPLETED)
 
-Steal ghostlib.ArgsFromAST to provide better messages on mismatch?
+**Completed:** Integrated ghostlib.ArgsFromAST to capture and display test expressions in error messages
+
+**Implementation Details:**
+- Added `github.com/rliebz/ghost/ghostlib` dependency
+- Updated `AssertThat` to capture expression via AST parsing using `ghostlib.ArgsFromAST`
+- Smart formatting based on message type:
+  - Single-line messages: prepend expression with colon (e.g., `user.Name: expected "Alice" but got "Bob"`)
+  - Multi-line messages: add labeled header (e.g., `Assertion: user.GetView()`)
+- Graceful degradation: if AST parsing fails, falls back to current behavior
+- Added comprehensive examples in `example/example_test.go`
+
+**Files Modified:**
+- `matchers.go` - Updated `AssertThat` with AST capture logic
+- `go.mod` / `go.sum` - Added ghostlib dependency
+- `example/example_test.go` - Added examples demonstrating expression capture
+
+**Commit:** "feat: capture and display test expressions using AST parsing"
 
 ---
 

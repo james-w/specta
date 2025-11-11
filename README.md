@@ -41,6 +41,8 @@ func TestUserRegistration(t *testing.T) {
 **When tests fail**, you see exactly what went wrong with structured diffs:
 
 ```
+Assertion: user
+
 User {
   ✗ Age: expected > 18 but got 15
   ✗ Email: expected to contain "@example.com" but got "alice@test.org"
@@ -52,6 +54,22 @@ User {
 ```
 
 ✓ = matched, ✗ = failed, ~ = not checked (shown for context). Colors automatically enabled in terminals.
+
+**Error messages include the actual expression tested** via AST parsing:
+
+```go
+// When this fails:
+specta.AssertThat(t, user.GetEmail(), specta.Equal("alice@example.com"))
+
+// You see:
+// user.GetEmail(): expected "alice@example.com" but got "bob@example.com"
+
+// Complex expressions work too:
+specta.AssertThat(t, len(user.Tags), specta.GreaterThan(0))
+// len(user.Tags): expected value > 0 but got 0
+```
+
+This makes debugging significantly faster—you see both what expression failed and why it failed.
 
 ## Why Composition Matters
 
