@@ -67,7 +67,55 @@ func loadConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal(b, &c); err != nil {
 		return nil, err
 	}
+	if err := validateConfig(&c); err != nil {
+		return nil, err
+	}
 	return &c, nil
+}
+
+func validateConfig(c *Config) error {
+	// Validate global types configuration
+	for i, typeCfg := range c.Types {
+		if typeCfg.Name == "" {
+			return fmt.Errorf("types[%d]: name is required", i)
+		}
+
+		// Validate matchers
+		for j, matcher := range typeCfg.Matchers {
+			if matcher.Name == "" {
+				return fmt.Errorf("types[%d].matchers[%d]: name is required (for type %s)", i, j, typeCfg.Name)
+			}
+			if matcher.Getter == "" {
+				return fmt.Errorf("types[%d].matchers[%d]: getter is required (for type %s)", i, j, typeCfg.Name)
+			}
+		}
+	}
+
+	// Validate each target
+	for i, target := range c.Targets {
+		if target.Package == "" {
+			return fmt.Errorf("targets[%d]: package is required", i)
+		}
+		if target.FileSuffix == "" {
+			return fmt.Errorf("targets[%d]: file_suffix is required", i)
+		}
+
+		// Check that types configured in global types section are in the include list
+		includeSet := make(map[string]bool)
+		for _, typeName := range target.Types.Include {
+			includeSet[typeName] = true
+		}
+
+		for _, typeCfg := range c.Types {
+			// If a type is configured with constructor or matchers, it should be in the include list for at least one target
+			// We'll check this per-target to ensure configured types are actually used
+			if (typeCfg.Constructor != "" || len(typeCfg.Matchers) > 0) && !includeSet[typeCfg.Name] {
+				// This is just a warning case - type might be used in another target
+				// So we skip this check for now
+			}
+		}
+	}
+	return nil
 }
 
 type field struct {
@@ -275,8 +323,7 @@ func processTarget(cfg *Config, tgt struct {
 	for _, typeName := range tgt.Types.Include {
 		st := findStruct(pkg.Syntax, typeName)
 		if st == nil {
-			log.Printf("skip %s: not found", typeName)
-			continue
+			return fmt.Errorf("type %s not found in package %s (configured in types.include)", typeName, pkg.Name)
 		}
 
 		// Output to factory/ and factory/spec/ subdirectories
@@ -302,21 +349,31 @@ func processTarget(cfg *Config, tgt struct {
 		if typeCfg != nil && typeCfg.Constructor != "" {
 			// Use constructor-based generation
 			ctor := findConstructor(pkg, typeCfg.Constructor)
-			if ctor != nil {
-				d.HasConstructor = true
-				d.ConstructorName = typeCfg.Constructor
-				d.ConstructorParams = analyzeConstructorParams(ctor, pkg, typeNames)
-				d.ConstructorReturns = analyzeConstructorReturns(ctor, pkg)
+			if ctor == nil {
+				return fmt.Errorf("type %s: constructor %s not found in package %s (configured in types.%s.constructor)",
+					typeName, typeCfg.Constructor, pkg.Name, typeName)
+			}
 
-				// Check if any params use time types
-				for _, param := range d.ConstructorParams {
-					if strings.Contains(param.TypeExpr, "time.") {
-						d.ImportTime = true
-						break
-					}
+			d.HasConstructor = true
+			d.ConstructorName = typeCfg.Constructor
+			d.ConstructorParams = analyzeConstructorParams(ctor, pkg, typeNames)
+			d.ConstructorReturns = analyzeConstructorReturns(ctor, pkg)
+
+			// Validate constructor returns the expected type
+			if len(d.ConstructorReturns) == 0 {
+				return fmt.Errorf("type %s: constructor %s must return at least one value", typeName, typeCfg.Constructor)
+			}
+			if d.ConstructorReturns[0] != typeName {
+				return fmt.Errorf("type %s: constructor %s returns %s, expected %s as first return value",
+					typeName, typeCfg.Constructor, d.ConstructorReturns[0], typeName)
+			}
+
+			// Check if any params use time types
+			for _, param := range d.ConstructorParams {
+				if strings.Contains(param.TypeExpr, "time.") {
+					d.ImportTime = true
+					break
 				}
-			} else {
-				log.Printf("warning: constructor %s not found for %s, using field-based generation", typeCfg.Constructor, typeName)
 			}
 		}
 
@@ -332,13 +389,13 @@ func processTarget(cfg *Config, tgt struct {
 			for _, mf := range typeCfg.Matchers {
 				getter := findGetterMethod(pkg, typeName, mf.Getter)
 				if getter == nil {
-					log.Printf("warning: getter method %s not found for %s", mf.Getter, typeName)
-					continue
+					return fmt.Errorf("type %s: getter method %s not found (configured in types.%s.matchers)",
+						typeName, mf.Getter, typeName)
 				}
 				returnType := analyzeGetterMethod(getter, pkg)
 				if returnType == "" {
-					log.Printf("warning: could not determine return type for %s.%s", typeName, mf.Getter)
-					continue
+					return fmt.Errorf("type %s: getter method %s has invalid signature (expected exactly 1 return value)",
+						typeName, mf.Getter)
 				}
 				d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
 					Name:       mf.Name,
