@@ -79,12 +79,19 @@ func (r BankAccountRecipe) Many(n int, p testgen.Primitives) []showcase.BankAcco
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
 func (r BankAccountRecipe) AsEqualMatcher() testgen.Matcher[showcase.BankAccount] {
-	// Constructor-based types: matchers are not yet fully supported, using deep equality
+	// Constructor-based type with matchers configured: use matcher builder for partial matching
 	s := spec.NewBankAccountSpec()
 	for _, opt := range r.opts {
 		opt(&s)
 	}
 	p := testgen.New()
-	expected := spec.BuildBankAccount(p, s)
-	return testgen.DeepEqual(expected)
+
+	m := BankAccountMatches()
+	if s.Name.IsSet() {
+		m = m.Name(testgen.Equal(s.Name.Value(p)))
+	}
+	if s.Balance.IsSet() {
+		m = m.Balance(testgen.Equal(s.Balance.Value(p)))
+	}
+	return m.Matcher()
 }

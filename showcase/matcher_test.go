@@ -499,3 +499,122 @@ func TestFieldExtractor(t *testing.T) {
 		}
 	})
 }
+
+func TestConstructorTypeAsEqualMatcher(t *testing.T) {
+	p := specta.New()
+
+	t.Run("BankAccount recipe converts to partial matcher", func(t *testing.T) {
+		// Create a matcher from a recipe - only checks Name
+		matcher := factory.BankAccount().Name("Alice").AsEqualMatcher()
+
+		// This should match any account with Name="Alice", regardless of Balance
+		account1 := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+		account2 := factory.BankAccount().Name("Alice").Balance(2000).Build(p)
+
+		result1 := matcher.Matches(account1)
+		if !result1.Matched {
+			t.Errorf("Expected match for account1 but got: %s", result1.Message)
+		}
+
+		result2 := matcher.Matches(account2)
+		if !result2.Matched {
+			t.Errorf("Expected match for account2 but got: %s", result2.Message)
+		}
+	})
+
+	t.Run("BankAccount matcher checks multiple fields", func(t *testing.T) {
+		// Create a matcher that checks both Name and Balance
+		matcher := factory.BankAccount().
+			Name("Bob").
+			Balance(500).
+			AsEqualMatcher()
+
+		// Should match account with both fields
+		account := factory.BankAccount().Name("Bob").Balance(500).Build(p)
+		result := matcher.Matches(account)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+		}
+
+		// Should fail if Name is different
+		wrongName := factory.BankAccount().Name("Alice").Balance(500).Build(p)
+		result = matcher.Matches(wrongName)
+		if result.Matched {
+			t.Error("Expected no match when Name differs")
+		}
+
+		// Should fail if Balance is different
+		wrongBalance := factory.BankAccount().Name("Bob").Balance(1000).Build(p)
+		result = matcher.Matches(wrongBalance)
+		if result.Matched {
+			t.Error("Expected no match when Balance differs")
+		}
+	})
+
+	t.Run("Email recipe converts to partial matcher", func(t *testing.T) {
+		// Create a matcher from a recipe
+		matcher := factory.Email().Address("test@example.com").AsEqualMatcher()
+
+		// This should match any email with the same address
+		email, err := factory.Email().Address("test@example.com").Build(p)
+		if err != nil {
+			t.Fatalf("Failed to create email: %v", err)
+		}
+
+		result := matcher.Matches(email)
+		if !result.Matched {
+			t.Errorf("Expected match but got: %s", result.Message)
+		}
+
+		// Should fail for different address
+		otherEmail, err := factory.Email().Address("other@example.com").Build(p)
+		if err != nil {
+			t.Fatalf("Failed to create email: %v", err)
+		}
+
+		result = matcher.Matches(otherEmail)
+		if result.Matched {
+			t.Error("Expected no match when Address differs")
+		}
+	})
+
+	t.Run("Empty recipe creates matcher that matches anything", func(t *testing.T) {
+		// A recipe with no set fields should match any instance
+		matcher := factory.BankAccount().AsEqualMatcher()
+
+		account1 := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
+		account2 := factory.BankAccount().Name("Bob").Balance(2000).Build(p)
+
+		result1 := matcher.Matches(account1)
+		if !result1.Matched {
+			t.Errorf("Expected match for account1 but got: %s", result1.Message)
+		}
+
+		result2 := matcher.Matches(account2)
+		if !result2.Matched {
+			t.Errorf("Expected match for account2 but got: %s", result2.Message)
+		}
+	})
+
+	t.Run("Matcher provides structured diff on failure", func(t *testing.T) {
+		matcher := factory.BankAccount().
+			Name("Alice").
+			Balance(1000).
+			AsEqualMatcher()
+
+		account := factory.BankAccount().Name("Bob").Balance(500).Build(p)
+
+		result := matcher.Matches(account)
+		if result.Matched {
+			t.Error("Expected no match")
+		}
+
+		// Message should include field names and values
+		if !strings.Contains(result.Message, "Name") {
+			t.Errorf("Expected error message to mention 'Name', got: %s", result.Message)
+		}
+		if !strings.Contains(result.Message, "Balance") {
+			t.Errorf("Expected error message to mention 'Balance', got: %s", result.Message)
+		}
+	})
+}

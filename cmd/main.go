@@ -388,7 +388,7 @@ func processTarget(cfg *Config, tgt struct {
 
 func loadPackage(packagePath string) (*packages.Package, error) {
 	pkgCfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedFiles,
+		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedFiles | packages.NeedImports | packages.NeedDeps,
 		Dir:  ".",
 	}
 	pkgs, err := packages.Load(pkgCfg, packagePath)
@@ -637,7 +637,7 @@ func verifyCompiles(src []byte, filename string) error {
 
 	// Use packages.Load with an overlay to type-check without writing
 	cfg := &packages.Config{
-		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo,
+		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
 		Dir:  filepath.Dir(absPath),
 		Overlay: map[string][]byte{
 			absPath: src,
@@ -1200,8 +1200,23 @@ func (r {{.RecipeName}}) Many(n int, p testgen.Primitives) []{{.ParentPackage}}.
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
 func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.TypeName}}] {
-	{{- if .HasConstructor}}
-	// Constructor-based types: matchers are not yet fully supported, using deep equality
+	{{- if and .HasConstructor (gt (len .GetterMatchers) 0)}}
+	// Constructor-based type with matchers configured: use matcher builder for partial matching
+	s := spec.New{{.SpecName}}()
+	for _, opt := range r.opts {
+		opt(&s)
+	}
+	p := testgen.New()
+
+	m := {{.TypeName}}Matches()
+	{{- range .GetterMatchers}}
+	if s.{{.Name}}.IsSet() {
+		m = m.{{.Name}}(testgen.Equal(s.{{.Name}}.Value(p)))
+	}
+	{{- end}}
+	return m.Matcher()
+	{{- else if .HasConstructor}}
+	// Constructor-based types without matchers: use deep equality
 	s := spec.New{{.SpecName}}()
 	for _, opt := range r.opts {
 		opt(&s)
