@@ -307,125 +307,178 @@ func processTarget(cfg *Config, tgt struct {
 	if tgt.FileSuffix == "" {
 		tgt.FileSuffix = "_testgen_gen.go"
 	}
-	pkgCfg := &packages.Config{Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedFiles, Dir: "."}
-	pkgs, err := packages.Load(pkgCfg, tgt.Package)
-	if err != nil || packages.PrintErrors(pkgs) > 0 {
-		return fmt.Errorf("load: %v", err)
-	}
-	pkg := pkgs[0]
 
-	// Collect all type names for detecting custom types
-	typeNames := make(map[string]bool)
-	for _, tn := range tgt.Types.Include {
-		typeNames[tn] = true
+	pkg, err := loadPackage(tgt.Package)
+	if err != nil {
+		return err
 	}
+
+	typeNames := collectTypeNames(tgt.Types.Include)
 
 	for _, typeName := range tgt.Types.Include {
-		st := findStruct(pkg.Syntax, typeName)
-		if st == nil {
-			return fmt.Errorf("type %s not found in package %s (configured in types.include)", typeName, pkg.Name)
-		}
-
-		// Output to factory/ and factory/spec/ subdirectories
-		factoryDir := filepath.Join(filepath.Dir(pkg.GoFiles[0]), "factory")
-		specDir := filepath.Join(factoryDir, "spec")
-		if err := os.MkdirAll(specDir, 0755); err != nil {
-			return fmt.Errorf("mkdir factory/spec: %w", err)
-		}
-
-		d := data{
-			Package:       "factory",
-			ParentPackage: pkg.Name,
-			ParentImport:  pkg.PkgPath,
-			TypeName:      typeName,
-			SpecName:      typeName + "Spec",
-			RecipeName:    typeName + "Recipe",
-			ImportTestgen: "github.com/james-w/specta",
-			ConfigPath:    *cfgPath,
-		}
-
-		// Check if this type has a constructor configured
-		typeCfg := findTypeConfig(cfg, typeName)
-		if typeCfg != nil && typeCfg.Constructor != "" {
-			// Use constructor-based generation
-			ctor := findConstructor(pkg, typeCfg.Constructor)
-			if ctor == nil {
-				return fmt.Errorf("type %s: constructor %s not found in package %s (configured in types.%s.constructor)",
-					typeName, typeCfg.Constructor, pkg.Name, typeName)
-			}
-
-			d.HasConstructor = true
-			d.ConstructorName = typeCfg.Constructor
-			d.ConstructorParams = analyzeConstructorParams(ctor, pkg, typeNames)
-			d.ConstructorReturns = analyzeConstructorReturns(ctor, pkg)
-
-			// Validate constructor returns the expected type
-			if len(d.ConstructorReturns) == 0 {
-				return fmt.Errorf("type %s: constructor %s must return at least one value", typeName, typeCfg.Constructor)
-			}
-			if d.ConstructorReturns[0] != typeName {
-				return fmt.Errorf("type %s: constructor %s returns %s, expected %s as first return value",
-					typeName, typeCfg.Constructor, d.ConstructorReturns[0], typeName)
-			}
-
-			// Check if any params use time types
-			for _, param := range d.ConstructorParams {
-				if strings.Contains(param.TypeExpr, "time.") {
-					d.ImportTime = true
-					break
-				}
-			}
-		}
-
-		// If no constructor, use field-based generation
-		if !d.HasConstructor {
-			fields := collectFields(pkg, st, typeNames)
-			d.Fields = fields
-			d.ImportTime = anyHas(fields, "time.Time") || anyHas(fields, "time.Duration")
-		}
-
-		// Analyze configured getter matchers
-		if typeCfg != nil && len(typeCfg.Matchers) > 0 {
-			for _, mf := range typeCfg.Matchers {
-				getter := findGetterMethod(pkg, typeName, mf.Getter)
-				if getter == nil {
-					return fmt.Errorf("type %s: getter method %s not found (configured in types.%s.matchers)",
-						typeName, mf.Getter, typeName)
-				}
-				returnType := analyzeGetterMethod(getter, pkg)
-				if returnType == "" {
-					return fmt.Errorf("type %s: getter method %s has invalid signature (expected exactly 1 return value)",
-						typeName, mf.Getter)
-				}
-				d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
-					Name:       mf.Name,
-					Getter:     mf.Getter,
-					ReturnType: returnType,
-				})
-			}
-		}
-
-		// Generate spec file (low-level API)
-		specOut := filepath.Join(specDir, strings.ToLower(typeName)+"_gen.go")
-		if err := renderSpec(specOut, d); err != nil {
+		if err := processType(cfg, pkg, typeName, typeNames); err != nil {
 			return err
 		}
-		log.Printf("wrote %s", specOut)
-
-		// Generate recipe file (high-level API)
-		recipeOut := filepath.Join(factoryDir, strings.ToLower(typeName)+"_gen.go")
-		if err := renderRecipe(recipeOut, d); err != nil {
-			return err
-		}
-		log.Printf("wrote %s", recipeOut)
-
-		// Generate matcher file
-		matcherOut := filepath.Join(factoryDir, strings.ToLower(typeName)+"_matcher_gen.go")
-		if err := renderMatcher(matcherOut, d); err != nil {
-			return err
-		}
-		log.Printf("wrote %s", matcherOut)
 	}
+	return nil
+}
+
+func loadPackage(packagePath string) (*packages.Package, error) {
+	pkgCfg := &packages.Config{
+		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedFiles,
+		Dir:  ".",
+	}
+	pkgs, err := packages.Load(pkgCfg, packagePath)
+	if err != nil || packages.PrintErrors(pkgs) > 0 {
+		return nil, fmt.Errorf("load: %v", err)
+	}
+	return pkgs[0], nil
+}
+
+func collectTypeNames(include []string) map[string]bool {
+	typeNames := make(map[string]bool)
+	for _, tn := range include {
+		typeNames[tn] = true
+	}
+	return typeNames
+}
+
+func processType(cfg *Config, pkg *packages.Package, typeName string, typeNames map[string]bool) error {
+	st := findStruct(pkg.Syntax, typeName)
+	if st == nil {
+		return fmt.Errorf("type %s not found in package %s (configured in types.include)", typeName, pkg.Name)
+	}
+
+	dirs, err := setupOutputDirectories(pkg)
+	if err != nil {
+		return err
+	}
+
+	d := buildData(cfg, pkg, typeName)
+	typeCfg := findTypeConfig(cfg, typeName)
+
+	if err := analyzeTypeStructure(cfg, pkg, &d, typeName, typeCfg, st, typeNames); err != nil {
+		return err
+	}
+
+	if err := analyzeGetterMatchers(&d, pkg, typeName, typeCfg); err != nil {
+		return err
+	}
+
+	return generateFiles(d, dirs, typeName)
+}
+
+func setupOutputDirectories(pkg *packages.Package) (struct{ factory, spec string }, error) {
+	factoryDir := filepath.Join(filepath.Dir(pkg.GoFiles[0]), "factory")
+	specDir := filepath.Join(factoryDir, "spec")
+	if err := os.MkdirAll(specDir, 0755); err != nil {
+		return struct{ factory, spec string }{}, fmt.Errorf("mkdir factory/spec: %w", err)
+	}
+	return struct{ factory, spec string }{factoryDir, specDir}, nil
+}
+
+func buildData(cfg *Config, pkg *packages.Package, typeName string) data {
+	return data{
+		Package:       "factory",
+		ParentPackage: pkg.Name,
+		ParentImport:  pkg.PkgPath,
+		TypeName:      typeName,
+		SpecName:      typeName + "Spec",
+		RecipeName:    typeName + "Recipe",
+		ImportTestgen: "github.com/james-w/specta",
+		ConfigPath:    *cfgPath,
+	}
+}
+
+func analyzeTypeStructure(cfg *Config, pkg *packages.Package, d *data, typeName string, typeCfg *TypeConfig, st *ast.StructType, typeNames map[string]bool) error {
+	if typeCfg != nil && typeCfg.Constructor != "" {
+		return analyzeConstructor(cfg, pkg, d, typeName, typeCfg, typeNames)
+	}
+	// Field-based generation
+	fields := collectFields(pkg, st, typeNames)
+	d.Fields = fields
+	d.ImportTime = anyHas(fields, "time.Time") || anyHas(fields, "time.Duration")
+	return nil
+}
+
+func analyzeConstructor(cfg *Config, pkg *packages.Package, d *data, typeName string, typeCfg *TypeConfig, typeNames map[string]bool) error {
+	ctor := findConstructor(pkg, typeCfg.Constructor)
+	if ctor == nil {
+		return fmt.Errorf("type %s: constructor %s not found in package %s (configured in types.%s.constructor)",
+			typeName, typeCfg.Constructor, pkg.Name, typeName)
+	}
+
+	d.HasConstructor = true
+	d.ConstructorName = typeCfg.Constructor
+	d.ConstructorParams = analyzeConstructorParams(ctor, pkg, typeNames)
+	d.ConstructorReturns = analyzeConstructorReturns(ctor, pkg)
+
+	// Validate constructor returns the expected type
+	if len(d.ConstructorReturns) == 0 {
+		return fmt.Errorf("type %s: constructor %s must return at least one value", typeName, typeCfg.Constructor)
+	}
+	if d.ConstructorReturns[0] != typeName {
+		return fmt.Errorf("type %s: constructor %s returns %s, expected %s as first return value",
+			typeName, typeCfg.Constructor, d.ConstructorReturns[0], typeName)
+	}
+
+	// Check if any params use time types
+	for _, param := range d.ConstructorParams {
+		if strings.Contains(param.TypeExpr, "time.") {
+			d.ImportTime = true
+			break
+		}
+	}
+	return nil
+}
+
+func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, typeCfg *TypeConfig) error {
+	if typeCfg == nil || len(typeCfg.Matchers) == 0 {
+		return nil
+	}
+
+	for _, mf := range typeCfg.Matchers {
+		getter := findGetterMethod(pkg, typeName, mf.Getter)
+		if getter == nil {
+			return fmt.Errorf("type %s: getter method %s not found (configured in types.%s.matchers)",
+				typeName, mf.Getter, typeName)
+		}
+		returnType := analyzeGetterMethod(getter, pkg)
+		if returnType == "" {
+			return fmt.Errorf("type %s: getter method %s has invalid signature (expected exactly 1 return value)",
+				typeName, mf.Getter)
+		}
+		d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
+			Name:       mf.Name,
+			Getter:     mf.Getter,
+			ReturnType: returnType,
+		})
+	}
+	return nil
+}
+
+func generateFiles(d data, dirs struct{ factory, spec string }, typeName string) error {
+	// Generate spec file (low-level API)
+	specOut := filepath.Join(dirs.spec, strings.ToLower(typeName)+"_gen.go")
+	if err := renderSpec(specOut, d); err != nil {
+		return err
+	}
+	log.Printf("wrote %s", specOut)
+
+	// Generate recipe file (high-level API)
+	recipeOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_gen.go")
+	if err := renderRecipe(recipeOut, d); err != nil {
+		return err
+	}
+	log.Printf("wrote %s", recipeOut)
+
+	// Generate matcher file
+	matcherOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_matcher_gen.go")
+	if err := renderMatcher(matcherOut, d); err != nil {
+		return err
+	}
+	log.Printf("wrote %s", matcherOut)
+
 	return nil
 }
 
