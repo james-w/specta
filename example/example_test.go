@@ -103,7 +103,8 @@ func ExampleDeepEqual_structMismatch() {
 }
 
 // ExampleDeepEqual_nestedStruct demonstrates diff output for nested struct mismatches.
-// Note: Nested structures show as a single failed field (not expanded).
+// Note: Nested structures show as a single failed field with ellipsis (...) to indicate
+// the nested struct differs without expanding the full details.
 func ExampleDeepEqual_nestedStruct() {
 	expected := example.Parent{
 		Child: example.UserView{
@@ -256,6 +257,7 @@ func ExampleIsFalse_failure() {
 }
 
 // ExampleIsZero_failure demonstrates zero value matcher failure output.
+// Shows the actual value received (quoted for strings).
 func ExampleIsZero_failure() {
 	matcher := specta.IsZero[string]()
 	result := matcher.Matches("not empty")
@@ -264,10 +266,11 @@ func ExampleIsZero_failure() {
 		fmt.Println(result.Message)
 	}
 	// Output:
-	// expected zero value but got not empty
+	// expected zero value but got "not empty"
 }
 
 // ExampleAnyOf_failure demonstrates AnyOf matcher failure when no branches match.
+// Shows all failure messages (up to 3) so you can see what was tried.
 func ExampleAnyOf_failure() {
 	matcher := specta.AnyOf(
 		specta.Equal("admin"),
@@ -280,7 +283,10 @@ func ExampleAnyOf_failure() {
 		fmt.Println(result.Message)
 	}
 	// Output:
-	// none of the matchers succeeded
+	// none of the matchers succeeded:
+	//   option 1: expected "admin" but got "guest"
+	//   option 2: expected "moderator" but got "guest"
+	//   option 3: expected "editor" but got "guest"
 }
 
 // ExampleNot_failure demonstrates Not matcher failure output.
@@ -296,6 +302,7 @@ func ExampleNot_failure() {
 }
 
 // ExampleAllOf_failure demonstrates AllOf matcher failure output.
+// Shows which matchers failed and which succeeded, making it easy to see what went wrong.
 func ExampleAllOf_failure() {
 	matcher := specta.AllOf(
 		specta.HasPrefix("user_"),
@@ -308,5 +315,7 @@ func ExampleAllOf_failure() {
 		fmt.Println(result.Message)
 	}
 	// Output:
-	// not all matchers succeeded
+	// 2 of 3 matchers failed:
+	//   ✗ matcher 2: expected string to contain "admin" but got "user_123_pending"
+	//   ✗ matcher 3: expected string to end with "_verified" but got "user_123_pending"
 }

@@ -123,7 +123,7 @@ func IsZero[T any]() Matcher[T] {
 		}
 		return MatchResult{
 			Matched: false,
-			Message: fmt.Sprintf("expected zero value but got %v", actual),
+			Message: fmt.Sprintf("expected zero value but got %#v", actual),
 		}
 	})
 }
@@ -270,17 +270,24 @@ func IsFalse() Matcher[bool] {
 func AllOf[T any](matchers ...Matcher[T]) Matcher[T] {
 	return MatcherFunc[T](func(actual T) MatchResult {
 		var failures []string
+		var successes []string
 		for i, matcher := range matchers {
 			result := matcher.Matches(actual)
 			if !result.Matched {
-				failures = append(failures, fmt.Sprintf("matcher %d: %s", i, result.Message))
-				failures = append(failures, result.Details...)
+				failures = append(failures, fmt.Sprintf("matcher %d: %s", i+1, result.Message))
+			} else {
+				successes = append(successes, fmt.Sprintf("matcher %d: %s", i+1, result.Message))
 			}
 		}
 		if len(failures) > 0 {
+			msg := fmt.Sprintf("%d of %d matchers failed:\n", len(failures), len(matchers))
+			for _, f := range failures {
+				msg += "  ✗ " + f + "\n"
+			}
+			msg = strings.TrimSuffix(msg, "\n")
 			return MatchResult{
 				Matched: false,
-				Message: "not all matchers succeeded",
+				Message: msg,
 				Details: failures,
 			}
 		}
@@ -291,15 +298,32 @@ func AllOf[T any](matchers ...Matcher[T]) Matcher[T] {
 // AnyOf creates a matcher that requires at least one sub-matcher to match.
 func AnyOf[T any](matchers ...Matcher[T]) Matcher[T] {
 	return MatcherFunc[T](func(actual T) MatchResult {
-		for _, matcher := range matchers {
+		var failures []string
+		for i, matcher := range matchers {
 			result := matcher.Matches(actual)
 			if result.Matched {
 				return MatchResult{Matched: true}
 			}
+			failures = append(failures, fmt.Sprintf("option %d: %s", i+1, result.Message))
+		}
+		// Show up to 3 failure messages
+		msg := "none of the matchers succeeded:\n"
+		limit := 3
+		if len(failures) < limit {
+			limit = len(failures)
+		}
+		for i := 0; i < limit; i++ {
+			msg += "  " + failures[i] + "\n"
+		}
+		if len(failures) > limit {
+			msg += fmt.Sprintf("  ... and %d more", len(failures)-limit)
+		} else {
+			msg = strings.TrimSuffix(msg, "\n")
 		}
 		return MatchResult{
 			Matched: false,
-			Message: "none of the matchers succeeded",
+			Message: msg,
+			Details: failures,
 		}
 	})
 }
