@@ -9,6 +9,9 @@ types:
         getter: GetBalance
   - name: Email
     constructor: NewEmail
+    defaults:
+      address:
+        pattern: email
     matchers:
       - name: Address
         getter: GetAddress

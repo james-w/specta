@@ -75,49 +75,46 @@ User {
 
 ---
 
-### 2. Improved Default Providers for Error-Returning Constructors
+### 2. Improved Default Providers for Error-Returning Constructors (COMPLETED)
 **Goal:** Generate valid defaults for constructors with validation
 
-**Current Problem:**
-```go
-EmailDefaultAddress = func(p Primitives) string { return p.StringWith("address_") }
-// Returns "address_" which fails NewEmail validation
-```
+**Completed Solution:** Config-based overrides with built-in patterns (hybrid of Options A and C)
 
-**Solution Options:**
-
-#### Option A: Config-based overrides
+**Config Schema:**
 ```yaml
 types:
   - name: Email
     constructor: NewEmail
     defaults:
-      Address: 'func(p Primitives) string { return p.StringWith("user") + "@example.com" }'
+      address:
+        pattern: email  # Built-in pattern
+      # OR
+      customField:
+        custom: 'func(p testgen.Primitives) string { return "custom" }'
 ```
 
-#### Option B: Smart pattern detection
-- Detect validation patterns in constructor
-- Generate appropriate defaults (email format, URLs, etc.)
+**Supported Patterns:**
+- `email`: Generates `user_N@example.com`
+- `url`: Generates `https://example.com/path_N`
+- `uuid`: Generates UUIDv4 strings via `p.UUID().String()`
 
-#### Option C: Validation-aware generators
-```yaml
-types:
-  - name: Email
-    constructor: NewEmail
-    validation:
-      Address:
-        pattern: email  # Built-in patterns: email, url, uuid, etc.
-```
+**Implementation Details:**
+- [x] Added `DefaultProvider` struct with `pattern` and `custom` fields
+- [x] Added `resolveDefaultProvider()` function to resolve patterns to code
+- [x] Updated `TypeConfig` to include `Defaults map[string]DefaultProvider`
+- [x] Added validation for pattern types (must match parameter types)
+- [x] Updated spec template to check `CustomDefaults` before falling back to generic defaults
+- [x] Updated showcase config with Email pattern
+- [x] Fixed factory test to expect success with pattern-based defaults
+- [x] All tests passing
 
-**Tasks:**
-- [ ] Design config schema for default overrides
-- [ ] Implement config parsing for custom defaults
-- [ ] Add validation pattern detection (optional)
-- [ ] Generate appropriate string-based defaults
-- [ ] Update template to use configured defaults
-- [ ] Add tests with various validation patterns
+**Files Modified:**
+- `cmd/main.go`: Config struct, pattern resolution, template
+- `showcase/testgen.yaml`: Added Email pattern config
+- `showcase/factory_test.go`: Updated Email test to expect success
+- `TODO.md`: This file
 
-**Commit point:** "feat: support custom default providers for validated constructors"
+**Commit:** "feat: support custom default providers with built-in patterns"
 
 ---
 
@@ -334,6 +331,7 @@ PointsTo[T any](matcher Matcher[T]) Matcher[*T]
 #### Error Matchers
 ```go
 IsError() Matcher[error]
+NoErr() Matcher[error] // Not(IsError()) would be more typing for something super-common, should we even have a replacement for AssertThat specifically for this?
 ErrorContains(substr string) Matcher[error]
 ErrorIs(target error) Matcher[error]
 ErrorAs[T error](target *T) Matcher[error]
@@ -463,6 +461,23 @@ Transform("name uppercase",
 - [ ] Document use cases
 
 **Commit point:** "feat: add enhanced field extraction helpers"
+
+### 10b. Tests and any fixes for more complex struct patterns
+
+* Pointers to structs as child
+* Slices of structs as child
+* Circular dependencies between types
+
+### 10c. More matchers?
+
+something like requires.Eventually()?
+Panics?
+JSON?
+What else?
+
+### 10d. AST parsing?
+
+Steal ghostlib.ArgsFromAST to provide better messages on mismatch?
 
 ---
 

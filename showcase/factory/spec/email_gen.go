@@ -58,7 +58,7 @@ func NewEmailFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Email, 
 
 // Default parameter providers.
 var (
-	EmailDefaultAddress = func(p testgen.Primitives) string { return p.StringWith("address_") }
+	EmailDefaultAddress = func(p testgen.Primitives) string { return p.StringWith("user") + "@example.com" }
 )
 
 // BuildEmail constructs a Email from a EmailSpec.

@@ -22,10 +22,16 @@ type MatcherField struct {
 	Getter string `yaml:"getter"`
 }
 
+type DefaultProvider struct {
+	Pattern string `yaml:"pattern"` // "email", "url", "uuid", or ""
+	Custom  string `yaml:"custom"`  // Custom func code (if pattern is empty)
+}
+
 type TypeConfig struct {
-	Name        string         `yaml:"name"`
-	Constructor string         `yaml:"constructor"`
-	Matchers    []MatcherField `yaml:"matchers"`
+	Name        string                     `yaml:"name"`
+	Constructor string                     `yaml:"constructor"`
+	Defaults    map[string]DefaultProvider `yaml:"defaults"`
+	Matchers    []MatcherField             `yaml:"matchers"`
 }
 
 type Config struct {
@@ -87,6 +93,30 @@ func validateConfig(c *Config) error {
 			}
 			if matcher.Getter == "" {
 				return fmt.Errorf("types[%d].matchers[%d]: getter is required (for type %s)", i, j, typeCfg.Name)
+			}
+		}
+
+		// Validate defaults
+		for paramName, provider := range typeCfg.Defaults {
+			if provider.Pattern == "" && provider.Custom == "" {
+				return fmt.Errorf("types[%d].defaults[%s]: must specify either pattern or custom (for type %s)", i, paramName, typeCfg.Name)
+			}
+			if provider.Pattern != "" && provider.Custom != "" {
+				return fmt.Errorf("types[%d].defaults[%s]: cannot specify both pattern and custom (for type %s)", i, paramName, typeCfg.Name)
+			}
+			if provider.Pattern != "" {
+				validPatterns := []string{"email", "url", "uuid"}
+				valid := false
+				for _, p := range validPatterns {
+					if provider.Pattern == p {
+						valid = true
+						break
+					}
+				}
+				if !valid {
+					return fmt.Errorf("types[%d].defaults[%s]: unknown pattern %q (valid: %v, for type %s)",
+						i, paramName, provider.Pattern, validPatterns, typeCfg.Name)
+				}
 			}
 		}
 	}
@@ -157,6 +187,9 @@ type data struct {
 
 	// Matcher-based generation for getters
 	GetterMatchers []GetterInfo
+
+	// Custom defaults for constructor parameters
+	CustomDefaults map[string]string
 }
 
 func findTypeConfig(cfg *Config, typeName string) *TypeConfig {
@@ -166,6 +199,36 @@ func findTypeConfig(cfg *Config, typeName string) *TypeConfig {
 		}
 	}
 	return nil
+}
+
+func resolveDefaultProvider(paramName, paramType string, provider DefaultProvider) (string, error) {
+	if provider.Pattern != "" {
+		// Validate pattern matches type
+		switch provider.Pattern {
+		case "email":
+			if paramType != "string" {
+				return "", fmt.Errorf("pattern 'email' requires string type, got %s", paramType)
+			}
+			return `func(p testgen.Primitives) string { return p.StringWith("user") + "@example.com" }`, nil
+		case "url":
+			if paramType != "string" {
+				return "", fmt.Errorf("pattern 'url' requires string type, got %s", paramType)
+			}
+			return `func(p testgen.Primitives) string { return "https://example.com/" + p.StringWith("path") }`, nil
+		case "uuid":
+			if paramType != "string" {
+				return "", fmt.Errorf("pattern 'uuid' requires string type, got %s", paramType)
+			}
+			return `func(p testgen.Primitives) string { return p.UUID().String() }`, nil
+		default:
+			return "", fmt.Errorf("unknown pattern: %s", provider.Pattern)
+		}
+	}
+	// Use custom function
+	if provider.Custom != "" {
+		return provider.Custom, nil
+	}
+	return "", fmt.Errorf("provider must specify either pattern or custom")
 }
 
 func findConstructor(pkg *packages.Package, constructorName string) *ast.FuncDecl {
@@ -429,6 +492,21 @@ func analyzeConstructor(cfg *Config, pkg *packages.Package, d *data, typeName st
 			break
 		}
 	}
+
+	// Resolve custom defaults
+	if len(typeCfg.Defaults) > 0 {
+		d.CustomDefaults = make(map[string]string)
+		for _, param := range d.ConstructorParams {
+			if provider, ok := typeCfg.Defaults[strings.ToLower(param.Name)]; ok {
+				resolved, err := resolveDefaultProvider(param.Name, param.TypeExpr, provider)
+				if err != nil {
+					return fmt.Errorf("type %s: parameter %s: %w", typeName, param.Name, err)
+				}
+				d.CustomDefaults[param.Name] = resolved
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -822,7 +900,11 @@ func New{{.TypeName}}Factory(p testgen.Primitives) *testgen.SpecFactory[{{$.Pare
 // Default parameter providers.
 var (
 	{{- range .ConstructorParams}}
+	{{- if $customDefault := index $.CustomDefaults .Name}}
+	{{$.TypeName}}Default{{.Name}} = {{ $customDefault }}
+	{{- else}}
 	{{$.TypeName}}Default{{.Name}} = {{ defaultProviderParam $.ParentPackage . }}
+	{{- end}}
 	{{- end}}
 )
 

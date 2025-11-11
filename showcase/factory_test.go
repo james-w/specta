@@ -500,12 +500,16 @@ func TestEmailFactory(t *testing.T) {
 		}
 	})
 
-	t.Run("Build with default generates invalid email and returns error", func(t *testing.T) {
-		// Default provider generates "address_" which is not a valid email
-		_, err := factory.Email().Build(p)
+	t.Run("Build with default pattern generates valid email", func(t *testing.T) {
+		// Default provider uses email pattern which generates valid emails
+		email, err := factory.Email().Build(p)
 
-		if err == nil {
-			t.Error("expected error with default generation (address_ is not valid)")
+		if err != nil {
+			t.Fatalf("expected no error with email pattern default, got %v", err)
+		}
+		addr := email.GetAddress()
+		if !strings.Contains(addr, "@") {
+			t.Errorf("expected valid email format with @, got %q", addr)
 		}
 	})
 
