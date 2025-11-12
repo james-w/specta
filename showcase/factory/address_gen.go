@@ -9,20 +9,20 @@
 //	// Build a single instance with custom fields
 //
 //
-//	result := Address().Street("example").Build(testgen.New())
+//	result := Address().Street("example").Build(specta.New())
 //
 //
 //
 //	// Build many instances with unique values
-//	results := Address().Many(5, testgen.New())
+//	results := Address().Many(5, specta.New())
 //
 //	// Build a matcher to verify specific fields
 //
 //
-//	matcher := AddressMatches().Street(testgen.DeepEqual("expected"))
+//	matcher := AddressMatches().Street(specta.DeepEqual("expected"))
 //
 //
-//	testgen.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher.Matcher())
 //
 //	// Convert a recipe to a matcher for partial matching
 //
@@ -30,18 +30,18 @@
 //	partialMatcher := Address().Street("expected").AsEqualMatcher()
 //
 //
-//	testgen.AssertThat(t, actual, partialMatcher)
+//	specta.AssertThat(t, actual, partialMatcher)
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 	"github.com/james-w/specta/showcase/factory/spec"
 )
 
 // AddressRecipe provides a fluent API for building Address instances.
 type AddressRecipe struct {
-	opts []testgen.Opt[spec.AddressSpec]
+	opts []specta.Opt[spec.AddressSpec]
 }
 
 // Address creates a new AddressRecipe for building Address instances.
@@ -78,17 +78,17 @@ func (r AddressRecipe) Country(v string) AddressRecipe {
 }
 
 // Provider returns a Provider for lazy evaluation in parent factories.
-func (r AddressRecipe) Provider() testgen.Provider[showcase.Address] {
-	return testgen.FromSpec(spec.BuildAddress, spec.NewAddressSpec, r.opts...)
+func (r AddressRecipe) Provider() specta.Provider[showcase.Address] {
+	return specta.FromSpec(spec.BuildAddress, spec.NewAddressSpec, r.opts...)
 }
 
 // Build creates a single Address instance.
-func (r AddressRecipe) Build(p testgen.Primitives) showcase.Address {
+func (r AddressRecipe) Build(p specta.Primitives) showcase.Address {
 	return spec.NewAddressFactory(p).Make(r.opts...)
 }
 
 // Many creates multiple Address instances with unique generated values.
-func (r AddressRecipe) Many(n int, p testgen.Primitives) []showcase.Address {
+func (r AddressRecipe) Many(n int, p specta.Primitives) []showcase.Address {
 	return spec.NewAddressFactory(p).Many(n, r.opts...)
 }
 
@@ -96,7 +96,7 @@ func (r AddressRecipe) Many(n int, p testgen.Primitives) []showcase.Address {
 // Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
-func (r AddressRecipe) AsEqualMatcher() testgen.Matcher[showcase.Address] {
+func (r AddressRecipe) AsEqualMatcher() specta.Matcher[showcase.Address] {
 	// Apply opts to a spec to see what was set
 	s := spec.NewAddressSpec()
 	for _, opt := range r.opts {
@@ -105,24 +105,24 @@ func (r AddressRecipe) AsEqualMatcher() testgen.Matcher[showcase.Address] {
 
 	// Use a dummy Primitives to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
-	p := testgen.New()
+	p := specta.New()
 
 	// Build matcher only for set fields
 	m := AddressMatches()
 	if s.Street.IsSet() {
-		m = m.Street(testgen.DeepEqual(s.Street.Value(p)))
+		m = m.Street(specta.DeepEqual(s.Street.Value(p)))
 	}
 	if s.City.IsSet() {
-		m = m.City(testgen.DeepEqual(s.City.Value(p)))
+		m = m.City(specta.DeepEqual(s.City.Value(p)))
 	}
 	if s.State.IsSet() {
-		m = m.State(testgen.DeepEqual(s.State.Value(p)))
+		m = m.State(specta.DeepEqual(s.State.Value(p)))
 	}
 	if s.ZipCode.IsSet() {
-		m = m.ZipCode(testgen.DeepEqual(s.ZipCode.Value(p)))
+		m = m.ZipCode(specta.DeepEqual(s.ZipCode.Value(p)))
 	}
 	if s.Country.IsSet() {
-		m = m.Country(testgen.DeepEqual(s.Country.Value(p)))
+		m = m.Country(specta.DeepEqual(s.Country.Value(p)))
 	}
 
 	return m.Matcher()

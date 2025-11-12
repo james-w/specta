@@ -10,7 +10,7 @@
 //
 //	// Create a spec and set fields explicitly
 //	spec := NewUserViewSpec()
-//	opts := []testgen.Opt[UserViewSpec]{
+//	opts := []specta.Opt[UserViewSpec]{
 //
 //
 //		WithUserViewID("example"),
@@ -20,47 +20,47 @@
 //	for _, opt := range opts {
 //		opt(&spec)
 //	}
-//	result := BuildUserView(testgen.New(), spec)
+//	result := BuildUserView(specta.New(), spec)
 //
 //	// Or use a factory for convenience
-//	factory := NewUserViewFactory(testgen.New())
+//	factory := NewUserViewFactory(specta.New())
 //
 //
 //	result := factory.Make(WithUserViewID("example"))
 package spec
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/example"
 )
 
 // UserViewSpec is the low-level specification for building UserView instances.
 // Most users should use UserViewRecipe from the parent factory package instead.
 type UserViewSpec struct {
-	ID     testgen.Maybe[string]
-	Name   testgen.Maybe[string]
-	Active testgen.Maybe[bool]
-	Score  testgen.Maybe[int]
+	ID     specta.Maybe[string]
+	Name   specta.Maybe[string]
+	Active specta.Maybe[bool]
+	Score  specta.Maybe[int]
 }
 
 // NewUserViewSpec creates a new UserViewSpec with all fields unset.
 func NewUserViewSpec() UserViewSpec { return UserViewSpec{} }
 
 // NewUserViewFactory creates a new SpecFactory for UserView.
-func NewUserViewFactory(p testgen.Primitives) *testgen.SpecFactory[example.UserView, UserViewSpec] {
-	return testgen.NewSpecFactory(p, NewUserViewSpec, BuildUserView)
+func NewUserViewFactory(p specta.Primitives) *specta.SpecFactory[example.UserView, UserViewSpec] {
+	return specta.NewSpecFactory(p, NewUserViewSpec, BuildUserView)
 }
 
 // Default field providers.
 var (
-	UserViewDefaultID     = func(p testgen.Primitives) string { return p.ID() }
-	UserViewDefaultName   = func(p testgen.Primitives) string { return p.StringWith("name_") }
-	UserViewDefaultActive = func(p testgen.Primitives) bool { return p.Bool() }
-	UserViewDefaultScore  = func(p testgen.Primitives) int { return p.Int() }
+	UserViewDefaultID     = func(p specta.Primitives) string { return p.ID() }
+	UserViewDefaultName   = func(p specta.Primitives) string { return p.StringWith("name_") }
+	UserViewDefaultActive = func(p specta.Primitives) bool { return p.Bool() }
+	UserViewDefaultScore  = func(p specta.Primitives) int { return p.Int() }
 )
 
 // BuildUserView constructs a UserView from a UserViewSpec.
-func BuildUserView(p testgen.Primitives, s UserViewSpec) example.UserView {
+func BuildUserView(p specta.Primitives, s UserViewSpec) example.UserView {
 	iD := s.ID.Get(p, UserViewDefaultID)
 	name := s.Name.Get(p, UserViewDefaultName)
 	active := s.Active.Get(p, UserViewDefaultActive)
@@ -74,21 +74,21 @@ func BuildUserView(p testgen.Primitives, s UserViewSpec) example.UserView {
 }
 
 // WithUserViewID sets the ID field to a literal value.
-func WithUserViewID(v string) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[string]) { s.ID = m }, v)
+func WithUserViewID(v string) specta.Opt[UserViewSpec] {
+	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
 // WithUserViewName sets the Name field to a literal value.
-func WithUserViewName(v string) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[string]) { s.Name = m }, v)
+func WithUserViewName(v string) specta.Opt[UserViewSpec] {
+	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[string]) { s.Name = m }, v)
 }
 
 // WithUserViewActive sets the Active field to a literal value.
-func WithUserViewActive(v bool) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[bool]) { s.Active = m }, v)
+func WithUserViewActive(v bool) specta.Opt[UserViewSpec] {
+	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[bool]) { s.Active = m }, v)
 }
 
 // WithUserViewScore sets the Score field to a literal value.
-func WithUserViewScore(v int) testgen.Opt[UserViewSpec] {
-	return testgen.SetLit(func(s *UserViewSpec, m testgen.Maybe[int]) { s.Score = m }, v)
+func WithUserViewScore(v int) specta.Opt[UserViewSpec] {
+	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[int]) { s.Score = m }, v)
 }

@@ -5,13 +5,13 @@
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // EmailMatcher provides a fluent API for matching Email instances.
 type EmailMatcher struct {
-	addressMatcher testgen.Matcher[string]
+	addressMatcher specta.Matcher[string]
 }
 
 // EmailMatches creates a new EmailMatcher for matching Email instances.
@@ -20,14 +20,14 @@ func EmailMatches() EmailMatcher {
 }
 
 // Address adds a matcher for the Address property (via GetAddress).
-func (m EmailMatcher) Address(matcher testgen.Matcher[string]) EmailMatcher {
+func (m EmailMatcher) Address(matcher specta.Matcher[string]) EmailMatcher {
 	m.addressMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for Email.
-func (m EmailMatcher) Matcher() testgen.Matcher[showcase.Email] {
-	return testgen.MatcherFunc[showcase.Email](func(actual showcase.Email) testgen.MatchResult {
+func (m EmailMatcher) Matcher() specta.Matcher[showcase.Email] {
+	return specta.MatcherFunc[showcase.Email](func(actual showcase.Email) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		addressValue := actual.GetAddress()
 
@@ -37,7 +37,7 @@ func (m EmailMatcher) Matcher() testgen.Matcher[showcase.Email] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.addressMatcher != nil {
@@ -50,12 +50,12 @@ func (m EmailMatcher) Matcher() testgen.Matcher[showcase.Email] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("Email", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("Email", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

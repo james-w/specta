@@ -5,14 +5,14 @@
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // AccountMatcher provides a fluent API for matching Account instances.
 type AccountMatcher struct {
-	userMatcher   testgen.Matcher[showcase.User]
-	statusMatcher testgen.Matcher[string]
+	userMatcher   specta.Matcher[showcase.User]
+	statusMatcher specta.Matcher[string]
 }
 
 // AccountMatches creates a new AccountMatcher for matching Account instances.
@@ -21,20 +21,20 @@ func AccountMatches() AccountMatcher {
 }
 
 // User adds a matcher for the User property (via GetUser).
-func (m AccountMatcher) User(matcher testgen.Matcher[showcase.User]) AccountMatcher {
+func (m AccountMatcher) User(matcher specta.Matcher[showcase.User]) AccountMatcher {
 	m.userMatcher = matcher
 	return m
 }
 
 // Status adds a matcher for the Status property (via GetStatus).
-func (m AccountMatcher) Status(matcher testgen.Matcher[string]) AccountMatcher {
+func (m AccountMatcher) Status(matcher specta.Matcher[string]) AccountMatcher {
 	m.statusMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for Account.
-func (m AccountMatcher) Matcher() testgen.Matcher[showcase.Account] {
-	return testgen.MatcherFunc[showcase.Account](func(actual showcase.Account) testgen.MatchResult {
+func (m AccountMatcher) Matcher() specta.Matcher[showcase.Account] {
+	return specta.MatcherFunc[showcase.Account](func(actual showcase.Account) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		userValue := actual.GetUser()
 		statusValue := actual.GetStatus()
@@ -46,7 +46,7 @@ func (m AccountMatcher) Matcher() testgen.Matcher[showcase.Account] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.userMatcher != nil {
@@ -67,12 +67,12 @@ func (m AccountMatcher) Matcher() testgen.Matcher[showcase.Account] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("Account", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("Account", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

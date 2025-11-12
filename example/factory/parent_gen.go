@@ -9,20 +9,20 @@
 //	// Build a single instance with custom fields
 //
 //
-//	result := Parent().Child(value).Build(testgen.New())
+//	result := Parent().Child(value).Build(specta.New())
 //
 //
 //
 //	// Build many instances with unique values
-//	results := Parent().Many(5, testgen.New())
+//	results := Parent().Many(5, specta.New())
 //
 //	// Build a matcher to verify specific fields
 //
 //
-//	matcher := ParentMatches().Child(testgen.DeepEqual(expectedValue))
+//	matcher := ParentMatches().Child(specta.DeepEqual(expectedValue))
 //
 //
-//	testgen.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher.Matcher())
 //
 //	// Convert a recipe to a matcher for partial matching
 //
@@ -30,18 +30,18 @@
 //	partialMatcher := Parent().Child(expected).AsEqualMatcher()
 //
 //
-//	testgen.AssertThat(t, actual, partialMatcher)
+//	specta.AssertThat(t, actual, partialMatcher)
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/example"
 	"github.com/james-w/specta/example/factory/spec"
 )
 
 // ParentRecipe provides a fluent API for building Parent instances.
 type ParentRecipe struct {
-	opts        []testgen.Opt[spec.ParentSpec]
+	opts        []specta.Opt[spec.ParentSpec]
 	childRecipe *UserViewRecipe
 }
 
@@ -65,17 +65,17 @@ func (r ParentRecipe) ChildFromRecipe(v UserViewRecipe) ParentRecipe {
 }
 
 // Provider returns a Provider for lazy evaluation in parent factories.
-func (r ParentRecipe) Provider() testgen.Provider[example.Parent] {
-	return testgen.FromSpec(spec.BuildParent, spec.NewParentSpec, r.opts...)
+func (r ParentRecipe) Provider() specta.Provider[example.Parent] {
+	return specta.FromSpec(spec.BuildParent, spec.NewParentSpec, r.opts...)
 }
 
 // Build creates a single Parent instance.
-func (r ParentRecipe) Build(p testgen.Primitives) example.Parent {
+func (r ParentRecipe) Build(p specta.Primitives) example.Parent {
 	return spec.NewParentFactory(p).Make(r.opts...)
 }
 
 // Many creates multiple Parent instances with unique generated values.
-func (r ParentRecipe) Many(n int, p testgen.Primitives) []example.Parent {
+func (r ParentRecipe) Many(n int, p specta.Primitives) []example.Parent {
 	return spec.NewParentFactory(p).Many(n, r.opts...)
 }
 
@@ -83,7 +83,7 @@ func (r ParentRecipe) Many(n int, p testgen.Primitives) []example.Parent {
 // Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
-func (r ParentRecipe) AsEqualMatcher() testgen.Matcher[example.Parent] {
+func (r ParentRecipe) AsEqualMatcher() specta.Matcher[example.Parent] {
 	// Apply opts to a spec to see what was set
 	s := spec.NewParentSpec()
 	for _, opt := range r.opts {
@@ -92,7 +92,7 @@ func (r ParentRecipe) AsEqualMatcher() testgen.Matcher[example.Parent] {
 
 	// Use a dummy Primitives to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
-	p := testgen.New()
+	p := specta.New()
 
 	// Build matcher only for set fields
 	m := ParentMatches()
@@ -101,7 +101,7 @@ func (r ParentRecipe) AsEqualMatcher() testgen.Matcher[example.Parent] {
 		if r.childRecipe != nil {
 			m = m.Child(r.childRecipe.AsEqualMatcher())
 		} else {
-			m = m.Child(testgen.DeepEqual(s.Child.Value(p)))
+			m = m.Child(specta.DeepEqual(s.Child.Value(p)))
 		}
 	}
 

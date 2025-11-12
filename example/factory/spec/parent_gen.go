@@ -10,7 +10,7 @@
 //
 //	// Create a spec and set fields explicitly
 //	spec := NewParentSpec()
-//	opts := []testgen.Opt[ParentSpec]{
+//	opts := []specta.Opt[ParentSpec]{
 //
 //
 //		WithParentChild(value),
@@ -20,41 +20,41 @@
 //	for _, opt := range opts {
 //		opt(&spec)
 //	}
-//	result := BuildParent(testgen.New(), spec)
+//	result := BuildParent(specta.New(), spec)
 //
 //	// Or use a factory for convenience
-//	factory := NewParentFactory(testgen.New())
+//	factory := NewParentFactory(specta.New())
 //
 //
 //	result := factory.Make(WithParentChild(value))
 package spec
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/example"
 )
 
 // ParentSpec is the low-level specification for building Parent instances.
 // Most users should use ParentRecipe from the parent factory package instead.
 type ParentSpec struct {
-	Child testgen.Maybe[example.UserView]
+	Child specta.Maybe[example.UserView]
 }
 
 // NewParentSpec creates a new ParentSpec with all fields unset.
 func NewParentSpec() ParentSpec { return ParentSpec{} }
 
 // NewParentFactory creates a new SpecFactory for Parent.
-func NewParentFactory(p testgen.Primitives) *testgen.SpecFactory[example.Parent, ParentSpec] {
-	return testgen.NewSpecFactory(p, NewParentSpec, BuildParent)
+func NewParentFactory(p specta.Primitives) *specta.SpecFactory[example.Parent, ParentSpec] {
+	return specta.NewSpecFactory(p, NewParentSpec, BuildParent)
 }
 
 // Default field providers.
 var (
-	ParentDefaultChild = testgen.FromSpec(BuildUserView, NewUserViewSpec)
+	ParentDefaultChild = specta.FromSpec(BuildUserView, NewUserViewSpec)
 )
 
 // BuildParent constructs a Parent from a ParentSpec.
-func BuildParent(p testgen.Primitives, s ParentSpec) example.Parent {
+func BuildParent(p specta.Primitives, s ParentSpec) example.Parent {
 	child := s.Child.Get(p, ParentDefaultChild)
 	return example.Parent{
 		Child: child,
@@ -62,14 +62,14 @@ func BuildParent(p testgen.Primitives, s ParentSpec) example.Parent {
 }
 
 // WithParentChild sets the Child field to a literal value.
-func WithParentChild(v example.UserView) testgen.Opt[ParentSpec] {
-	return testgen.SetLit(func(s *ParentSpec, m testgen.Maybe[example.UserView]) { s.Child = m }, v)
+func WithParentChild(v example.UserView) specta.Opt[ParentSpec] {
+	return specta.SetLit(func(s *ParentSpec, m specta.Maybe[example.UserView]) { s.Child = m }, v)
 }
 
 // WithParentChildFromProvider sets the Child field using a Provider (evaluated lazily).
-func WithParentChildFromProvider(prov testgen.Provider[example.UserView]) testgen.Opt[ParentSpec] {
-	return testgen.SetWith(
-		func(s *ParentSpec, m testgen.Maybe[example.UserView]) { s.Child = m },
+func WithParentChildFromProvider(prov specta.Provider[example.UserView]) specta.Opt[ParentSpec] {
+	return specta.SetWith(
+		func(s *ParentSpec, m specta.Maybe[example.UserView]) { s.Child = m },
 		prov,
 	)
 }

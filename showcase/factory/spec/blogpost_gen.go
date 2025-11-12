@@ -10,7 +10,7 @@
 //
 //	// Create a spec and set fields explicitly
 //	spec := NewBlogPostSpec()
-//	opts := []testgen.Opt[BlogPostSpec]{
+//	opts := []specta.Opt[BlogPostSpec]{
 //
 //
 //		WithBlogPostID("example"),
@@ -20,10 +20,10 @@
 //	for _, opt := range opts {
 //		opt(&spec)
 //	}
-//	result := BuildBlogPost(testgen.New(), spec)
+//	result := BuildBlogPost(specta.New(), spec)
 //
 //	// Or use a factory for convenience
-//	factory := NewBlogPostFactory(testgen.New())
+//	factory := NewBlogPostFactory(specta.New())
 //
 //
 //	result := factory.Make(WithBlogPostID("example"))
@@ -32,45 +32,45 @@ package spec
 import (
 	"time"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // BlogPostSpec is the low-level specification for building BlogPost instances.
 // Most users should use BlogPostRecipe from the parent factory package instead.
 type BlogPostSpec struct {
-	ID          testgen.Maybe[string]
-	Title       testgen.Maybe[string]
-	Content     testgen.Maybe[string]
-	Author      testgen.Maybe[showcase.User]
-	Published   testgen.Maybe[bool]
-	PublishedAt testgen.Maybe[time.Time]
-	CreatedAt   testgen.Maybe[time.Time]
-	UpdatedAt   testgen.Maybe[time.Time]
+	ID          specta.Maybe[string]
+	Title       specta.Maybe[string]
+	Content     specta.Maybe[string]
+	Author      specta.Maybe[showcase.User]
+	Published   specta.Maybe[bool]
+	PublishedAt specta.Maybe[time.Time]
+	CreatedAt   specta.Maybe[time.Time]
+	UpdatedAt   specta.Maybe[time.Time]
 }
 
 // NewBlogPostSpec creates a new BlogPostSpec with all fields unset.
 func NewBlogPostSpec() BlogPostSpec { return BlogPostSpec{} }
 
 // NewBlogPostFactory creates a new SpecFactory for BlogPost.
-func NewBlogPostFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.BlogPost, BlogPostSpec] {
-	return testgen.NewSpecFactory(p, NewBlogPostSpec, BuildBlogPost)
+func NewBlogPostFactory(p specta.Primitives) *specta.SpecFactory[showcase.BlogPost, BlogPostSpec] {
+	return specta.NewSpecFactory(p, NewBlogPostSpec, BuildBlogPost)
 }
 
 // Default field providers.
 var (
-	BlogPostDefaultID          = func(p testgen.Primitives) string { return p.ID() }
-	BlogPostDefaultTitle       = func(p testgen.Primitives) string { return p.StringWith("title_") }
-	BlogPostDefaultContent     = func(p testgen.Primitives) string { return p.StringWith("content_") }
-	BlogPostDefaultAuthor      = testgen.FromSpec(BuildUser, NewUserSpec)
-	BlogPostDefaultPublished   = func(p testgen.Primitives) bool { return p.Bool() }
-	BlogPostDefaultPublishedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-	BlogPostDefaultCreatedAt   = func(p testgen.Primitives) time.Time { return p.Time() }
-	BlogPostDefaultUpdatedAt   = func(p testgen.Primitives) time.Time { return p.Time() }
+	BlogPostDefaultID          = func(p specta.Primitives) string { return p.ID() }
+	BlogPostDefaultTitle       = func(p specta.Primitives) string { return p.StringWith("title_") }
+	BlogPostDefaultContent     = func(p specta.Primitives) string { return p.StringWith("content_") }
+	BlogPostDefaultAuthor      = specta.FromSpec(BuildUser, NewUserSpec)
+	BlogPostDefaultPublished   = func(p specta.Primitives) bool { return p.Bool() }
+	BlogPostDefaultPublishedAt = func(p specta.Primitives) time.Time { return p.Time() }
+	BlogPostDefaultCreatedAt   = func(p specta.Primitives) time.Time { return p.Time() }
+	BlogPostDefaultUpdatedAt   = func(p specta.Primitives) time.Time { return p.Time() }
 )
 
 // BuildBlogPost constructs a BlogPost from a BlogPostSpec.
-func BuildBlogPost(p testgen.Primitives, s BlogPostSpec) showcase.BlogPost {
+func BuildBlogPost(p specta.Primitives, s BlogPostSpec) showcase.BlogPost {
 	iD := s.ID.Get(p, BlogPostDefaultID)
 	title := s.Title.Get(p, BlogPostDefaultTitle)
 	content := s.Content.Get(p, BlogPostDefaultContent)
@@ -92,49 +92,49 @@ func BuildBlogPost(p testgen.Primitives, s BlogPostSpec) showcase.BlogPost {
 }
 
 // WithBlogPostID sets the ID field to a literal value.
-func WithBlogPostID(v string) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[string]) { s.ID = m }, v)
+func WithBlogPostID(v string) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
 // WithBlogPostTitle sets the Title field to a literal value.
-func WithBlogPostTitle(v string) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[string]) { s.Title = m }, v)
+func WithBlogPostTitle(v string) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[string]) { s.Title = m }, v)
 }
 
 // WithBlogPostContent sets the Content field to a literal value.
-func WithBlogPostContent(v string) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[string]) { s.Content = m }, v)
+func WithBlogPostContent(v string) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[string]) { s.Content = m }, v)
 }
 
 // WithBlogPostAuthor sets the Author field to a literal value.
-func WithBlogPostAuthor(v showcase.User) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[showcase.User]) { s.Author = m }, v)
+func WithBlogPostAuthor(v showcase.User) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[showcase.User]) { s.Author = m }, v)
 }
 
 // WithBlogPostAuthorFromProvider sets the Author field using a Provider (evaluated lazily).
-func WithBlogPostAuthorFromProvider(prov testgen.Provider[showcase.User]) testgen.Opt[BlogPostSpec] {
-	return testgen.SetWith(
-		func(s *BlogPostSpec, m testgen.Maybe[showcase.User]) { s.Author = m },
+func WithBlogPostAuthorFromProvider(prov specta.Provider[showcase.User]) specta.Opt[BlogPostSpec] {
+	return specta.SetWith(
+		func(s *BlogPostSpec, m specta.Maybe[showcase.User]) { s.Author = m },
 		prov,
 	)
 }
 
 // WithBlogPostPublished sets the Published field to a literal value.
-func WithBlogPostPublished(v bool) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[bool]) { s.Published = m }, v)
+func WithBlogPostPublished(v bool) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[bool]) { s.Published = m }, v)
 }
 
 // WithBlogPostPublishedAt sets the PublishedAt field to a literal value.
-func WithBlogPostPublishedAt(v time.Time) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[time.Time]) { s.PublishedAt = m }, v)
+func WithBlogPostPublishedAt(v time.Time) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[time.Time]) { s.PublishedAt = m }, v)
 }
 
 // WithBlogPostCreatedAt sets the CreatedAt field to a literal value.
-func WithBlogPostCreatedAt(v time.Time) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
+func WithBlogPostCreatedAt(v time.Time) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m }, v)
 }
 
 // WithBlogPostUpdatedAt sets the UpdatedAt field to a literal value.
-func WithBlogPostUpdatedAt(v time.Time) testgen.Opt[BlogPostSpec] {
-	return testgen.SetLit(func(s *BlogPostSpec, m testgen.Maybe[time.Time]) { s.UpdatedAt = m }, v)
+func WithBlogPostUpdatedAt(v time.Time) specta.Opt[BlogPostSpec] {
+	return specta.SetLit(func(s *BlogPostSpec, m specta.Maybe[time.Time]) { s.UpdatedAt = m }, v)
 }

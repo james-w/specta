@@ -9,20 +9,20 @@
 //	// Build a single instance with custom fields
 //
 //
-//	result := Email().Address("example").Build(testgen.New())
+//	result := Email().Address("example").Build(specta.New())
 //
 //
 //
 //	// Build many instances with unique values
-//	results := Email().Many(5, testgen.New())
+//	results := Email().Many(5, specta.New())
 //
 //	// Build a matcher to verify specific fields
 //
 //
-//	matcher := EmailMatches().Address(testgen.DeepEqual("expected"))
+//	matcher := EmailMatches().Address(specta.DeepEqual("expected"))
 //
 //
-//	testgen.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher.Matcher())
 //
 //	// Convert a recipe to a matcher for partial matching
 //
@@ -30,20 +30,20 @@
 //	partialMatcher := Email().Address("expected").AsEqualMatcher()
 //
 //
-//	testgen.AssertThat(t, actual, partialMatcher)
+//	specta.AssertThat(t, actual, partialMatcher)
 package factory
 
 import (
 	"fmt"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 	"github.com/james-w/specta/showcase/factory/spec"
 )
 
 // EmailRecipe provides a fluent API for building Email instances.
 type EmailRecipe struct {
-	opts []testgen.Opt[spec.EmailSpec]
+	opts []specta.Opt[spec.EmailSpec]
 }
 
 // Email creates a new EmailRecipe for building Email instances.
@@ -56,9 +56,9 @@ func (r EmailRecipe) Address(v string) EmailRecipe {
 }
 
 // Provider returns a Provider for lazy evaluation in parent factories.
-func (r EmailRecipe) Provider() testgen.Provider[showcase.Email] {
+func (r EmailRecipe) Provider() specta.Provider[showcase.Email] {
 	// Wrap error-returning constructor - panic on error for test factories
-	return func(p testgen.Primitives) showcase.Email {
+	return func(p specta.Primitives) showcase.Email {
 		s := spec.NewEmailSpec()
 		for _, opt := range r.opts {
 			opt(&s)
@@ -72,7 +72,7 @@ func (r EmailRecipe) Provider() testgen.Provider[showcase.Email] {
 }
 
 // Build creates a single Email instance.
-func (r EmailRecipe) Build(p testgen.Primitives) (showcase.Email, error) {
+func (r EmailRecipe) Build(p specta.Primitives) (showcase.Email, error) {
 	// Constructor returns multiple values - apply opts and call Build directly
 	s := spec.NewEmailSpec()
 	for _, opt := range r.opts {
@@ -82,7 +82,7 @@ func (r EmailRecipe) Build(p testgen.Primitives) (showcase.Email, error) {
 }
 
 // Many creates multiple Email instances with unique generated values.
-func (r EmailRecipe) Many(n int, p testgen.Primitives) []showcase.Email {
+func (r EmailRecipe) Many(n int, p specta.Primitives) []showcase.Email {
 	// Wrap error-returning constructor - panic on first error
 	var results []showcase.Email
 	for i := range n {
@@ -99,17 +99,17 @@ func (r EmailRecipe) Many(n int, p testgen.Primitives) []showcase.Email {
 // Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
-func (r EmailRecipe) AsEqualMatcher() testgen.Matcher[showcase.Email] {
+func (r EmailRecipe) AsEqualMatcher() specta.Matcher[showcase.Email] {
 	// Constructor-based type with matchers configured: use matcher builder for partial matching
 	s := spec.NewEmailSpec()
 	for _, opt := range r.opts {
 		opt(&s)
 	}
-	p := testgen.New()
+	p := specta.New()
 
 	m := EmailMatches()
 	if s.Address.IsSet() {
-		m = m.Address(testgen.Equal(s.Address.Value(p)))
+		m = m.Address(specta.Equal(s.Address.Value(p)))
 	}
 	return m.Matcher()
 }

@@ -5,17 +5,17 @@
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // AddressMatcher provides a fluent API for matching Address instances.
 type AddressMatcher struct {
-	streetMatcher  testgen.Matcher[string]
-	cityMatcher    testgen.Matcher[string]
-	stateMatcher   testgen.Matcher[string]
-	zipCodeMatcher testgen.Matcher[string]
-	countryMatcher testgen.Matcher[string]
+	streetMatcher  specta.Matcher[string]
+	cityMatcher    specta.Matcher[string]
+	stateMatcher   specta.Matcher[string]
+	zipCodeMatcher specta.Matcher[string]
+	countryMatcher specta.Matcher[string]
 }
 
 // AddressMatches creates a new AddressMatcher for matching Address instances.
@@ -24,38 +24,38 @@ func AddressMatches() AddressMatcher {
 }
 
 // Street adds a matcher for the Street field.
-func (m AddressMatcher) Street(matcher testgen.Matcher[string]) AddressMatcher {
+func (m AddressMatcher) Street(matcher specta.Matcher[string]) AddressMatcher {
 	m.streetMatcher = matcher
 	return m
 }
 
 // City adds a matcher for the City field.
-func (m AddressMatcher) City(matcher testgen.Matcher[string]) AddressMatcher {
+func (m AddressMatcher) City(matcher specta.Matcher[string]) AddressMatcher {
 	m.cityMatcher = matcher
 	return m
 }
 
 // State adds a matcher for the State field.
-func (m AddressMatcher) State(matcher testgen.Matcher[string]) AddressMatcher {
+func (m AddressMatcher) State(matcher specta.Matcher[string]) AddressMatcher {
 	m.stateMatcher = matcher
 	return m
 }
 
 // ZipCode adds a matcher for the ZipCode field.
-func (m AddressMatcher) ZipCode(matcher testgen.Matcher[string]) AddressMatcher {
+func (m AddressMatcher) ZipCode(matcher specta.Matcher[string]) AddressMatcher {
 	m.zipCodeMatcher = matcher
 	return m
 }
 
 // Country adds a matcher for the Country field.
-func (m AddressMatcher) Country(matcher testgen.Matcher[string]) AddressMatcher {
+func (m AddressMatcher) Country(matcher specta.Matcher[string]) AddressMatcher {
 	m.countryMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for Address.
-func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
-	return testgen.MatcherFunc[showcase.Address](func(actual showcase.Address) testgen.MatchResult {
+func (m AddressMatcher) Matcher() specta.Matcher[showcase.Address] {
+	return specta.MatcherFunc[showcase.Address](func(actual showcase.Address) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		streetValue := actual.Street
 		cityValue := actual.City
@@ -73,7 +73,7 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.streetMatcher != nil {
@@ -118,12 +118,12 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("Address", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("Address", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

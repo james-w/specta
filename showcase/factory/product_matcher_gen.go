@@ -7,18 +7,18 @@ package factory
 import (
 	"time"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // ProductMatcher provides a fluent API for matching Product instances.
 type ProductMatcher struct {
-	iDMatcher          testgen.Matcher[string]
-	nameMatcher        testgen.Matcher[string]
-	descriptionMatcher testgen.Matcher[string]
-	priceMatcher       testgen.Matcher[float64]
-	inStockMatcher     testgen.Matcher[bool]
-	createdAtMatcher   testgen.Matcher[time.Time]
+	iDMatcher          specta.Matcher[string]
+	nameMatcher        specta.Matcher[string]
+	descriptionMatcher specta.Matcher[string]
+	priceMatcher       specta.Matcher[float64]
+	inStockMatcher     specta.Matcher[bool]
+	createdAtMatcher   specta.Matcher[time.Time]
 }
 
 // ProductMatches creates a new ProductMatcher for matching Product instances.
@@ -27,44 +27,44 @@ func ProductMatches() ProductMatcher {
 }
 
 // ID adds a matcher for the ID field.
-func (m ProductMatcher) ID(matcher testgen.Matcher[string]) ProductMatcher {
+func (m ProductMatcher) ID(matcher specta.Matcher[string]) ProductMatcher {
 	m.iDMatcher = matcher
 	return m
 }
 
 // Name adds a matcher for the Name field.
-func (m ProductMatcher) Name(matcher testgen.Matcher[string]) ProductMatcher {
+func (m ProductMatcher) Name(matcher specta.Matcher[string]) ProductMatcher {
 	m.nameMatcher = matcher
 	return m
 }
 
 // Description adds a matcher for the Description field.
-func (m ProductMatcher) Description(matcher testgen.Matcher[string]) ProductMatcher {
+func (m ProductMatcher) Description(matcher specta.Matcher[string]) ProductMatcher {
 	m.descriptionMatcher = matcher
 	return m
 }
 
 // Price adds a matcher for the Price field.
-func (m ProductMatcher) Price(matcher testgen.Matcher[float64]) ProductMatcher {
+func (m ProductMatcher) Price(matcher specta.Matcher[float64]) ProductMatcher {
 	m.priceMatcher = matcher
 	return m
 }
 
 // InStock adds a matcher for the InStock field.
-func (m ProductMatcher) InStock(matcher testgen.Matcher[bool]) ProductMatcher {
+func (m ProductMatcher) InStock(matcher specta.Matcher[bool]) ProductMatcher {
 	m.inStockMatcher = matcher
 	return m
 }
 
 // CreatedAt adds a matcher for the CreatedAt field.
-func (m ProductMatcher) CreatedAt(matcher testgen.Matcher[time.Time]) ProductMatcher {
+func (m ProductMatcher) CreatedAt(matcher specta.Matcher[time.Time]) ProductMatcher {
 	m.createdAtMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for Product.
-func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
-	return testgen.MatcherFunc[showcase.Product](func(actual showcase.Product) testgen.MatchResult {
+func (m ProductMatcher) Matcher() specta.Matcher[showcase.Product] {
+	return specta.MatcherFunc[showcase.Product](func(actual showcase.Product) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		iDValue := actual.ID
 		nameValue := actual.Name
@@ -84,7 +84,7 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.iDMatcher != nil {
@@ -137,12 +137,12 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("Product", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("Product", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

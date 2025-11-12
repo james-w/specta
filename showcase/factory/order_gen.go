@@ -9,20 +9,20 @@
 //	// Build a single instance with custom fields
 //
 //
-//	result := Order().ID("example").Build(testgen.New())
+//	result := Order().ID("example").Build(specta.New())
 //
 //
 //
 //	// Build many instances with unique values
-//	results := Order().Many(5, testgen.New())
+//	results := Order().Many(5, specta.New())
 //
 //	// Build a matcher to verify specific fields
 //
 //
-//	matcher := OrderMatches().ID(testgen.DeepEqual("expected"))
+//	matcher := OrderMatches().ID(specta.DeepEqual("expected"))
 //
 //
-//	testgen.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher.Matcher())
 //
 //	// Convert a recipe to a matcher for partial matching
 //
@@ -30,20 +30,20 @@
 //	partialMatcher := Order().ID("expected").AsEqualMatcher()
 //
 //
-//	testgen.AssertThat(t, actual, partialMatcher)
+//	specta.AssertThat(t, actual, partialMatcher)
 package factory
 
 import (
 	"time"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 	"github.com/james-w/specta/showcase/factory/spec"
 )
 
 // OrderRecipe provides a fluent API for building Order instances.
 type OrderRecipe struct {
-	opts       []testgen.Opt[spec.OrderSpec]
+	opts       []specta.Opt[spec.OrderSpec]
 	userRecipe *UserRecipe
 }
 
@@ -103,17 +103,17 @@ func (r OrderRecipe) UpdatedAt(v time.Time) OrderRecipe {
 }
 
 // Provider returns a Provider for lazy evaluation in parent factories.
-func (r OrderRecipe) Provider() testgen.Provider[showcase.Order] {
-	return testgen.FromSpec(spec.BuildOrder, spec.NewOrderSpec, r.opts...)
+func (r OrderRecipe) Provider() specta.Provider[showcase.Order] {
+	return specta.FromSpec(spec.BuildOrder, spec.NewOrderSpec, r.opts...)
 }
 
 // Build creates a single Order instance.
-func (r OrderRecipe) Build(p testgen.Primitives) showcase.Order {
+func (r OrderRecipe) Build(p specta.Primitives) showcase.Order {
 	return spec.NewOrderFactory(p).Make(r.opts...)
 }
 
 // Many creates multiple Order instances with unique generated values.
-func (r OrderRecipe) Many(n int, p testgen.Primitives) []showcase.Order {
+func (r OrderRecipe) Many(n int, p specta.Primitives) []showcase.Order {
 	return spec.NewOrderFactory(p).Many(n, r.opts...)
 }
 
@@ -121,7 +121,7 @@ func (r OrderRecipe) Many(n int, p testgen.Primitives) []showcase.Order {
 // Only fields that were explicitly set in the Recipe will be checked - unset fields are ignored.
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
-func (r OrderRecipe) AsEqualMatcher() testgen.Matcher[showcase.Order] {
+func (r OrderRecipe) AsEqualMatcher() specta.Matcher[showcase.Order] {
 	// Apply opts to a spec to see what was set
 	s := spec.NewOrderSpec()
 	for _, opt := range r.opts {
@@ -130,35 +130,35 @@ func (r OrderRecipe) AsEqualMatcher() testgen.Matcher[showcase.Order] {
 
 	// Use a dummy Primitives to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
-	p := testgen.New()
+	p := specta.New()
 
 	// Build matcher only for set fields
 	m := OrderMatches()
 	if s.ID.IsSet() {
-		m = m.ID(testgen.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
 	}
 	if s.User.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.userRecipe != nil {
 			m = m.User(r.userRecipe.AsEqualMatcher())
 		} else {
-			m = m.User(testgen.DeepEqual(s.User.Value(p)))
+			m = m.User(specta.DeepEqual(s.User.Value(p)))
 		}
 	}
 	if s.Items.IsSet() {
-		m = m.Items(testgen.DeepEqual(s.Items.Value(p)))
+		m = m.Items(specta.DeepEqual(s.Items.Value(p)))
 	}
 	if s.Total.IsSet() {
-		m = m.Total(testgen.DeepEqual(s.Total.Value(p)))
+		m = m.Total(specta.DeepEqual(s.Total.Value(p)))
 	}
 	if s.Status.IsSet() {
-		m = m.Status(testgen.DeepEqual(s.Status.Value(p)))
+		m = m.Status(specta.DeepEqual(s.Status.Value(p)))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(testgen.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
 	}
 	if s.UpdatedAt.IsSet() {
-		m = m.UpdatedAt(testgen.DeepEqual(s.UpdatedAt.Value(p)))
+		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.Value(p)))
 	}
 
 	return m.Matcher()

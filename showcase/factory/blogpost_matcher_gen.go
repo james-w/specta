@@ -7,20 +7,20 @@ package factory
 import (
 	"time"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // BlogPostMatcher provides a fluent API for matching BlogPost instances.
 type BlogPostMatcher struct {
-	iDMatcher          testgen.Matcher[string]
-	titleMatcher       testgen.Matcher[string]
-	contentMatcher     testgen.Matcher[string]
-	authorMatcher      testgen.Matcher[showcase.User]
-	publishedMatcher   testgen.Matcher[bool]
-	publishedAtMatcher testgen.Matcher[time.Time]
-	createdAtMatcher   testgen.Matcher[time.Time]
-	updatedAtMatcher   testgen.Matcher[time.Time]
+	iDMatcher          specta.Matcher[string]
+	titleMatcher       specta.Matcher[string]
+	contentMatcher     specta.Matcher[string]
+	authorMatcher      specta.Matcher[showcase.User]
+	publishedMatcher   specta.Matcher[bool]
+	publishedAtMatcher specta.Matcher[time.Time]
+	createdAtMatcher   specta.Matcher[time.Time]
+	updatedAtMatcher   specta.Matcher[time.Time]
 }
 
 // BlogPostMatches creates a new BlogPostMatcher for matching BlogPost instances.
@@ -29,25 +29,25 @@ func BlogPostMatches() BlogPostMatcher {
 }
 
 // ID adds a matcher for the ID field.
-func (m BlogPostMatcher) ID(matcher testgen.Matcher[string]) BlogPostMatcher {
+func (m BlogPostMatcher) ID(matcher specta.Matcher[string]) BlogPostMatcher {
 	m.iDMatcher = matcher
 	return m
 }
 
 // Title adds a matcher for the Title field.
-func (m BlogPostMatcher) Title(matcher testgen.Matcher[string]) BlogPostMatcher {
+func (m BlogPostMatcher) Title(matcher specta.Matcher[string]) BlogPostMatcher {
 	m.titleMatcher = matcher
 	return m
 }
 
 // Content adds a matcher for the Content field.
-func (m BlogPostMatcher) Content(matcher testgen.Matcher[string]) BlogPostMatcher {
+func (m BlogPostMatcher) Content(matcher specta.Matcher[string]) BlogPostMatcher {
 	m.contentMatcher = matcher
 	return m
 }
 
 // Author adds a matcher for the Author field.
-func (m BlogPostMatcher) Author(matcher testgen.Matcher[showcase.User]) BlogPostMatcher {
+func (m BlogPostMatcher) Author(matcher specta.Matcher[showcase.User]) BlogPostMatcher {
 	m.authorMatcher = matcher
 	return m
 }
@@ -59,32 +59,32 @@ func (m BlogPostMatcher) AuthorMatches(matcher UserMatcher) BlogPostMatcher {
 }
 
 // Published adds a matcher for the Published field.
-func (m BlogPostMatcher) Published(matcher testgen.Matcher[bool]) BlogPostMatcher {
+func (m BlogPostMatcher) Published(matcher specta.Matcher[bool]) BlogPostMatcher {
 	m.publishedMatcher = matcher
 	return m
 }
 
 // PublishedAt adds a matcher for the PublishedAt field.
-func (m BlogPostMatcher) PublishedAt(matcher testgen.Matcher[time.Time]) BlogPostMatcher {
+func (m BlogPostMatcher) PublishedAt(matcher specta.Matcher[time.Time]) BlogPostMatcher {
 	m.publishedAtMatcher = matcher
 	return m
 }
 
 // CreatedAt adds a matcher for the CreatedAt field.
-func (m BlogPostMatcher) CreatedAt(matcher testgen.Matcher[time.Time]) BlogPostMatcher {
+func (m BlogPostMatcher) CreatedAt(matcher specta.Matcher[time.Time]) BlogPostMatcher {
 	m.createdAtMatcher = matcher
 	return m
 }
 
 // UpdatedAt adds a matcher for the UpdatedAt field.
-func (m BlogPostMatcher) UpdatedAt(matcher testgen.Matcher[time.Time]) BlogPostMatcher {
+func (m BlogPostMatcher) UpdatedAt(matcher specta.Matcher[time.Time]) BlogPostMatcher {
 	m.updatedAtMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for BlogPost.
-func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
-	return testgen.MatcherFunc[showcase.BlogPost](func(actual showcase.BlogPost) testgen.MatchResult {
+func (m BlogPostMatcher) Matcher() specta.Matcher[showcase.BlogPost] {
+	return specta.MatcherFunc[showcase.BlogPost](func(actual showcase.BlogPost) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		iDValue := actual.ID
 		titleValue := actual.Title
@@ -108,7 +108,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.iDMatcher != nil {
@@ -177,12 +177,12 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("BlogPost", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("BlogPost", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

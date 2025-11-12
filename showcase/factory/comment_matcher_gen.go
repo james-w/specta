@@ -7,17 +7,17 @@ package factory
 import (
 	"time"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // CommentMatcher provides a fluent API for matching Comment instances.
 type CommentMatcher struct {
-	iDMatcher        testgen.Matcher[string]
-	postMatcher      testgen.Matcher[showcase.BlogPost]
-	authorMatcher    testgen.Matcher[showcase.User]
-	contentMatcher   testgen.Matcher[string]
-	createdAtMatcher testgen.Matcher[time.Time]
+	iDMatcher        specta.Matcher[string]
+	postMatcher      specta.Matcher[showcase.BlogPost]
+	authorMatcher    specta.Matcher[showcase.User]
+	contentMatcher   specta.Matcher[string]
+	createdAtMatcher specta.Matcher[time.Time]
 }
 
 // CommentMatches creates a new CommentMatcher for matching Comment instances.
@@ -26,13 +26,13 @@ func CommentMatches() CommentMatcher {
 }
 
 // ID adds a matcher for the ID field.
-func (m CommentMatcher) ID(matcher testgen.Matcher[string]) CommentMatcher {
+func (m CommentMatcher) ID(matcher specta.Matcher[string]) CommentMatcher {
 	m.iDMatcher = matcher
 	return m
 }
 
 // Post adds a matcher for the Post field.
-func (m CommentMatcher) Post(matcher testgen.Matcher[showcase.BlogPost]) CommentMatcher {
+func (m CommentMatcher) Post(matcher specta.Matcher[showcase.BlogPost]) CommentMatcher {
 	m.postMatcher = matcher
 	return m
 }
@@ -44,7 +44,7 @@ func (m CommentMatcher) PostMatches(matcher BlogPostMatcher) CommentMatcher {
 }
 
 // Author adds a matcher for the Author field.
-func (m CommentMatcher) Author(matcher testgen.Matcher[showcase.User]) CommentMatcher {
+func (m CommentMatcher) Author(matcher specta.Matcher[showcase.User]) CommentMatcher {
 	m.authorMatcher = matcher
 	return m
 }
@@ -56,20 +56,20 @@ func (m CommentMatcher) AuthorMatches(matcher UserMatcher) CommentMatcher {
 }
 
 // Content adds a matcher for the Content field.
-func (m CommentMatcher) Content(matcher testgen.Matcher[string]) CommentMatcher {
+func (m CommentMatcher) Content(matcher specta.Matcher[string]) CommentMatcher {
 	m.contentMatcher = matcher
 	return m
 }
 
 // CreatedAt adds a matcher for the CreatedAt field.
-func (m CommentMatcher) CreatedAt(matcher testgen.Matcher[time.Time]) CommentMatcher {
+func (m CommentMatcher) CreatedAt(matcher specta.Matcher[time.Time]) CommentMatcher {
 	m.createdAtMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for Comment.
-func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
-	return testgen.MatcherFunc[showcase.Comment](func(actual showcase.Comment) testgen.MatchResult {
+func (m CommentMatcher) Matcher() specta.Matcher[showcase.Comment] {
+	return specta.MatcherFunc[showcase.Comment](func(actual showcase.Comment) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		iDValue := actual.ID
 		postValue := actual.Post
@@ -87,7 +87,7 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.iDMatcher != nil {
@@ -132,12 +132,12 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("Comment", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("Comment", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

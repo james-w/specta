@@ -5,15 +5,15 @@
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // OrderItemMatcher provides a fluent API for matching OrderItem instances.
 type OrderItemMatcher struct {
-	productMatcher  testgen.Matcher[showcase.Product]
-	quantityMatcher testgen.Matcher[int]
-	priceMatcher    testgen.Matcher[float64]
+	productMatcher  specta.Matcher[showcase.Product]
+	quantityMatcher specta.Matcher[int]
+	priceMatcher    specta.Matcher[float64]
 }
 
 // OrderItemMatches creates a new OrderItemMatcher for matching OrderItem instances.
@@ -22,7 +22,7 @@ func OrderItemMatches() OrderItemMatcher {
 }
 
 // Product adds a matcher for the Product field.
-func (m OrderItemMatcher) Product(matcher testgen.Matcher[showcase.Product]) OrderItemMatcher {
+func (m OrderItemMatcher) Product(matcher specta.Matcher[showcase.Product]) OrderItemMatcher {
 	m.productMatcher = matcher
 	return m
 }
@@ -34,20 +34,20 @@ func (m OrderItemMatcher) ProductMatches(matcher ProductMatcher) OrderItemMatche
 }
 
 // Quantity adds a matcher for the Quantity field.
-func (m OrderItemMatcher) Quantity(matcher testgen.Matcher[int]) OrderItemMatcher {
+func (m OrderItemMatcher) Quantity(matcher specta.Matcher[int]) OrderItemMatcher {
 	m.quantityMatcher = matcher
 	return m
 }
 
 // Price adds a matcher for the Price field.
-func (m OrderItemMatcher) Price(matcher testgen.Matcher[float64]) OrderItemMatcher {
+func (m OrderItemMatcher) Price(matcher specta.Matcher[float64]) OrderItemMatcher {
 	m.priceMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for OrderItem.
-func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
-	return testgen.MatcherFunc[showcase.OrderItem](func(actual showcase.OrderItem) testgen.MatchResult {
+func (m OrderItemMatcher) Matcher() specta.Matcher[showcase.OrderItem] {
+	return specta.MatcherFunc[showcase.OrderItem](func(actual showcase.OrderItem) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		productValue := actual.Product
 		quantityValue := actual.Quantity
@@ -61,7 +61,7 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.productMatcher != nil {
@@ -90,12 +90,12 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("OrderItem", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("OrderItem", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

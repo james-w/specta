@@ -10,7 +10,7 @@
 //
 //	// Create a spec and set fields explicitly
 //	spec := NewUserSpec()
-//	opts := []testgen.Opt[UserSpec]{
+//	opts := []specta.Opt[UserSpec]{
 //
 //
 //		WithUserID("example"),
@@ -20,10 +20,10 @@
 //	for _, opt := range opts {
 //		opt(&spec)
 //	}
-//	result := BuildUser(testgen.New(), spec)
+//	result := BuildUser(specta.New(), spec)
 //
 //	// Or use a factory for convenience
-//	factory := NewUserFactory(testgen.New())
+//	factory := NewUserFactory(specta.New())
 //
 //
 //	result := factory.Make(WithUserID("example"))
@@ -32,45 +32,45 @@ package spec
 import (
 	"time"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // UserSpec is the low-level specification for building User instances.
 // Most users should use UserRecipe from the parent factory package instead.
 type UserSpec struct {
-	ID        testgen.Maybe[string]
-	Email     testgen.Maybe[string]
-	FirstName testgen.Maybe[string]
-	LastName  testgen.Maybe[string]
-	Active    testgen.Maybe[bool]
-	Address   testgen.Maybe[showcase.Address]
-	CreatedAt testgen.Maybe[time.Time]
-	UpdatedAt testgen.Maybe[time.Time]
+	ID        specta.Maybe[string]
+	Email     specta.Maybe[string]
+	FirstName specta.Maybe[string]
+	LastName  specta.Maybe[string]
+	Active    specta.Maybe[bool]
+	Address   specta.Maybe[showcase.Address]
+	CreatedAt specta.Maybe[time.Time]
+	UpdatedAt specta.Maybe[time.Time]
 }
 
 // NewUserSpec creates a new UserSpec with all fields unset.
 func NewUserSpec() UserSpec { return UserSpec{} }
 
 // NewUserFactory creates a new SpecFactory for User.
-func NewUserFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.User, UserSpec] {
-	return testgen.NewSpecFactory(p, NewUserSpec, BuildUser)
+func NewUserFactory(p specta.Primitives) *specta.SpecFactory[showcase.User, UserSpec] {
+	return specta.NewSpecFactory(p, NewUserSpec, BuildUser)
 }
 
 // Default field providers.
 var (
-	UserDefaultID        = func(p testgen.Primitives) string { return p.ID() }
-	UserDefaultEmail     = func(p testgen.Primitives) string { return p.StringWith("email_") }
-	UserDefaultFirstName = func(p testgen.Primitives) string { return p.StringWith("firstname_") }
-	UserDefaultLastName  = func(p testgen.Primitives) string { return p.StringWith("lastname_") }
-	UserDefaultActive    = func(p testgen.Primitives) bool { return p.Bool() }
-	UserDefaultAddress   = testgen.FromSpec(BuildAddress, NewAddressSpec)
-	UserDefaultCreatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
-	UserDefaultUpdatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
+	UserDefaultID        = func(p specta.Primitives) string { return p.ID() }
+	UserDefaultEmail     = func(p specta.Primitives) string { return p.StringWith("email_") }
+	UserDefaultFirstName = func(p specta.Primitives) string { return p.StringWith("firstname_") }
+	UserDefaultLastName  = func(p specta.Primitives) string { return p.StringWith("lastname_") }
+	UserDefaultActive    = func(p specta.Primitives) bool { return p.Bool() }
+	UserDefaultAddress   = specta.FromSpec(BuildAddress, NewAddressSpec)
+	UserDefaultCreatedAt = func(p specta.Primitives) time.Time { return p.Time() }
+	UserDefaultUpdatedAt = func(p specta.Primitives) time.Time { return p.Time() }
 )
 
 // BuildUser constructs a User from a UserSpec.
-func BuildUser(p testgen.Primitives, s UserSpec) showcase.User {
+func BuildUser(p specta.Primitives, s UserSpec) showcase.User {
 	iD := s.ID.Get(p, UserDefaultID)
 	email := s.Email.Get(p, UserDefaultEmail)
 	firstName := s.FirstName.Get(p, UserDefaultFirstName)
@@ -92,49 +92,49 @@ func BuildUser(p testgen.Primitives, s UserSpec) showcase.User {
 }
 
 // WithUserID sets the ID field to a literal value.
-func WithUserID(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.ID = m }, v)
+func WithUserID(v string) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
 // WithUserEmail sets the Email field to a literal value.
-func WithUserEmail(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.Email = m }, v)
+func WithUserEmail(v string) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.Email = m }, v)
 }
 
 // WithUserFirstName sets the FirstName field to a literal value.
-func WithUserFirstName(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.FirstName = m }, v)
+func WithUserFirstName(v string) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.FirstName = m }, v)
 }
 
 // WithUserLastName sets the LastName field to a literal value.
-func WithUserLastName(v string) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[string]) { s.LastName = m }, v)
+func WithUserLastName(v string) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.LastName = m }, v)
 }
 
 // WithUserActive sets the Active field to a literal value.
-func WithUserActive(v bool) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[bool]) { s.Active = m }, v)
+func WithUserActive(v bool) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[bool]) { s.Active = m }, v)
 }
 
 // WithUserAddress sets the Address field to a literal value.
-func WithUserAddress(v showcase.Address) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[showcase.Address]) { s.Address = m }, v)
+func WithUserAddress(v showcase.Address) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[showcase.Address]) { s.Address = m }, v)
 }
 
 // WithUserAddressFromProvider sets the Address field using a Provider (evaluated lazily).
-func WithUserAddressFromProvider(prov testgen.Provider[showcase.Address]) testgen.Opt[UserSpec] {
-	return testgen.SetWith(
-		func(s *UserSpec, m testgen.Maybe[showcase.Address]) { s.Address = m },
+func WithUserAddressFromProvider(prov specta.Provider[showcase.Address]) specta.Opt[UserSpec] {
+	return specta.SetWith(
+		func(s *UserSpec, m specta.Maybe[showcase.Address]) { s.Address = m },
 		prov,
 	)
 }
 
 // WithUserCreatedAt sets the CreatedAt field to a literal value.
-func WithUserCreatedAt(v time.Time) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
+func WithUserCreatedAt(v time.Time) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m }, v)
 }
 
 // WithUserUpdatedAt sets the UpdatedAt field to a literal value.
-func WithUserUpdatedAt(v time.Time) testgen.Opt[UserSpec] {
-	return testgen.SetLit(func(s *UserSpec, m testgen.Maybe[time.Time]) { s.UpdatedAt = m }, v)
+func WithUserUpdatedAt(v time.Time) specta.Opt[UserSpec] {
+	return specta.SetLit(func(s *UserSpec, m specta.Maybe[time.Time]) { s.UpdatedAt = m }, v)
 }

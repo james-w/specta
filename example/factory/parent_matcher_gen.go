@@ -5,13 +5,13 @@
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/example"
 )
 
 // ParentMatcher provides a fluent API for matching Parent instances.
 type ParentMatcher struct {
-	childMatcher testgen.Matcher[example.UserView]
+	childMatcher specta.Matcher[example.UserView]
 }
 
 // ParentMatches creates a new ParentMatcher for matching Parent instances.
@@ -20,7 +20,7 @@ func ParentMatches() ParentMatcher {
 }
 
 // Child adds a matcher for the Child field.
-func (m ParentMatcher) Child(matcher testgen.Matcher[example.UserView]) ParentMatcher {
+func (m ParentMatcher) Child(matcher specta.Matcher[example.UserView]) ParentMatcher {
 	m.childMatcher = matcher
 	return m
 }
@@ -32,8 +32,8 @@ func (m ParentMatcher) ChildMatches(matcher UserViewMatcher) ParentMatcher {
 }
 
 // Matcher returns the composed matcher for Parent.
-func (m ParentMatcher) Matcher() testgen.Matcher[example.Parent] {
-	return testgen.MatcherFunc[example.Parent](func(actual example.Parent) testgen.MatchResult {
+func (m ParentMatcher) Matcher() specta.Matcher[example.Parent] {
+	return specta.MatcherFunc[example.Parent](func(actual example.Parent) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		childValue := actual.Child
 
@@ -43,7 +43,7 @@ func (m ParentMatcher) Matcher() testgen.Matcher[example.Parent] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.childMatcher != nil {
@@ -56,12 +56,12 @@ func (m ParentMatcher) Matcher() testgen.Matcher[example.Parent] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("Parent", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("Parent", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

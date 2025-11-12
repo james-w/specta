@@ -10,7 +10,7 @@
 //
 //	// Create a spec and set fields explicitly
 //	spec := NewAccountSpec()
-//	opts := []testgen.Opt[AccountSpec]{
+//	opts := []specta.Opt[AccountSpec]{
 //
 //
 //		WithAccountUser(value),
@@ -20,62 +20,62 @@
 //	for _, opt := range opts {
 //		opt(&spec)
 //	}
-//	result := BuildAccount(testgen.New(), spec)
+//	result := BuildAccount(specta.New(), spec)
 //
 //	// Or use a factory for convenience
-//	factory := NewAccountFactory(testgen.New())
+//	factory := NewAccountFactory(specta.New())
 //
 //
 //	result := factory.Make(WithAccountUser(value))
 package spec
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // AccountSpec is the low-level specification for building Account instances.
 // Most users should use AccountRecipe from the parent factory package instead.
 type AccountSpec struct {
-	User   testgen.Maybe[showcase.User]
-	Status testgen.Maybe[string]
+	User   specta.Maybe[showcase.User]
+	Status specta.Maybe[string]
 }
 
 // NewAccountSpec creates a new AccountSpec with all fields unset.
 func NewAccountSpec() AccountSpec { return AccountSpec{} }
 
 // NewAccountFactory creates a new SpecFactory for Account.
-func NewAccountFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Account, AccountSpec] {
-	return testgen.NewSpecFactory(p, NewAccountSpec, BuildAccount)
+func NewAccountFactory(p specta.Primitives) *specta.SpecFactory[showcase.Account, AccountSpec] {
+	return specta.NewSpecFactory(p, NewAccountSpec, BuildAccount)
 }
 
 // Default parameter providers.
 var (
-	AccountDefaultUser   = testgen.FromSpec(BuildUser, NewUserSpec)
-	AccountDefaultStatus = func(p testgen.Primitives) string { return p.StringWith("status_") }
+	AccountDefaultUser   = specta.FromSpec(BuildUser, NewUserSpec)
+	AccountDefaultStatus = func(p specta.Primitives) string { return p.StringWith("status_") }
 )
 
 // BuildAccount constructs a Account from a AccountSpec.
-func BuildAccount(p testgen.Primitives, s AccountSpec) showcase.Account {
+func BuildAccount(p specta.Primitives, s AccountSpec) showcase.Account {
 	user := s.User.Get(p, AccountDefaultUser)
 	status := s.Status.Get(p, AccountDefaultStatus)
 	return showcase.NewAccount(user, status)
 }
 
 // WithAccountUser sets the User parameter to a literal value.
-func WithAccountUser(v showcase.User) testgen.Opt[AccountSpec] {
-	return testgen.SetLit(func(s *AccountSpec, m testgen.Maybe[showcase.User]) { s.User = m }, v)
+func WithAccountUser(v showcase.User) specta.Opt[AccountSpec] {
+	return specta.SetLit(func(s *AccountSpec, m specta.Maybe[showcase.User]) { s.User = m }, v)
 }
 
 // WithAccountUserFromProvider sets the User parameter using a Provider (evaluated lazily).
-func WithAccountUserFromProvider(prov testgen.Provider[showcase.User]) testgen.Opt[AccountSpec] {
-	return testgen.SetWith(
-		func(s *AccountSpec, m testgen.Maybe[showcase.User]) { s.User = m },
+func WithAccountUserFromProvider(prov specta.Provider[showcase.User]) specta.Opt[AccountSpec] {
+	return specta.SetWith(
+		func(s *AccountSpec, m specta.Maybe[showcase.User]) { s.User = m },
 		prov,
 	)
 }
 
 // WithAccountStatus sets the Status parameter to a literal value.
-func WithAccountStatus(v string) testgen.Opt[AccountSpec] {
-	return testgen.SetLit(func(s *AccountSpec, m testgen.Maybe[string]) { s.Status = m }, v)
+func WithAccountStatus(v string) specta.Opt[AccountSpec] {
+	return specta.SetLit(func(s *AccountSpec, m specta.Maybe[string]) { s.Status = m }, v)
 }

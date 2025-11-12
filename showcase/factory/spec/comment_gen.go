@@ -10,7 +10,7 @@
 //
 //	// Create a spec and set fields explicitly
 //	spec := NewCommentSpec()
-//	opts := []testgen.Opt[CommentSpec]{
+//	opts := []specta.Opt[CommentSpec]{
 //
 //
 //		WithCommentID("example"),
@@ -20,10 +20,10 @@
 //	for _, opt := range opts {
 //		opt(&spec)
 //	}
-//	result := BuildComment(testgen.New(), spec)
+//	result := BuildComment(specta.New(), spec)
 //
 //	// Or use a factory for convenience
-//	factory := NewCommentFactory(testgen.New())
+//	factory := NewCommentFactory(specta.New())
 //
 //
 //	result := factory.Make(WithCommentID("example"))
@@ -32,39 +32,39 @@ package spec
 import (
 	"time"
 
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // CommentSpec is the low-level specification for building Comment instances.
 // Most users should use CommentRecipe from the parent factory package instead.
 type CommentSpec struct {
-	ID        testgen.Maybe[string]
-	Post      testgen.Maybe[showcase.BlogPost]
-	Author    testgen.Maybe[showcase.User]
-	Content   testgen.Maybe[string]
-	CreatedAt testgen.Maybe[time.Time]
+	ID        specta.Maybe[string]
+	Post      specta.Maybe[showcase.BlogPost]
+	Author    specta.Maybe[showcase.User]
+	Content   specta.Maybe[string]
+	CreatedAt specta.Maybe[time.Time]
 }
 
 // NewCommentSpec creates a new CommentSpec with all fields unset.
 func NewCommentSpec() CommentSpec { return CommentSpec{} }
 
 // NewCommentFactory creates a new SpecFactory for Comment.
-func NewCommentFactory(p testgen.Primitives) *testgen.SpecFactory[showcase.Comment, CommentSpec] {
-	return testgen.NewSpecFactory(p, NewCommentSpec, BuildComment)
+func NewCommentFactory(p specta.Primitives) *specta.SpecFactory[showcase.Comment, CommentSpec] {
+	return specta.NewSpecFactory(p, NewCommentSpec, BuildComment)
 }
 
 // Default field providers.
 var (
-	CommentDefaultID        = func(p testgen.Primitives) string { return p.ID() }
-	CommentDefaultPost      = testgen.FromSpec(BuildBlogPost, NewBlogPostSpec)
-	CommentDefaultAuthor    = testgen.FromSpec(BuildUser, NewUserSpec)
-	CommentDefaultContent   = func(p testgen.Primitives) string { return p.StringWith("content_") }
-	CommentDefaultCreatedAt = func(p testgen.Primitives) time.Time { return p.Time() }
+	CommentDefaultID        = func(p specta.Primitives) string { return p.ID() }
+	CommentDefaultPost      = specta.FromSpec(BuildBlogPost, NewBlogPostSpec)
+	CommentDefaultAuthor    = specta.FromSpec(BuildUser, NewUserSpec)
+	CommentDefaultContent   = func(p specta.Primitives) string { return p.StringWith("content_") }
+	CommentDefaultCreatedAt = func(p specta.Primitives) time.Time { return p.Time() }
 )
 
 // BuildComment constructs a Comment from a CommentSpec.
-func BuildComment(p testgen.Primitives, s CommentSpec) showcase.Comment {
+func BuildComment(p specta.Primitives, s CommentSpec) showcase.Comment {
 	iD := s.ID.Get(p, CommentDefaultID)
 	post := s.Post.Get(p, CommentDefaultPost)
 	author := s.Author.Get(p, CommentDefaultAuthor)
@@ -80,42 +80,42 @@ func BuildComment(p testgen.Primitives, s CommentSpec) showcase.Comment {
 }
 
 // WithCommentID sets the ID field to a literal value.
-func WithCommentID(v string) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[string]) { s.ID = m }, v)
+func WithCommentID(v string) specta.Opt[CommentSpec] {
+	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
 // WithCommentPost sets the Post field to a literal value.
-func WithCommentPost(v showcase.BlogPost) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[showcase.BlogPost]) { s.Post = m }, v)
+func WithCommentPost(v showcase.BlogPost) specta.Opt[CommentSpec] {
+	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[showcase.BlogPost]) { s.Post = m }, v)
 }
 
 // WithCommentPostFromProvider sets the Post field using a Provider (evaluated lazily).
-func WithCommentPostFromProvider(prov testgen.Provider[showcase.BlogPost]) testgen.Opt[CommentSpec] {
-	return testgen.SetWith(
-		func(s *CommentSpec, m testgen.Maybe[showcase.BlogPost]) { s.Post = m },
+func WithCommentPostFromProvider(prov specta.Provider[showcase.BlogPost]) specta.Opt[CommentSpec] {
+	return specta.SetWith(
+		func(s *CommentSpec, m specta.Maybe[showcase.BlogPost]) { s.Post = m },
 		prov,
 	)
 }
 
 // WithCommentAuthor sets the Author field to a literal value.
-func WithCommentAuthor(v showcase.User) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[showcase.User]) { s.Author = m }, v)
+func WithCommentAuthor(v showcase.User) specta.Opt[CommentSpec] {
+	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[showcase.User]) { s.Author = m }, v)
 }
 
 // WithCommentAuthorFromProvider sets the Author field using a Provider (evaluated lazily).
-func WithCommentAuthorFromProvider(prov testgen.Provider[showcase.User]) testgen.Opt[CommentSpec] {
-	return testgen.SetWith(
-		func(s *CommentSpec, m testgen.Maybe[showcase.User]) { s.Author = m },
+func WithCommentAuthorFromProvider(prov specta.Provider[showcase.User]) specta.Opt[CommentSpec] {
+	return specta.SetWith(
+		func(s *CommentSpec, m specta.Maybe[showcase.User]) { s.Author = m },
 		prov,
 	)
 }
 
 // WithCommentContent sets the Content field to a literal value.
-func WithCommentContent(v string) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[string]) { s.Content = m }, v)
+func WithCommentContent(v string) specta.Opt[CommentSpec] {
+	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[string]) { s.Content = m }, v)
 }
 
 // WithCommentCreatedAt sets the CreatedAt field to a literal value.
-func WithCommentCreatedAt(v time.Time) testgen.Opt[CommentSpec] {
-	return testgen.SetLit(func(s *CommentSpec, m testgen.Maybe[time.Time]) { s.CreatedAt = m }, v)
+func WithCommentCreatedAt(v time.Time) specta.Opt[CommentSpec] {
+	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m }, v)
 }

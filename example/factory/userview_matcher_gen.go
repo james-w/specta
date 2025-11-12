@@ -5,16 +5,16 @@
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/example"
 )
 
 // UserViewMatcher provides a fluent API for matching UserView instances.
 type UserViewMatcher struct {
-	iDMatcher     testgen.Matcher[string]
-	nameMatcher   testgen.Matcher[string]
-	activeMatcher testgen.Matcher[bool]
-	scoreMatcher  testgen.Matcher[int]
+	iDMatcher     specta.Matcher[string]
+	nameMatcher   specta.Matcher[string]
+	activeMatcher specta.Matcher[bool]
+	scoreMatcher  specta.Matcher[int]
 }
 
 // UserViewMatches creates a new UserViewMatcher for matching UserView instances.
@@ -23,32 +23,32 @@ func UserViewMatches() UserViewMatcher {
 }
 
 // ID adds a matcher for the ID field.
-func (m UserViewMatcher) ID(matcher testgen.Matcher[string]) UserViewMatcher {
+func (m UserViewMatcher) ID(matcher specta.Matcher[string]) UserViewMatcher {
 	m.iDMatcher = matcher
 	return m
 }
 
 // Name adds a matcher for the Name field.
-func (m UserViewMatcher) Name(matcher testgen.Matcher[string]) UserViewMatcher {
+func (m UserViewMatcher) Name(matcher specta.Matcher[string]) UserViewMatcher {
 	m.nameMatcher = matcher
 	return m
 }
 
 // Active adds a matcher for the Active field.
-func (m UserViewMatcher) Active(matcher testgen.Matcher[bool]) UserViewMatcher {
+func (m UserViewMatcher) Active(matcher specta.Matcher[bool]) UserViewMatcher {
 	m.activeMatcher = matcher
 	return m
 }
 
 // Score adds a matcher for the Score field.
-func (m UserViewMatcher) Score(matcher testgen.Matcher[int]) UserViewMatcher {
+func (m UserViewMatcher) Score(matcher specta.Matcher[int]) UserViewMatcher {
 	m.scoreMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for UserView.
-func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
-	return testgen.MatcherFunc[example.UserView](func(actual example.UserView) testgen.MatchResult {
+func (m UserViewMatcher) Matcher() specta.Matcher[example.UserView] {
+	return specta.MatcherFunc[example.UserView](func(actual example.UserView) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		iDValue := actual.ID
 		nameValue := actual.Name
@@ -64,7 +64,7 @@ func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.iDMatcher != nil {
@@ -101,12 +101,12 @@ func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("UserView", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("UserView", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }

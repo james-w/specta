@@ -5,14 +5,14 @@
 package factory
 
 import (
-	testgen "github.com/james-w/specta"
+	specta "github.com/james-w/specta"
 	"github.com/james-w/specta/showcase"
 )
 
 // BankAccountMatcher provides a fluent API for matching BankAccount instances.
 type BankAccountMatcher struct {
-	nameMatcher    testgen.Matcher[string]
-	balanceMatcher testgen.Matcher[int]
+	nameMatcher    specta.Matcher[string]
+	balanceMatcher specta.Matcher[int]
 }
 
 // BankAccountMatches creates a new BankAccountMatcher for matching BankAccount instances.
@@ -21,20 +21,20 @@ func BankAccountMatches() BankAccountMatcher {
 }
 
 // Name adds a matcher for the Name property (via GetName).
-func (m BankAccountMatcher) Name(matcher testgen.Matcher[string]) BankAccountMatcher {
+func (m BankAccountMatcher) Name(matcher specta.Matcher[string]) BankAccountMatcher {
 	m.nameMatcher = matcher
 	return m
 }
 
 // Balance adds a matcher for the Balance property (via GetBalance).
-func (m BankAccountMatcher) Balance(matcher testgen.Matcher[int]) BankAccountMatcher {
+func (m BankAccountMatcher) Balance(matcher specta.Matcher[int]) BankAccountMatcher {
 	m.balanceMatcher = matcher
 	return m
 }
 
 // Matcher returns the composed matcher for BankAccount.
-func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
-	return testgen.MatcherFunc[showcase.BankAccount](func(actual showcase.BankAccount) testgen.MatchResult {
+func (m BankAccountMatcher) Matcher() specta.Matcher[showcase.BankAccount] {
+	return specta.MatcherFunc[showcase.BankAccount](func(actual showcase.BankAccount) specta.MatchResult {
 		// Extract all field values upfront (call each getter exactly once)
 		nameValue := actual.GetName()
 		balanceValue := actual.GetBalance()
@@ -46,7 +46,7 @@ func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 		}
 
 		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*testgen.MatchResult)
+		fieldResults := make(map[string]*specta.MatchResult)
 		hasFailures := false
 
 		if m.nameMatcher != nil {
@@ -67,12 +67,12 @@ func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 
 		if hasFailures {
 			// Use structured diff for struct types
-			structDiff := testgen.BuildMatcherStructDiff("BankAccount", fieldValues, fieldResults)
-			return testgen.MatchResult{
+			structDiff := specta.BuildMatcherStructDiff("BankAccount", fieldValues, fieldResults)
+			return specta.MatchResult{
 				Matched: false,
 				Message: structDiff,
 			}
 		}
-		return testgen.MatchResult{Matched: true}
+		return specta.MatchResult{Matched: true}
 	})
 }
