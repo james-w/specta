@@ -48,6 +48,24 @@ type BlogPostRecipe struct {
 }
 
 // BlogPost creates a new BlogPostRecipe for building BlogPost instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Title (string)
+//   - Content (string)
+//   - Author (showcase.User)
+//   - Published (bool)
+//   - PublishedAt (time.Time)
+//   - CreatedAt (time.Time)
+//   - UpdatedAt (time.Time)
+//
+// Example:
+//
+//	p := testgen.New()
+//	blogPost := factory.BlogPost().
+//	    ID("custom_value").
+//	    Title("another").
+//	    Build(p)
 func BlogPost() BlogPostRecipe { return BlogPostRecipe{} }
 
 // ID sets the ID field.

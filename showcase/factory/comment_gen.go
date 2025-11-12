@@ -49,6 +49,21 @@ type CommentRecipe struct {
 }
 
 // Comment creates a new CommentRecipe for building Comment instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Post (showcase.BlogPost)
+//   - Author (showcase.User)
+//   - Content (string)
+//   - CreatedAt (time.Time)
+//
+// Example:
+//
+//	p := testgen.New()
+//	comment := factory.Comment().
+//	    ID("custom_value").
+//	    Post(value).
+//	    Build(p)
 func Comment() CommentRecipe { return CommentRecipe{} }
 
 // ID sets the ID field.

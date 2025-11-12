@@ -15,6 +15,17 @@ type ParentMatcher struct {
 }
 
 // ParentMatches creates a new ParentMatcher for matching Parent instances.
+//
+// This matcher provides methods for the following fields:
+//   - Child (example.UserView)
+//
+// Example:
+//
+//	matcher := factory.ParentMatches().
+//	    Child(testgen.Equal(expectedValue)).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualParent, matcher)
 func ParentMatches() ParentMatcher {
 	return ParentMatcher{}
 }

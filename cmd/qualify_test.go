@@ -1,295 +1,233 @@
 package main
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"os"
+	"strings"
 	"testing"
+
+	testgen "github.com/james-w/specta"
+	"golang.org/x/tools/go/packages"
 )
 
-func TestQualifyReturnType(t *testing.T) {
-	tests := []struct {
-		name          string
-		returnType    string
-		parentPackage string
-		want          string
-	}{
-		// Primitive types - should not be qualified
-		{
-			name:          "string primitive",
-			returnType:    "string",
-			parentPackage: "showcase",
-			want:          "string",
-		},
-		{
-			name:          "int primitive",
-			returnType:    "int",
-			parentPackage: "showcase",
-			want:          "int",
-		},
-		{
-			name:          "int8 primitive",
-			returnType:    "int8",
-			parentPackage: "showcase",
-			want:          "int8",
-		},
-		{
-			name:          "int16 primitive",
-			returnType:    "int16",
-			parentPackage: "showcase",
-			want:          "int16",
-		},
-		{
-			name:          "int32 primitive",
-			returnType:    "int32",
-			parentPackage: "showcase",
-			want:          "int32",
-		},
-		{
-			name:          "int64 primitive",
-			returnType:    "int64",
-			parentPackage: "showcase",
-			want:          "int64",
-		},
-		{
-			name:          "uint primitive",
-			returnType:    "uint",
-			parentPackage: "showcase",
-			want:          "uint",
-		},
-		{
-			name:          "uint8 primitive",
-			returnType:    "uint8",
-			parentPackage: "showcase",
-			want:          "uint8",
-		},
-		{
-			name:          "uint16 primitive",
-			returnType:    "uint16",
-			parentPackage: "showcase",
-			want:          "uint16",
-		},
-		{
-			name:          "uint32 primitive",
-			returnType:    "uint32",
-			parentPackage: "showcase",
-			want:          "uint32",
-		},
-		{
-			name:          "uint64 primitive",
-			returnType:    "uint64",
-			parentPackage: "showcase",
-			want:          "uint64",
-		},
-		{
-			name:          "uintptr primitive",
-			returnType:    "uintptr",
-			parentPackage: "showcase",
-			want:          "uintptr",
-		},
-		{
-			name:          "byte primitive",
-			returnType:    "byte",
-			parentPackage: "showcase",
-			want:          "byte",
-		},
-		{
-			name:          "rune primitive",
-			returnType:    "rune",
-			parentPackage: "showcase",
-			want:          "rune",
-		},
-		{
-			name:          "float32 primitive",
-			returnType:    "float32",
-			parentPackage: "showcase",
-			want:          "float32",
-		},
-		{
-			name:          "float64 primitive",
-			returnType:    "float64",
-			parentPackage: "showcase",
-			want:          "float64",
-		},
-		{
-			name:          "complex64 primitive",
-			returnType:    "complex64",
-			parentPackage: "showcase",
-			want:          "complex64",
-		},
-		{
-			name:          "complex128 primitive",
-			returnType:    "complex128",
-			parentPackage: "showcase",
-			want:          "complex128",
-		},
-		{
-			name:          "bool primitive",
-			returnType:    "bool",
-			parentPackage: "showcase",
-			want:          "bool",
-		},
-		{
-			name:          "error primitive",
-			returnType:    "error",
-			parentPackage: "showcase",
-			want:          "error",
-		},
-		{
-			name:          "time.Time",
-			returnType:    "time.Time",
-			parentPackage: "showcase",
-			want:          "time.Time",
-		},
-		{
-			name:          "time.Duration",
-			returnType:    "time.Duration",
-			parentPackage: "showcase",
-			want:          "time.Duration",
-		},
+// TestQualifyTypeExpr tests the qualifyTypeExpr function with real Go code
+func TestQualifyTypeExpr(t *testing.T) {
+	// Create a test package with various type patterns
+	testCode := `
+package main
 
-		// Custom types - should be qualified
-		{
-			name:          "custom type",
-			returnType:    "User",
-			parentPackage: "showcase",
-			want:          "showcase.User",
-		},
-		{
-			name:          "already qualified custom type",
-			returnType:    "showcase.User",
-			parentPackage: "showcase",
-			want:          "showcase.User",
-		},
-		{
-			name:          "custom type from different package",
-			returnType:    "other.Type",
-			parentPackage: "showcase",
-			want:          "other.Type",
-		},
+import "time"
+
+type User struct {
+	Name string
+}
+
+type Product struct {
+	ID int
+}
+
+type TestType struct {
+	// Simple types
+	SimpleCustom User
+	SimplePrimitive string
+
+	// Pointer types
+	PointerCustom *User
+	PointerPrimitive *string
+
+	// Slice types
+	SliceCustom []User
+	SlicePrimitive []string
+	SlicePointer []*User
+
+	// Array types
+	ArrayCustom [10]User
+	ArrayPrimitive [5]string
+
+	// Map types
+	MapStringToCustom map[string]User
+	MapCustomToString map[User]string
+	MapCustomToCustom map[User]Product
+	MapPrimitive map[string]int
+
+	// Channel types
+	ChanCustom chan User
+	ChanReceive <-chan User
+	ChanSend chan<- User
+	ChanPrimitive chan string
+
+	// Function types
+	FuncSimple func(User) error
+	FuncMultiParam func(User, Product) error
+	FuncMultiReturn func(User) (Product, error)
+	FuncComplex func([]User) map[string]Product
+
+	// Standard library types
+	TimeField time.Time
+	DurationField time.Duration
+}
+`
+
+	// Load the package with type information using a temporary directory
+	tmpDir := t.TempDir()
+	testFile := tmpDir + "/test.go"
+
+	// Write test file to temp directory
+	if err := os.WriteFile(testFile, []byte(testCode), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Write a minimal go.mod
+	goMod := "module testpkg\n\ngo 1.21\n"
+	if err := os.WriteFile(tmpDir+"/go.mod", []byte(goMod), 0644); err != nil {
+		t.Fatalf("Failed to write go.mod: %v", err)
+	}
+
+	cfg := &packages.Config{
+		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles,
+		Dir:  tmpDir,
+	}
+
+	// Load from the temp directory
+	pkgs, err := packages.Load(cfg, ".")
+	if err != nil {
+		t.Fatalf("Failed to load package: %v", err)
+	}
+	if len(pkgs) == 0 {
+		t.Fatal("No packages loaded")
+	}
+	if len(pkgs[0].Errors) > 0 {
+		t.Fatalf("Package has errors: %v", pkgs[0].Errors)
+	}
+
+	pkg := pkgs[0]
+
+	// Use the AST from the loaded package (not from parser.ParseFile)
+	if len(pkg.Syntax) == 0 {
+		t.Fatal("No syntax files in package")
+	}
+	file := pkg.Syntax[0]
+
+	// Find the TestType struct
+	var testStruct *ast.StructType
+	ast.Inspect(file, func(n ast.Node) bool {
+		if ts, ok := n.(*ast.TypeSpec); ok && ts.Name.Name == "TestType" {
+			if st, ok := ts.Type.(*ast.StructType); ok {
+				testStruct = st
+				return false
+			}
+		}
+		return true
+	})
+
+	if testStruct == nil {
+		t.Fatal("Could not find TestType struct")
+	}
+
+	tests := []struct {
+		fieldName string
+		want      string
+	}{
+		// Simple types
+		{"SimpleCustom", "testpkg.User"},
+		{"SimplePrimitive", "string"},
 
 		// Pointer types
-		{
-			name:          "pointer to custom type",
-			returnType:    "*User",
-			parentPackage: "showcase",
-			want:          "*showcase.User",
-		},
-		{
-			name:          "pointer to primitive",
-			returnType:    "*string",
-			parentPackage: "showcase",
-			want:          "*string",
-		},
-		{
-			name:          "pointer to already qualified type",
-			returnType:    "*showcase.User",
-			parentPackage: "showcase",
-			want:          "*showcase.User",
-		},
+		{"PointerCustom", "*testpkg.User"},
+		{"PointerPrimitive", "*string"},
 
 		// Slice types
-		{
-			name:          "slice of custom type",
-			returnType:    "[]User",
-			parentPackage: "showcase",
-			want:          "[]showcase.User",
-		},
-		{
-			name:          "slice of primitive",
-			returnType:    "[]string",
-			parentPackage: "showcase",
-			want:          "[]string",
-		},
-		{
-			name:          "slice of pointers to custom type",
-			returnType:    "[]*User",
-			parentPackage: "showcase",
-			want:          "[]*showcase.User",
-		},
+		{"SliceCustom", "[]testpkg.User"},
+		{"SlicePrimitive", "[]string"},
+		{"SlicePointer", "[]*testpkg.User"},
+
+		// Array types
+		{"ArrayCustom", "[10]testpkg.User"},
+		{"ArrayPrimitive", "[5]string"},
 
 		// Map types
-		{
-			name:          "map with custom value type",
-			returnType:    "map[string]User",
-			parentPackage: "showcase",
-			want:          "map[string]showcase.User",
-		},
-		{
-			name:          "map with custom key type",
-			returnType:    "map[User]string",
-			parentPackage: "showcase",
-			want:          "map[showcase.User]string",
-		},
-		{
-			name:          "map with both custom types",
-			returnType:    "map[User]Product",
-			parentPackage: "showcase",
-			want:          "map[showcase.User]showcase.Product",
-		},
-		{
-			name:          "map with primitive types",
-			returnType:    "map[string]int",
-			parentPackage: "showcase",
-			want:          "map[string]int",
-		},
-		{
-			name:          "map with pointer value",
-			returnType:    "map[string]*User",
-			parentPackage: "showcase",
-			want:          "map[string]*showcase.User",
-		},
-		{
-			name:          "map with slice value",
-			returnType:    "map[string][]User",
-			parentPackage: "showcase",
-			want:          "map[string][]showcase.User",
-		},
-		{
-			name:          "nested map",
-			returnType:    "map[string]map[int]User",
-			parentPackage: "showcase",
-			want:          "map[string]map[int]showcase.User",
-		},
+		{"MapStringToCustom", "map[string]testpkg.User"},
+		{"MapCustomToString", "map[testpkg.User]string"},
+		{"MapCustomToCustom", "map[testpkg.User]testpkg.Product"},
+		{"MapPrimitive", "map[string]int"},
 
 		// Channel types
-		{
-			name:          "bidirectional channel of custom type",
-			returnType:    "chan User",
-			parentPackage: "showcase",
-			want:          "chan showcase.User",
-		},
-		{
-			name:          "receive-only channel of custom type",
-			returnType:    "<-chan User",
-			parentPackage: "showcase",
-			want:          "<-chan showcase.User",
-		},
-		{
-			name:          "send-only channel of custom type",
-			returnType:    "chan<- User",
-			parentPackage: "showcase",
-			want:          "chan<- showcase.User",
-		},
-		{
-			name:          "channel of primitive",
-			returnType:    "chan string",
-			parentPackage: "showcase",
-			want:          "chan string",
-		},
-		{
-			name:          "channel of pointer to custom type",
-			returnType:    "chan *User",
-			parentPackage: "showcase",
-			want:          "chan *showcase.User",
-		},
+		{"ChanCustom", "chan testpkg.User"},
+		{"ChanReceive", "<-chan testpkg.User"},
+		{"ChanSend", "chan<- testpkg.User"},
+		{"ChanPrimitive", "chan string"},
+
+		// Function types
+		{"FuncSimple", "func(testpkg.User) error"},
+		{"FuncMultiParam", "func(testpkg.User, testpkg.Product) error"},
+		{"FuncMultiReturn", "func(testpkg.User) (testpkg.Product, error)"},
+		{"FuncComplex", "func([]testpkg.User) map[string]testpkg.Product"},
+
+		// Standard library types
+		{"TimeField", "time.Time"},
+		{"DurationField", "time.Duration"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := qualifyReturnType(tt.returnType, tt.parentPackage)
-			if got != tt.want {
-				t.Errorf("qualifyReturnType(%q, %q) = %q, want %q", tt.returnType, tt.parentPackage, got, tt.want)
+		t.Run(tt.fieldName, func(t *testing.T) {
+			// Find the field in the struct
+			var fieldType ast.Expr
+			for _, field := range testStruct.Fields.List {
+				if len(field.Names) > 0 && field.Names[0].Name == tt.fieldName {
+					fieldType = field.Type
+					break
+				}
 			}
+
+			if fieldType == nil {
+				t.Fatalf("Field %s not found", tt.fieldName)
+			}
+
+			// Test qualifyTypeExpr
+			got := qualifyTypeExpr(pkg, fieldType, "testpkg")
+
+			// Normalize whitespace for comparison
+			gotNorm := strings.Join(strings.Fields(got), " ")
+			wantNorm := strings.Join(strings.Fields(tt.want), " ")
+
+			testgen.AssertThat(t, gotNorm, testgen.Equal(wantNorm))
 		})
 	}
+}
+
+func TestQualifyTypeExprWithNilTypeInfo(t *testing.T) {
+	// Test fallback behavior when TypesInfo is nil
+	testCode := `package test
+type User struct { Name string }
+`
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "test.go", testCode, 0)
+	if err != nil {
+		t.Fatalf("Failed to parse: %v", err)
+	}
+
+	// Create package without type info
+	pkg := &packages.Package{
+		Fset:   fset,
+		Syntax: []*ast.File{file},
+		// TypesInfo intentionally nil
+	}
+
+	// Find User type
+	var userIdent *ast.Ident
+	ast.Inspect(file, func(n ast.Node) bool {
+		if ts, ok := n.(*ast.TypeSpec); ok && ts.Name.Name == "User" {
+			userIdent = ts.Name
+			return false
+		}
+		return true
+	})
+
+	// Should fall back to string representation
+	result := qualifyTypeExpr(pkg, userIdent, "test")
+	testgen.AssertThat(t, result, testgen.Not(testgen.Equal("")))
 }
 
 func TestIsPrimitiveType(t *testing.T) {
@@ -329,18 +267,16 @@ func TestIsPrimitiveType(t *testing.T) {
 		// Custom types (not primitive)
 		{"User", "User", false},
 		{"showcase.User", "showcase.User", false},
-		{"*string", "*string", false},
-		{"[]int", "[]int", false},
-		{"map[string]int", "map[string]int", false},
-		{"chan int", "chan int", false},
+		{"pointer", "*string", false},
+		{"slice", "[]int", false},
+		{"map", "map[string]int", false},
+		{"channel", "chan int", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := isPrimitiveType(tt.typeName)
-			if got != tt.want {
-				t.Errorf("isPrimitiveType(%q) = %v, want %v", tt.typeName, got, tt.want)
-			}
+			testgen.AssertThat(t, got, testgen.Equal(tt.want))
 		})
 	}
 }

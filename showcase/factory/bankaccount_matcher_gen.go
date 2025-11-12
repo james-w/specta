@@ -16,17 +16,32 @@ type BankAccountMatcher struct {
 }
 
 // BankAccountMatches creates a new BankAccountMatcher for matching BankAccount instances.
+//
+// This matcher provides methods for properties accessed via getters:
+//   - Name: matches GetName() → string
+//   - Balance: matches GetBalance() → int
+//
+// Example:
+//
+//	matcher := factory.BankAccountMatches().
+//	    Name(testgen.Equal("expected_value")).
+//	    Balance(testgen.GreaterThan(0)).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualBankAccount, matcher)
 func BankAccountMatches() BankAccountMatcher {
 	return BankAccountMatcher{}
 }
 
-// Name adds a matcher for the Name property (via GetName).
+// Name adds a matcher for the Name property.
+// This property is accessed via the GetName() method.
 func (m BankAccountMatcher) Name(matcher testgen.Matcher[string]) BankAccountMatcher {
 	m.nameMatcher = matcher
 	return m
 }
 
-// Balance adds a matcher for the Balance property (via GetBalance).
+// Balance adds a matcher for the Balance property.
+// This property is accessed via the GetBalance() method.
 func (m BankAccountMatcher) Balance(matcher testgen.Matcher[int]) BankAccountMatcher {
 	m.balanceMatcher = matcher
 	return m

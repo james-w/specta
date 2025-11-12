@@ -48,6 +48,24 @@ type UserRecipe struct {
 }
 
 // User creates a new UserRecipe for building User instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Email (string)
+//   - FirstName (string)
+//   - LastName (string)
+//   - Active (bool)
+//   - Address (showcase.Address)
+//   - CreatedAt (time.Time)
+//   - UpdatedAt (time.Time)
+//
+// Example:
+//
+//	p := testgen.New()
+//	user := factory.User().
+//	    ID("custom_value").
+//	    Email("another").
+//	    Build(p)
 func User() UserRecipe { return UserRecipe{} }
 
 // ID sets the ID field.

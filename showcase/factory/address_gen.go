@@ -45,6 +45,21 @@ type AddressRecipe struct {
 }
 
 // Address creates a new AddressRecipe for building Address instances.
+//
+// This is a struct-based type with the following fields:
+//   - Street (string)
+//   - City (string)
+//   - State (string)
+//   - ZipCode (string)
+//   - Country (string)
+//
+// Example:
+//
+//	p := testgen.New()
+//	address := factory.Address().
+//	    Street("custom_value").
+//	    City("another").
+//	    Build(p)
 func Address() AddressRecipe { return AddressRecipe{} }
 
 // Street sets the Street field.

@@ -47,6 +47,22 @@ type ProductRecipe struct {
 }
 
 // Product creates a new ProductRecipe for building Product instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Description (string)
+//   - Price (float64)
+//   - InStock (bool)
+//   - CreatedAt (time.Time)
+//
+// Example:
+//
+//	p := testgen.New()
+//	product := factory.Product().
+//	    ID("custom_value").
+//	    Name("another").
+//	    Build(p)
 func Product() ProductRecipe { return ProductRecipe{} }
 
 // ID sets the ID field.

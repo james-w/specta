@@ -21,6 +21,22 @@ type CommentMatcher struct {
 }
 
 // CommentMatches creates a new CommentMatcher for matching Comment instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Post (showcase.BlogPost)
+//   - Author (showcase.User)
+//   - Content (string)
+//   - CreatedAt (time.Time)
+//
+// Example:
+//
+//	matcher := factory.CommentMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Post(testgen.Equal(expectedValue)).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualComment, matcher)
 func CommentMatches() CommentMatcher {
 	return CommentMatcher{}
 }

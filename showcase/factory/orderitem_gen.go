@@ -46,6 +46,19 @@ type OrderItemRecipe struct {
 }
 
 // OrderItem creates a new OrderItemRecipe for building OrderItem instances.
+//
+// This is a struct-based type with the following fields:
+//   - Product (showcase.Product)
+//   - Quantity (int)
+//   - Price (float64)
+//
+// Example:
+//
+//	p := testgen.New()
+//	orderItem := factory.OrderItem().
+//	    Product(value).
+//	    Quantity(200).
+//	    Build(p)
 func OrderItem() OrderItemRecipe { return OrderItemRecipe{} }
 
 // Product sets the Product field.

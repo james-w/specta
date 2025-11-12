@@ -24,6 +24,25 @@ type UserMatcher struct {
 }
 
 // UserMatches creates a new UserMatcher for matching User instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Email (string)
+//   - FirstName (string)
+//   - LastName (string)
+//   - Active (bool)
+//   - Address (showcase.Address)
+//   - CreatedAt (time.Time)
+//   - UpdatedAt (time.Time)
+//
+// Example:
+//
+//	matcher := factory.UserMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Email(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualUser, matcher)
 func UserMatches() UserMatcher {
 	return UserMatcher{}
 }

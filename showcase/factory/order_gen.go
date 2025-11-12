@@ -48,6 +48,23 @@ type OrderRecipe struct {
 }
 
 // Order creates a new OrderRecipe for building Order instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - User (showcase.User)
+//   - Items ([]showcase.OrderItem)
+//   - Total (float64)
+//   - Status (string)
+//   - CreatedAt (time.Time)
+//   - UpdatedAt (time.Time)
+//
+// Example:
+//
+//	p := testgen.New()
+//	order := factory.Order().
+//	    ID("custom_value").
+//	    User(value).
+//	    Build(p)
 func Order() OrderRecipe { return OrderRecipe{} }
 
 // ID sets the ID field.

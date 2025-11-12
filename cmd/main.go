@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/format"
 	"go/printer"
+	"go/types"
 	"log"
 	"os"
 	"path/filepath"
@@ -341,18 +342,19 @@ func findGetterMethod(pkg *packages.Package, typeName string, methodName string)
 }
 
 // analyzeGetterMethod extracts the return type from a getter method
-func analyzeGetterMethod(fn *ast.FuncDecl, pkg *packages.Package) string {
+// Returns both the AST expression and a string representation (for backwards compatibility)
+func analyzeGetterMethod(fn *ast.FuncDecl, pkg *packages.Package) (string, ast.Expr) {
 	if fn.Type == nil || fn.Type.Results == nil || len(fn.Type.Results.List) == 0 {
-		return ""
+		return "", nil
 	}
 
 	// Get first return type
 	result := fn.Type.Results.List[0]
 	var buf bytes.Buffer
 	if err := printer.Fprint(&buf, pkg.Fset, result.Type); err != nil {
-		return ""
+		return "", nil
 	}
-	return buf.String()
+	return buf.String(), result.Type
 }
 
 func processTarget(cfg *Config, tgt struct {
@@ -383,7 +385,7 @@ func processTarget(cfg *Config, tgt struct {
 
 func loadPackage(packagePath string) (*packages.Package, error) {
 	pkgCfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedFiles | packages.NeedImports | packages.NeedDeps,
+		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedImports | packages.NeedDeps,
 		Dir:  ".",
 	}
 	pkgs, err := packages.Load(pkgCfg, packagePath)
@@ -522,14 +524,14 @@ func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, type
 			return fmt.Errorf("type %s: getter method %s not found (configured in types.%s.matchers)",
 				typeName, mf.Getter, typeName)
 		}
-		returnType := analyzeGetterMethod(getter, pkg)
-		if returnType == "" {
+		returnType, returnTypeExpr := analyzeGetterMethod(getter, pkg)
+		if returnType == "" || returnTypeExpr == nil {
 			return fmt.Errorf("type %s: getter method %s has invalid signature (expected exactly 1 return value)",
 				typeName, mf.Getter)
 		}
 
-		// Qualify custom types with package name
-		qualifiedReturnType := qualifyReturnType(returnType, d.ParentPackage)
+		// Qualify custom types with package name using go/types
+		qualifiedReturnType := qualifyTypeExpr(pkg, returnTypeExpr, d.ParentPackage)
 
 		d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
 			Name:       mf.Name,
@@ -540,41 +542,38 @@ func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, type
 	return nil
 }
 
-func qualifyReturnType(returnType, parentPackage string) string {
-	// Check if it's a primitive type that doesn't need qualification
-	if isPrimitiveType(returnType) {
-		return returnType
+// qualifyTypeExpr uses go/types to properly qualify a type expression.
+// This handles all Go type patterns correctly: functions, arrays, maps, channels, etc.
+func qualifyTypeExpr(pkg *packages.Package, expr ast.Expr, parentPackage string) string {
+	// Get the type information from the type checker
+	var typ types.Type
+	if pkg.TypesInfo != nil {
+		typ = pkg.TypesInfo.TypeOf(expr)
+	}
+	if typ == nil {
+		// Fallback: use printer to get string representation
+		var buf bytes.Buffer
+		if err := printer.Fprint(&buf, pkg.Fset, expr); err != nil {
+			return ""
+		}
+		return buf.String()
 	}
 
-	// Handle pointer types
-	if strings.HasPrefix(returnType, "*") {
-		elemType := strings.TrimPrefix(returnType, "*")
-		return "*" + qualifyReturnType(elemType, parentPackage)
+	// Create a qualifier function that adds package prefix for all types.
+	// We use types.RelativeTo(nil) to get a qualifier that qualifies all packages
+	// with their full import path.
+	qualifier := types.RelativeTo(nil) // nil package means qualify everything
+
+	result := types.TypeString(typ, qualifier)
+
+	// Replace the full package path with the desired package name
+	// For example, "github.com/james-w/specta/showcase.User" becomes "showcase.User"
+	pkgPath := pkg.PkgPath
+	if pkgPath != "" {
+		result = strings.ReplaceAll(result, pkgPath+".", parentPackage+".")
 	}
 
-	// Handle slice types
-	if strings.HasPrefix(returnType, "[]") {
-		elemType := strings.TrimPrefix(returnType, "[]")
-		return "[]" + qualifyReturnType(elemType, parentPackage)
-	}
-
-	// Handle map types: map[K]V
-	if strings.HasPrefix(returnType, "map[") {
-		return qualifyMapType(returnType, parentPackage)
-	}
-
-	// Handle channel types: chan T, <-chan T, chan<- T
-	if strings.HasPrefix(returnType, "chan ") || strings.HasPrefix(returnType, "<-chan ") || strings.HasPrefix(returnType, "chan<- ") {
-		return qualifyChannelType(returnType, parentPackage)
-	}
-
-	// Check if already qualified (contains a dot)
-	if strings.Contains(returnType, ".") {
-		return returnType
-	}
-
-	// Qualify custom types with parent package
-	return parentPackage + "." + returnType
+	return result
 }
 
 func isPrimitiveType(typeName string) bool {
@@ -595,59 +594,6 @@ func isPrimitiveType(typeName string) bool {
 		"time.Duration": true,
 	}
 	return primitives[typeName]
-}
-
-func qualifyMapType(mapType, parentPackage string) string {
-	// Parse map[K]V syntax
-	// Find the matching closing bracket for the key type
-	if !strings.HasPrefix(mapType, "map[") {
-		return mapType
-	}
-
-	rest := mapType[4:] // Skip "map["
-	depth := 1
-	keyEnd := -1
-
-	for i, ch := range rest {
-		if ch == '[' {
-			depth++
-		} else if ch == ']' {
-			depth--
-			if depth == 0 {
-				keyEnd = i
-				break
-			}
-		}
-	}
-
-	if keyEnd == -1 {
-		return mapType // Malformed, return as-is
-	}
-
-	keyType := rest[:keyEnd]
-	valueType := rest[keyEnd+1:] // Skip the ']'
-
-	qualifiedKey := qualifyReturnType(keyType, parentPackage)
-	qualifiedValue := qualifyReturnType(valueType, parentPackage)
-
-	return "map[" + qualifiedKey + "]" + qualifiedValue
-}
-
-func qualifyChannelType(chanType, parentPackage string) string {
-	// Handle different channel types
-	if strings.HasPrefix(chanType, "<-chan ") {
-		elemType := strings.TrimPrefix(chanType, "<-chan ")
-		return "<-chan " + qualifyReturnType(elemType, parentPackage)
-	}
-	if strings.HasPrefix(chanType, "chan<- ") {
-		elemType := strings.TrimPrefix(chanType, "chan<- ")
-		return "chan<- " + qualifyReturnType(elemType, parentPackage)
-	}
-	if strings.HasPrefix(chanType, "chan ") {
-		elemType := strings.TrimPrefix(chanType, "chan ")
-		return "chan " + qualifyReturnType(elemType, parentPackage)
-	}
-	return chanType
 }
 
 func generateFiles(d data, dirs struct{ factory, spec string }, typeName string) error {
@@ -857,6 +803,7 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		r[0] = []rune(strings.ToLower(string(r[0])))[0]
 		return string(r)
 	},
+	"isPrimitiveType": isPrimitiveType,
 	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
@@ -878,11 +825,7 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			// Check if this is a known primitive type
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -896,10 +839,7 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(p.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(p.TypeExpr, "[]")
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1099,7 +1039,8 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		r[0] = []rune(strings.ToLower(string(r[0])))[0]
 		return string(r)
 	},
-	"hasPrefix": strings.HasPrefix,
+	"isPrimitiveType": isPrimitiveType,
+	"hasPrefix":       strings.HasPrefix,
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
 			return pkg + "." + typeName
@@ -1115,11 +1056,7 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			// Check if this is a known primitive type
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1133,10 +1070,7 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(p.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(p.TypeExpr, "[]")
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1228,11 +1162,49 @@ type {{.RecipeName}} struct{
 }
 
 // {{.TypeName}} creates a new {{.RecipeName}} for building {{.TypeName}} instances.
+{{- if .HasConstructor}}
+//
+// The underlying constructor is {{.ConstructorName}}({{range $i, $p := .ConstructorParams}}{{if $i}}, {{end}}{{lower $p.Name}} {{qualifiedTypeParam $.ParentPackage $p}}{{end}}).
+{{- else}}
+//
+// This is a struct-based type with the following fields:
+{{- range .Fields}}
+//   - {{.Name}} ({{qualifiedType $.ParentPackage .}})
+{{- end}}
+{{- end}}
+//
+// Example:
+//
+{{- if .HasConstructor}}
+//	p := testgen.New()
+//	{{lower .TypeName}} := factory.{{.TypeName}}().
+{{- with index .ConstructorParams 0}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"custom_value"{{else if eq .TypeExpr "int"}}100{{else if eq .TypeExpr "bool"}}true{{else}}value{{end}}).
+{{- end}}
+{{- if gt (len .ConstructorParams) 1}}
+{{- with index .ConstructorParams 1}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"another"{{else if eq .TypeExpr "int"}}200{{else if eq .TypeExpr "bool"}}false{{else}}value{{end}}).
+{{- end}}
+{{- end}}
+//	    Build(p)
+{{- else}}
+//	p := testgen.New()
+//	{{lower .TypeName}} := factory.{{.TypeName}}().
+{{- with index .Fields 0}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"custom_value"{{else if eq .TypeExpr "int"}}100{{else if eq .TypeExpr "bool"}}true{{else}}value{{end}}).
+{{- end}}
+{{- if gt (len .Fields) 1}}
+{{- with index .Fields 1}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"another"{{else if eq .TypeExpr "int"}}200{{else if eq .TypeExpr "bool"}}false{{else}}value{{end}}).
+{{- end}}
+{{- end}}
+//	    Build(p)
+{{- end}}
 func {{.TypeName}}() {{.RecipeName}} { return {{.RecipeName}}{} }
 
 {{- if .HasConstructor}}
 {{range .ConstructorParams}}
-// {{.Name}} sets the {{.Name}} parameter.
+// {{.Name}} sets the {{lower .Name}} parameter of {{$.ConstructorName}}.
 func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedTypeParam $.ParentPackage .}}) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}(v))
 	{{- if .IsCustomType}}
@@ -1426,6 +1398,7 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 `))
 
 var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
+	"isPrimitiveType": isPrimitiveType,
 	"lower": func(s string) string {
 		if s == "" {
 			return s
@@ -1434,15 +1407,34 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 		r[0] = []rune(strings.ToLower(string(r[0])))[0]
 		return string(r)
 	},
+	"qualifiedReturnType": func(pkg string, returnType string) string {
+		// If already qualified (contains .) or is a primitive, return as-is
+		if strings.Contains(returnType, ".") {
+			return returnType
+		}
+		// Check if it's a known primitive type
+		if isPrimitiveType(returnType) {
+			return returnType
+		}
+		// Handle slices
+		if strings.HasPrefix(returnType, "[]") {
+			elemType := strings.TrimPrefix(returnType, "[]")
+			if strings.Contains(elemType, ".") {
+				return returnType
+			}
+			if isPrimitiveType(elemType) {
+				return returnType
+			}
+			return "[]" + pkg + "." + elemType
+		}
+		// Otherwise, qualify with package
+		return pkg + "." + returnType
+	},
 	"qualifiedType": func(pkg string, f field) string {
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			// Check if this is a known primitive type
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1472,11 +1464,51 @@ type {{.TypeName}}Matcher struct {
 	{{lower .Name}}Matcher testgen.Matcher[{{qualifiedType $.ParentPackage .}}]
 	{{- end}}
 	{{- range .GetterMatchers}}
-	{{lower .Name}}Matcher testgen.Matcher[{{.ReturnType}}]
+	{{lower .Name}}Matcher testgen.Matcher[{{qualifiedReturnType $.ParentPackage .ReturnType}}]
 	{{- end}}
 }
 
 // {{.TypeName}}Matches creates a new {{.TypeName}}Matcher for matching {{.TypeName}} instances.
+{{- if .GetterMatchers}}
+//
+// This matcher provides methods for properties accessed via getters:
+{{- range .GetterMatchers}}
+//   - {{.Name}}: matches {{.Getter}}() → {{.ReturnType}}
+{{- end}}
+{{- end}}
+{{- if .Fields}}
+//
+// This matcher provides methods for the following fields:
+{{- range .Fields}}
+//   - {{.Name}} ({{qualifiedType $.ParentPackage .}})
+{{- end}}
+{{- end}}
+//
+// Example:
+//
+//	matcher := factory.{{.TypeName}}Matches().
+{{- if .GetterMatchers}}
+{{- with index .GetterMatchers 0}}
+//	    {{.Name}}(testgen.Equal({{if eq .ReturnType "string"}}"expected_value"{{else if eq .ReturnType "int"}}100{{else if eq .ReturnType "bool"}}true{{else}}expectedValue{{end}})).
+{{- end}}
+{{- if gt (len .GetterMatchers) 1}}
+{{- with index .GetterMatchers 1}}
+//	    {{.Name}}(testgen.{{if eq .ReturnType "string"}}Contains("substring"){{else if eq .ReturnType "int"}}GreaterThan(0){{else}}Equal(expectedValue){{end}}).
+{{- end}}
+{{- end}}
+{{- else if .Fields}}
+{{- with index .Fields 0}}
+//	    {{.Name}}(testgen.Equal({{if eq .TypeExpr "string"}}"expected_value"{{else if eq .TypeExpr "int"}}100{{else if eq .TypeExpr "bool"}}true{{else}}expectedValue{{end}})).
+{{- end}}
+{{- if gt (len .Fields) 1}}
+{{- with index .Fields 1}}
+//	    {{.Name}}(testgen.{{if eq .TypeExpr "string"}}Contains("substring"){{else if eq .TypeExpr "int"}}GreaterThan(0){{else}}Equal(expectedValue){{end}}).
+{{- end}}
+{{- end}}
+{{- end}}
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actual{{.TypeName}}, matcher)
 func {{.TypeName}}Matches() {{.TypeName}}Matcher {
 	return {{.TypeName}}Matcher{}
 }
@@ -1497,8 +1529,9 @@ func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.TypeExpr}}Matcher) {{
 {{end}}
 
 {{range .GetterMatchers}}
-// {{.Name}} adds a matcher for the {{.Name}} property (via {{.Getter}}).
-func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{.ReturnType}}]) {{$.TypeName}}Matcher {
+// {{.Name}} adds a matcher for the {{.Name}} property.
+// This property is accessed via the {{.Getter}}() method.
+func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{qualifiedReturnType $.ParentPackage .ReturnType}}]) {{$.TypeName}}Matcher {
 	m.{{lower .Name}}Matcher = matcher
 	return m
 }
@@ -1569,12 +1602,7 @@ func defaultProvider(pkg string, f field) string {
 	// Handle slices separately - need to qualify custom types
 	if strings.HasPrefix(typ, "[]") {
 		elemType := strings.TrimPrefix(typ, "[]")
-		// Check if elem is primitive
-		isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-			elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-			elemType == "time.Time" || elemType == "time.Duration"
-
-		if isPrimitive {
+		if isPrimitiveType(elemType) {
 			return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 		}
 		// Custom type slice - qualify it

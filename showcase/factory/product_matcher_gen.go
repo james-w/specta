@@ -22,6 +22,23 @@ type ProductMatcher struct {
 }
 
 // ProductMatches creates a new ProductMatcher for matching Product instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Description (string)
+//   - Price (float64)
+//   - InStock (bool)
+//   - CreatedAt (time.Time)
+//
+// Example:
+//
+//	matcher := factory.ProductMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Name(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualProduct, matcher)
 func ProductMatches() ProductMatcher {
 	return ProductMatcher{}
 }

@@ -24,6 +24,25 @@ type BlogPostMatcher struct {
 }
 
 // BlogPostMatches creates a new BlogPostMatcher for matching BlogPost instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Title (string)
+//   - Content (string)
+//   - Author (showcase.User)
+//   - Published (bool)
+//   - PublishedAt (time.Time)
+//   - CreatedAt (time.Time)
+//   - UpdatedAt (time.Time)
+//
+// Example:
+//
+//	matcher := factory.BlogPostMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Title(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualBlogPost, matcher)
 func BlogPostMatches() BlogPostMatcher {
 	return BlogPostMatcher{}
 }

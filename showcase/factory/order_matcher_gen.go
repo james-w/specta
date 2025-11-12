@@ -23,6 +23,24 @@ type OrderMatcher struct {
 }
 
 // OrderMatches creates a new OrderMatcher for matching Order instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - User (showcase.User)
+//   - Items ([]showcase.OrderItem)
+//   - Total (float64)
+//   - Status (string)
+//   - CreatedAt (time.Time)
+//   - UpdatedAt (time.Time)
+//
+// Example:
+//
+//	matcher := factory.OrderMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    User(testgen.Equal(expectedValue)).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualOrder, matcher)
 func OrderMatches() OrderMatcher {
 	return OrderMatcher{}
 }

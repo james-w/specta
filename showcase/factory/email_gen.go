@@ -47,9 +47,18 @@ type EmailRecipe struct {
 }
 
 // Email creates a new EmailRecipe for building Email instances.
+//
+// The underlying constructor is NewEmail(address string).
+//
+// Example:
+//
+//	p := testgen.New()
+//	email := factory.Email().
+//	    Address("custom_value").
+//	    Build(p)
 func Email() EmailRecipe { return EmailRecipe{} }
 
-// Address sets the Address parameter.
+// Address sets the address parameter of NewEmail.
 func (r EmailRecipe) Address(v string) EmailRecipe {
 	r.opts = append(r.opts, spec.WithEmailAddress(v))
 	return r

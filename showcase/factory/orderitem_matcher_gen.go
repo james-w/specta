@@ -17,6 +17,20 @@ type OrderItemMatcher struct {
 }
 
 // OrderItemMatches creates a new OrderItemMatcher for matching OrderItem instances.
+//
+// This matcher provides methods for the following fields:
+//   - Product (showcase.Product)
+//   - Quantity (int)
+//   - Price (float64)
+//
+// Example:
+//
+//	matcher := factory.OrderItemMatches().
+//	    Product(testgen.Equal(expectedValue)).
+//	    Quantity(testgen.GreaterThan(0)).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualOrderItem, matcher)
 func OrderItemMatches() OrderItemMatcher {
 	return OrderItemMatcher{}
 }
