@@ -527,13 +527,42 @@ func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, type
 			return fmt.Errorf("type %s: getter method %s has invalid signature (expected exactly 1 return value)",
 				typeName, mf.Getter)
 		}
+
+		// Qualify custom types with package name
+		qualifiedReturnType := qualifyReturnType(returnType, d.ParentPackage)
+
 		d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
 			Name:       mf.Name,
 			Getter:     mf.Getter,
-			ReturnType: returnType,
+			ReturnType: qualifiedReturnType,
 		})
 	}
 	return nil
+}
+
+func qualifyReturnType(returnType, parentPackage string) string {
+	// Check if it's a primitive type that doesn't need qualification
+	isPrimitive := returnType == "string" || returnType == "int" || returnType == "int64" ||
+		returnType == "uint64" || returnType == "bool" || returnType == "float64" ||
+		returnType == "time.Time" || returnType == "time.Duration" || returnType == "error"
+
+	if isPrimitive {
+		return returnType
+	}
+
+	// Handle slice types
+	if strings.HasPrefix(returnType, "[]") {
+		elemType := strings.TrimPrefix(returnType, "[]")
+		return "[]" + qualifyReturnType(elemType, parentPackage)
+	}
+
+	// Check if already qualified (contains a dot)
+	if strings.Contains(returnType, ".") {
+		return returnType
+	}
+
+	// Qualify custom types with parent package
+	return parentPackage + "." + returnType
 }
 
 func generateFiles(d data, dirs struct{ factory, spec string }, typeName string) error {
@@ -1274,7 +1303,6 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 	expected := spec.Build{{.TypeName}}(p, s)
 	{{- end}}
 	return testgen.DeepEqual(expected)
-	{{- end}}
 	{{- else}}
 	// Apply opts to a spec to see what was set
 	s := spec.New{{.SpecName}}()

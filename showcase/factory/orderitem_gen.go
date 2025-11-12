@@ -56,6 +56,8 @@ func (r OrderItemRecipe) Product(v showcase.Product) OrderItemRecipe {
 }
 
 // ProductFromRecipe sets the Product field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrderItemRecipe) ProductFromRecipe(v ProductRecipe) OrderItemRecipe {
 	r.opts = append(r.opts, spec.WithOrderItemProductFromProvider(v.Provider()))
 	r.productRecipe = &v

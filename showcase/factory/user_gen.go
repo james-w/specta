@@ -88,6 +88,8 @@ func (r UserRecipe) Address(v showcase.Address) UserRecipe {
 }
 
 // AddressFromRecipe sets the Address field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r UserRecipe) AddressFromRecipe(v AddressRecipe) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserAddressFromProvider(v.Provider()))
 	r.addressRecipe = &v
