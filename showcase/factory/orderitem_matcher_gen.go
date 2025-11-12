@@ -63,6 +63,7 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.productMatcher != nil {
 			result := m.productMatcher.Matches(productValue)
 			fieldResults["Product"] = &result
@@ -70,6 +71,7 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 				hasFailures = true
 			}
 		}
+
 		if m.quantityMatcher != nil {
 			result := m.quantityMatcher.Matches(quantityValue)
 			fieldResults["Quantity"] = &result
@@ -77,6 +79,7 @@ func (m OrderItemMatcher) Matcher() testgen.Matcher[showcase.OrderItem] {
 				hasFailures = true
 			}
 		}
+
 		if m.priceMatcher != nil {
 			result := m.priceMatcher.Matches(priceValue)
 			fieldResults["Price"] = &result

@@ -39,6 +39,7 @@ func (m EmailMatcher) Matcher() testgen.Matcher[showcase.Email] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.addressMatcher != nil {
 			result := m.addressMatcher.Matches(addressValue)
 			fieldResults["Address"] = &result

@@ -1528,8 +1528,8 @@ func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.Ty
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
-
 		{{- range .Fields}}
+
 		if m.{{lower .Name}}Matcher != nil {
 			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
 			fieldResults["{{.Name}}"] = &result
@@ -1538,8 +1538,8 @@ func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.Ty
 			}
 		}
 		{{- end}}
-
 		{{- range .GetterMatchers}}
+
 		if m.{{lower .Name}}Matcher != nil {
 			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
 			fieldResults["{{.Name}}"] = &result

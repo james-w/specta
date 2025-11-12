@@ -89,6 +89,7 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(iDValue)
 			fieldResults["ID"] = &result
@@ -96,6 +97,7 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 				hasFailures = true
 			}
 		}
+
 		if m.postMatcher != nil {
 			result := m.postMatcher.Matches(postValue)
 			fieldResults["Post"] = &result
@@ -103,6 +105,7 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 				hasFailures = true
 			}
 		}
+
 		if m.authorMatcher != nil {
 			result := m.authorMatcher.Matches(authorValue)
 			fieldResults["Author"] = &result
@@ -110,6 +113,7 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 				hasFailures = true
 			}
 		}
+
 		if m.contentMatcher != nil {
 			result := m.contentMatcher.Matches(contentValue)
 			fieldResults["Content"] = &result
@@ -117,6 +121,7 @@ func (m CommentMatcher) Matcher() testgen.Matcher[showcase.Comment] {
 				hasFailures = true
 			}
 		}
+
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(createdAtValue)
 			fieldResults["CreatedAt"] = &result

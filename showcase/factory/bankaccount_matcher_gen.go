@@ -48,6 +48,7 @@ func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.nameMatcher != nil {
 			result := m.nameMatcher.Matches(nameValue)
 			fieldResults["Name"] = &result
@@ -55,6 +56,7 @@ func (m BankAccountMatcher) Matcher() testgen.Matcher[showcase.BankAccount] {
 				hasFailures = true
 			}
 		}
+
 		if m.balanceMatcher != nil {
 			result := m.balanceMatcher.Matches(balanceValue)
 			fieldResults["Balance"] = &result

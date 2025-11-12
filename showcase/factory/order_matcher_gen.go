@@ -101,6 +101,7 @@ func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(iDValue)
 			fieldResults["ID"] = &result
@@ -108,6 +109,7 @@ func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 				hasFailures = true
 			}
 		}
+
 		if m.userMatcher != nil {
 			result := m.userMatcher.Matches(userValue)
 			fieldResults["User"] = &result
@@ -115,6 +117,7 @@ func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 				hasFailures = true
 			}
 		}
+
 		if m.itemsMatcher != nil {
 			result := m.itemsMatcher.Matches(itemsValue)
 			fieldResults["Items"] = &result
@@ -122,6 +125,7 @@ func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 				hasFailures = true
 			}
 		}
+
 		if m.totalMatcher != nil {
 			result := m.totalMatcher.Matches(totalValue)
 			fieldResults["Total"] = &result
@@ -129,6 +133,7 @@ func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 				hasFailures = true
 			}
 		}
+
 		if m.statusMatcher != nil {
 			result := m.statusMatcher.Matches(statusValue)
 			fieldResults["Status"] = &result
@@ -136,6 +141,7 @@ func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 				hasFailures = true
 			}
 		}
+
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(createdAtValue)
 			fieldResults["CreatedAt"] = &result
@@ -143,6 +149,7 @@ func (m OrderMatcher) Matcher() testgen.Matcher[showcase.Order] {
 				hasFailures = true
 			}
 		}
+
 		if m.updatedAtMatcher != nil {
 			result := m.updatedAtMatcher.Matches(updatedAtValue)
 			fieldResults["UpdatedAt"] = &result

@@ -86,6 +86,7 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(iDValue)
 			fieldResults["ID"] = &result
@@ -93,6 +94,7 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 				hasFailures = true
 			}
 		}
+
 		if m.nameMatcher != nil {
 			result := m.nameMatcher.Matches(nameValue)
 			fieldResults["Name"] = &result
@@ -100,6 +102,7 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 				hasFailures = true
 			}
 		}
+
 		if m.descriptionMatcher != nil {
 			result := m.descriptionMatcher.Matches(descriptionValue)
 			fieldResults["Description"] = &result
@@ -107,6 +110,7 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 				hasFailures = true
 			}
 		}
+
 		if m.priceMatcher != nil {
 			result := m.priceMatcher.Matches(priceValue)
 			fieldResults["Price"] = &result
@@ -114,6 +118,7 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 				hasFailures = true
 			}
 		}
+
 		if m.inStockMatcher != nil {
 			result := m.inStockMatcher.Matches(inStockValue)
 			fieldResults["InStock"] = &result
@@ -121,6 +126,7 @@ func (m ProductMatcher) Matcher() testgen.Matcher[showcase.Product] {
 				hasFailures = true
 			}
 		}
+
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(createdAtValue)
 			fieldResults["CreatedAt"] = &result

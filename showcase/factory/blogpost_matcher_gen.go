@@ -110,6 +110,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(iDValue)
 			fieldResults["ID"] = &result
@@ -117,6 +118,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 				hasFailures = true
 			}
 		}
+
 		if m.titleMatcher != nil {
 			result := m.titleMatcher.Matches(titleValue)
 			fieldResults["Title"] = &result
@@ -124,6 +126,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 				hasFailures = true
 			}
 		}
+
 		if m.contentMatcher != nil {
 			result := m.contentMatcher.Matches(contentValue)
 			fieldResults["Content"] = &result
@@ -131,6 +134,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 				hasFailures = true
 			}
 		}
+
 		if m.authorMatcher != nil {
 			result := m.authorMatcher.Matches(authorValue)
 			fieldResults["Author"] = &result
@@ -138,6 +142,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 				hasFailures = true
 			}
 		}
+
 		if m.publishedMatcher != nil {
 			result := m.publishedMatcher.Matches(publishedValue)
 			fieldResults["Published"] = &result
@@ -145,6 +150,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 				hasFailures = true
 			}
 		}
+
 		if m.publishedAtMatcher != nil {
 			result := m.publishedAtMatcher.Matches(publishedAtValue)
 			fieldResults["PublishedAt"] = &result
@@ -152,6 +158,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 				hasFailures = true
 			}
 		}
+
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(createdAtValue)
 			fieldResults["CreatedAt"] = &result
@@ -159,6 +166,7 @@ func (m BlogPostMatcher) Matcher() testgen.Matcher[showcase.BlogPost] {
 				hasFailures = true
 			}
 		}
+
 		if m.updatedAtMatcher != nil {
 			result := m.updatedAtMatcher.Matches(updatedAtValue)
 			fieldResults["UpdatedAt"] = &result
