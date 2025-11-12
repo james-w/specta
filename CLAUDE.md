@@ -16,7 +16,7 @@ Tests: `*_test.go` files with table-driven subtests, no test duplication
 
 Generated: `example/` and `showcase/` have `factory/` directories with `*_gen.go` and `*_matcher_gen.go` files (excluded from linting). These act as integration tests.
 
-## Code Generation (testgen.yaml)
+## Code Generation (specta.yaml)
 
 **Flow**: YAML config → `cmd/main.go` parses source → generates 3 files per type:
 - `spec/*_gen.go` - Low-level API with `Maybe` types
@@ -45,7 +45,7 @@ Generated code is type-checked before writing. All generated files have `//go:bu
 
 ## Before Committing
 
-1. Regenerate code if types change: `go run ./cmd/main.go -config testgen.yaml` in each target directory
+1. Regenerate code if types change: `go run ./cmd/main.go -config specta.yaml` in each target directory
 2. Format: `gofmt -s -w .`
 3. Test: `go test -v -race ./...`
 4. Lint: `golangci-lint run`

@@ -284,7 +284,7 @@ specta.AssertThat(t, invoice.BillingEmail, IsValidEmail)
 
 Instead of manually writing matchers for your structs, generate them:
 
-**testgen.yaml:**
+**specta.yaml:**
 ```yaml
 targets:
   - name: myapp
@@ -642,7 +642,7 @@ This lets you define matching logic once based on the interface contract, then a
 Generate matchers and factories for your types:
 
 ```bash
-# Create testgen.yaml configuration
+# Create specta.yaml configuration
 # Run generator
 go run github.com/james-w/specta/cmd/main.go
 ```
