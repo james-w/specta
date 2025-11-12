@@ -857,6 +857,7 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		r[0] = []rune(strings.ToLower(string(r[0])))[0]
 		return string(r)
 	},
+	"isPrimitiveType":   isPrimitiveType,
 	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
@@ -878,11 +879,7 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			// Check if this is a known primitive type
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -896,10 +893,7 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(p.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(p.TypeExpr, "[]")
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1099,6 +1093,7 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		r[0] = []rune(strings.ToLower(string(r[0])))[0]
 		return string(r)
 	},
+	"isPrimitiveType": isPrimitiveType,
 	"hasPrefix": strings.HasPrefix,
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
@@ -1115,11 +1110,7 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			// Check if this is a known primitive type
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1133,10 +1124,7 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(p.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(p.TypeExpr, "[]")
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1231,18 +1219,6 @@ type {{.RecipeName}} struct{
 {{- if .HasConstructor}}
 //
 // The underlying constructor is {{.ConstructorName}}({{range $i, $p := .ConstructorParams}}{{if $i}}, {{end}}{{lower $p.Name}} {{qualifiedTypeParam $.ParentPackage $p}}{{end}}).
-{{- if .CustomDefaults}}
-//
-// Custom default providers:
-{{- range $p := .ConstructorParams}}
-{{- if index $.CustomDefaults $p.Name}}
-//   - {{$p.Name}}: {{if eq (index $.CustomDefaults $p.Name) "func(p testgen.Primitives) string { return p.StringWith(\"user\") + \"@example.com\" }"}}generates valid email addresses (e.g., "user_1@example.com"){{else if eq (index $.CustomDefaults $p.Name) "func(p testgen.Primitives) string { return \"https://example.com/\" + p.StringWith(\"path\") }"}}generates URLs (e.g., "https://example.com/path_1"){{else if eq (index $.CustomDefaults $p.Name) "func(p testgen.Primitives) string { return p.UUID().String() }"}}generates UUIDs{{else}}uses custom provider{{end}}
-{{- end}}
-{{- end}}
-{{- else}}
-//
-// Default values are generated automatically for all parameters.
-{{- end}}
 {{- else}}
 //
 // This is a struct-based type with the following fields:
@@ -1476,6 +1452,7 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 `))
 
 var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
+	"isPrimitiveType": isPrimitiveType,
 	"lower": func(s string) string {
 		if s == "" {
 			return s
@@ -1490,10 +1467,7 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 			return returnType
 		}
 		// Check if it's a known primitive type
-		isPrimitive := returnType == "string" || returnType == "int" || returnType == "int64" ||
-			returnType == "uint64" || returnType == "bool" || returnType == "float64" ||
-			returnType == "time.Time" || returnType == "time.Duration" || returnType == "error"
-		if isPrimitive {
+		if isPrimitiveType(returnType) {
 			return returnType
 		}
 		// Handle slices
@@ -1502,10 +1476,7 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 			if strings.Contains(elemType, ".") {
 				return returnType
 			}
-			isElemPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if isElemPrimitive {
+			if isPrimitiveType(elemType) {
 				return returnType
 			}
 			return "[]" + pkg + "." + elemType
@@ -1517,11 +1488,7 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
 			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			// Check if this is a known primitive type
-			isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-				elemType == "time.Time" || elemType == "time.Duration"
-			if !isPrimitive {
+			if !isPrimitiveType(elemType) {
 				return "[]" + pkg + "." + elemType
 			}
 		}
@@ -1689,12 +1656,7 @@ func defaultProvider(pkg string, f field) string {
 	// Handle slices separately - need to qualify custom types
 	if strings.HasPrefix(typ, "[]") {
 		elemType := strings.TrimPrefix(typ, "[]")
-		// Check if elem is primitive
-		isPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
-			elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
-			elemType == "time.Time" || elemType == "time.Duration"
-
-		if isPrimitive {
+		if isPrimitiveType(elemType) {
 			return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 		}
 		// Custom type slice - qualify it

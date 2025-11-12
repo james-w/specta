@@ -19,3 +19,5 @@ go.work
 
 # Build artifacts
 /specta
+
+/.claude/settings.local.json

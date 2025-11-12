@@ -48,8 +48,6 @@ type BankAccountRecipe struct {
 //
 // The underlying constructor is NewBankAccount(name string, balance int).
 //
-// Default values are generated automatically for all parameters.
-//
 // Example:
 //
 //	p := testgen.New()

@@ -49,8 +49,6 @@ type AccountRecipe struct {
 //
 // The underlying constructor is NewAccount(user showcase.User, status string).
 //
-// Default values are generated automatically for all parameters.
-//
 // Example:
 //
 //	p := testgen.New()

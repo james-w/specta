@@ -50,9 +50,6 @@ type EmailRecipe struct {
 //
 // The underlying constructor is NewEmail(address string).
 //
-// Custom default providers:
-//   - Address: generates valid email addresses (e.g., "user_1@example.com")
-//
 // Example:
 //
 //	p := testgen.New()
