@@ -47,6 +47,8 @@ jobs:
             - Security concerns
             - Test coverage
 
+            Be concise in your responses. Particularly around positive feedback, minor issues that aren't worth fixing etc, the user can ask for more information if needed.
+
             Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
 
             Before creating any comments, check existing comments on the PR using `gh pr view <branch-id> --comments` with your Bash tool. Avoiding repeating points that have already been made.
