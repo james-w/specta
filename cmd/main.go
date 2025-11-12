@@ -145,16 +145,18 @@ func validateConfig(c *Config) error {
 }
 
 type field struct {
-	Name         string
-	TypeExpr     string
-	IsCustomType bool   // true if this is a local struct type (not primitive)
-	RecipeName   string // e.g., "UserRecipe" if IsCustomType
+	Name                string
+	TypeExpr            string // qualified type expression (e.g., "showcase.User")
+	UnqualifiedTypeName string // unqualified type name (e.g., "User") for function/type references
+	IsCustomType        bool   // true if this is a local struct type (not primitive)
+	RecipeName          string // e.g., "UserRecipe" if IsCustomType
 }
 
 type ConstructorParam struct {
-	Name         string
-	TypeExpr     string
-	IsCustomType bool
+	Name                string
+	TypeExpr            string // qualified type expression
+	UnqualifiedTypeName string // unqualified type name for function/type references
+	IsCustomType        bool
 }
 
 type GetterInfo struct {
@@ -262,21 +264,29 @@ func analyzeConstructorParams(fn *ast.FuncDecl, pkg *packages.Package, typeNames
 			continue // skip unnamed params for now
 		}
 
-		// Render the type expression
-		var buf bytes.Buffer
-		if err := printer.Fprint(&buf, pkg.Fset, param.Type); err != nil {
-			continue
+		// Use AST-based type qualification
+		typeExpr := qualifyTypeExpr(pkg, param.Type, pkg.Name)
+		if typeExpr == "" {
+			// Fallback if qualification fails
+			var buf bytes.Buffer
+			if err := printer.Fprint(&buf, pkg.Fset, param.Type); err != nil {
+				continue
+			}
+			typeExpr = buf.String()
 		}
-		typeExpr := buf.String()
+
+		// Extract unqualified type name for function/type references
+		unqualifiedTypeName := extractUnqualifiedTypeName(typeExpr)
 
 		// Check if custom type
-		isCustomType := typeNames[typeExpr]
+		isCustomType := typeNames[unqualifiedTypeName]
 
 		for _, name := range param.Names {
 			params = append(params, ConstructorParam{
-				Name:         capitalizeFirst(name.Name),
-				TypeExpr:     typeExpr,
-				IsCustomType: isCustomType,
+				Name:                capitalizeFirst(name.Name),
+				TypeExpr:            typeExpr,
+				UnqualifiedTypeName: unqualifiedTypeName,
+				IsCustomType:        isCustomType,
 			})
 		}
 	}
@@ -673,6 +683,26 @@ func findStruct(files []*ast.File, typeName string) *ast.StructType {
 	return out
 }
 
+// extractUnqualifiedTypeName extracts the unqualified type name from a qualified type expression
+// E.g., "showcase.User" -> "User", "*showcase.User" -> "User", "[]showcase.Item" -> "Item"
+func extractUnqualifiedTypeName(typeExpr string) string {
+	// Strip pointer/slice prefixes
+	baseType := typeExpr
+	for strings.HasPrefix(baseType, "*") || strings.HasPrefix(baseType, "[]") {
+		if strings.HasPrefix(baseType, "*") {
+			baseType = strings.TrimPrefix(baseType, "*")
+		}
+		if strings.HasPrefix(baseType, "[]") {
+			baseType = strings.TrimPrefix(baseType, "[]")
+		}
+	}
+	// Remove package prefix
+	if idx := strings.LastIndex(baseType, "."); idx >= 0 {
+		return baseType[idx+1:]
+	}
+	return baseType
+}
+
 func collectFields(pkg *packages.Package, st *ast.StructType, typeNames map[string]bool) []field {
 	var out []field
 	for _, f := range st.Fields.List {
@@ -681,39 +711,33 @@ func collectFields(pkg *packages.Package, st *ast.StructType, typeNames map[stri
 		}
 		name := f.Names[0].Name
 
-		// Render ONLY the type node. This never includes tags.
-		var buf bytes.Buffer
-		// Either printer.Fprint or format.Node works; printer is fine here.
-		if err := printer.Fprint(&buf, pkg.Fset, f.Type); err != nil {
-			// fallback: extremely conservative
-			buf.WriteString("interface{}")
-		}
-		typ := buf.String()
-
-		// Just in case: if weird spacing left a tag tail, drop anything after a backtick.
-		if i := strings.IndexByte(typ, '`'); i >= 0 {
-			typ = strings.TrimSpace(typ[:i])
+		// Use AST-based type qualification
+		typ := qualifyTypeExpr(pkg, f.Type, pkg.Name)
+		if typ == "" {
+			// Fallback if qualification fails
+			var buf bytes.Buffer
+			if err := printer.Fprint(&buf, pkg.Fset, f.Type); err != nil {
+				buf.WriteString("interface{}")
+			}
+			typ = buf.String()
 		}
 
-		// Detect if this is a custom struct type (strip pointer/slice prefix)
-		baseType := typ
-		if strings.HasPrefix(baseType, "*") {
-			baseType = strings.TrimPrefix(baseType, "*")
-		}
-		if strings.HasPrefix(baseType, "[]") {
-			baseType = strings.TrimPrefix(baseType, "[]")
-		}
-		isCustomType := typeNames[baseType]
+		// Extract unqualified type name for function/type references
+		unqualifiedTypeName := extractUnqualifiedTypeName(typ)
+
+		// Check if custom type
+		isCustomType := typeNames[unqualifiedTypeName]
 		recipeName := ""
 		if isCustomType {
-			recipeName = baseType + "Recipe"
+			recipeName = unqualifiedTypeName + "Recipe"
 		}
 
 		out = append(out, field{
-			Name:         name,
-			TypeExpr:     typ,
-			IsCustomType: isCustomType,
-			RecipeName:   recipeName,
+			Name:                name,
+			TypeExpr:            typ,
+			UnqualifiedTypeName: unqualifiedTypeName,
+			IsCustomType:        isCustomType,
+			RecipeName:          recipeName,
 		})
 	}
 	return out
@@ -726,50 +750,6 @@ func anyHas(fields []field, typ string) bool {
 		}
 	}
 	return false
-}
-
-// qualifyTypeExprStr qualifies a type expression string (handling pointers and slices) with a package name
-func qualifyTypeExprStr(typeExpr string, pkg string) string {
-	// Handle map types - never qualify them
-	if strings.HasPrefix(typeExpr, "map[") {
-		return typeExpr
-	}
-	// Handle pointer to custom type
-	if strings.HasPrefix(typeExpr, "*") {
-		elemType := strings.TrimPrefix(typeExpr, "*")
-		// Check if this is a known primitive type
-		if isPrimitiveType(elemType) {
-			return typeExpr
-		}
-		// Check if already qualified
-		if strings.Contains(elemType, ".") {
-			return typeExpr
-		}
-		return "*" + pkg + "." + elemType
-	}
-	// Handle slice of custom type
-	if strings.HasPrefix(typeExpr, "[]") {
-		elemType := strings.TrimPrefix(typeExpr, "[]")
-		// Check if this is a known primitive type
-		if isPrimitiveType(elemType) {
-			return typeExpr
-		}
-		// Check if already qualified
-		if strings.Contains(elemType, ".") {
-			return typeExpr
-		}
-		return "[]" + pkg + "." + elemType
-	}
-	// Check if already qualified
-	if strings.Contains(typeExpr, ".") {
-		return typeExpr
-	}
-	// Check if primitive
-	if isPrimitiveType(typeExpr) {
-		return typeExpr
-	}
-	// Qualify custom type
-	return pkg + "." + typeExpr
 }
 
 // generateSpec generates the spec file source code
@@ -926,10 +906,12 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		return "(" + strings.Join(parts, ", ") + ")"
 	},
 	"qualifiedType": func(pkg string, f field) string {
-		return qualifyTypeExprStr(f.TypeExpr, pkg)
+		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
+		return f.TypeExpr
 	},
 	"qualifiedTypeParam": func(pkg string, p ConstructorParam) string {
-		return qualifyTypeExprStr(p.TypeExpr, pkg)
+		// TypeExpr is already qualified by analyzeConstructorParams using qualifyTypeExpr
+		return p.TypeExpr
 	},
 	"defaultProviderParam": func(pkg string, p ConstructorParam) string {
 		// Similar logic to defaultProvider but for ConstructorParam
@@ -951,7 +933,8 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 			return "func(p testgen.Primitives) time.Duration { return p.Duration() }"
 		default:
 			if p.IsCustomType {
-				return "testgen.FromSpec(Build" + p.TypeExpr + ", New" + p.TypeExpr + "Spec)"
+				// Use unqualified name for function references
+				return "testgen.FromSpec(Build" + p.UnqualifiedTypeName + ", New" + p.UnqualifiedTypeName + "Spec)"
 			}
 			return "func(p testgen.Primitives) " + p.TypeExpr + " { return " + p.TypeExpr + "{} }"
 		}
@@ -1135,10 +1118,12 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		return "(" + strings.Join(parts, ", ") + ")"
 	},
 	"qualifiedType": func(pkg string, f field) string {
-		return qualifyTypeExprStr(f.TypeExpr, pkg)
+		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
+		return f.TypeExpr
 	},
 	"qualifiedTypeParam": func(pkg string, p ConstructorParam) string {
-		return qualifyTypeExprStr(p.TypeExpr, pkg)
+		// TypeExpr is already qualified by analyzeConstructorParams using qualifyTypeExpr
+		return p.TypeExpr
 	},
 }).Parse(`// Code generated by testgen-gen; DO NOT EDIT.
 //go:build !ignore_testgen
@@ -1210,7 +1195,7 @@ type {{.RecipeName}} struct{
 	{{- if hasPrefix .TypeExpr "*"}}
 	{{- $baseType = (slice .TypeExpr 1)}}
 	{{- end}}
-	{{lower .Name}}Recipe *{{$baseType}}Recipe
+	{{lower .Name}}Recipe *{{.UnqualifiedTypeName}}Recipe
 	{{- end}}
 	{{- end}}
 	{{- end}}
@@ -1280,14 +1265,10 @@ func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedTypeParam $.ParentPackage .}}) 
 }
 {{if .IsCustomType}}
 {{- if not (hasPrefix .TypeExpr "[]")}}
-{{- $baseType := .TypeExpr}}
-{{- if hasPrefix .TypeExpr "*"}}
-{{- $baseType = (slice .TypeExpr 1)}}
-{{- end}}
 // {{.Name}}FromRecipe sets the {{.Name}} parameter using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
-func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{$baseType}}Recipe) {{$.RecipeName}} {
+func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.UnqualifiedTypeName}}Recipe) {{$.RecipeName}} {
 	{{- if hasPrefix .TypeExpr "*"}}
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(testgen.PtrOf(v.Provider())))
 	{{- else}}
@@ -1520,7 +1501,8 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 	},
 	"hasPrefix": strings.HasPrefix,
 	"qualifiedType": func(pkg string, f field) string {
-		return qualifyTypeExprStr(f.TypeExpr, pkg)
+		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
+		return f.TypeExpr
 	},
 }).Parse(`// Code generated by testgen-gen; DO NOT EDIT.
 //go:build !ignore_testgen
@@ -1598,8 +1580,8 @@ func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{qualifiedType
 	return m
 }
 {{if and .IsCustomType (not (hasPrefix .TypeExpr "[]")) (not (hasPrefix .TypeExpr "*"))}}
-// {{.Name}}Matches is a convenience method that accepts a {{.TypeExpr}}Matcher.
-func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.TypeExpr}}Matcher) {{$.TypeName}}Matcher {
+// {{.Name}}Matches is a convenience method that accepts a {{.UnqualifiedTypeName}}Matcher.
+func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.UnqualifiedTypeName}}Matcher) {{$.TypeName}}Matcher {
 	m.{{lower .Name}}Matcher = matcher.Matcher()
 	return m
 }
@@ -1686,24 +1668,23 @@ func defaultProvider(pkg string, f field) string {
 		if isPrimitive {
 			return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 		}
-		// Custom type pointer - use PtrOf with FromSpec
-		return fmt.Sprintf("testgen.PtrOf(testgen.FromSpec(Build%s, New%sSpec))", elemType, elemType)
+		// Custom type pointer - use PtrOf with FromSpec, use unqualified name for function references
+		return fmt.Sprintf("testgen.PtrOf(testgen.FromSpec(Build%s, New%sSpec))", f.UnqualifiedTypeName, f.UnqualifiedTypeName)
 	}
 
-	// Handle slices separately - need to qualify custom types
+	// Handle slices separately
 	if strings.HasPrefix(typ, "[]") {
 		elemType := strings.TrimPrefix(typ, "[]")
 		if isPrimitiveType(elemType) {
 			return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 		}
-		// Custom type slice - qualify it
-		qualifiedType := "[]" + pkg + "." + elemType
-		return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", qualifiedType, qualifiedType)
+		// Custom type slice - type is already qualified from collectFields
+		return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 	}
 
-	// If it's a custom type, use FromSpec
+	// If it's a custom type, use FromSpec with unqualified name for function references
 	if f.IsCustomType {
-		return fmt.Sprintf("testgen.FromSpec(Build%s, New%sSpec)", typ, typ)
+		return fmt.Sprintf("testgen.FromSpec(Build%s, New%sSpec)", f.UnqualifiedTypeName, f.UnqualifiedTypeName)
 	}
 
 	switch typ {
