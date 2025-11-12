@@ -1,6 +1,6 @@
 package showcase
 
-//go:generate go run ../cmd/main.go -config testgen.yaml
+//go:generate ../specta -config testgen.yaml
 
 import (
 	"fmt"
