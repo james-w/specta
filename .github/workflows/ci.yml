@@ -14,8 +14,83 @@ permissions:
   actions: read
 
 jobs:
-  test:
-    name: Test
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Build cmd
+        run: go build -v -o specta ./cmd/...
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: specta-binary
+          path: specta
+          retention-days: 30
+
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./. ./cmd/...
+
+      - name: Generate coverage report
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.out
+            coverage.html
+          retention-days: 30
+
+      - name: Check test coverage threshold
+        run: |
+          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: $coverage%"
+          if (( $(echo "$coverage < 70" | bc -l) )); then
+            echo "::warning::Coverage is below 70% (current: $coverage%)"
+          fi
+
+  integration-test:
+    name: Integration Tests
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -35,9 +110,6 @@ jobs:
 
       - name: Download dependencies
         run: go mod download
-
-      - name: Verify dependencies
-        run: go mod verify
 
       - name: Download binary artifact
         uses: actions/download-artifact@v4
@@ -65,34 +137,10 @@ jobs:
           fi
 
       - name: Run integration tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./example/... ./showcase/...
-
-      - name: Generate coverage report
-        if: matrix.go-version == '1.22'
-        run: go tool cover -html=coverage.out -o coverage.html
-
-      - name: Upload coverage report
-        if: matrix.go-version == '1.22'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: |
-            coverage.out
-            coverage.html
-          retention-days: 30
-
-      - name: Check test coverage threshold
-        if: matrix.go-version == '1.22'
-        run: |
-          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          echo "Total coverage: $coverage%"
-          if (( $(echo "$coverage < 70" | bc -l) )); then
-            echo "::warning::Coverage is below 70% (current: $coverage%)"
-          fi
+        run: go test -v -race ./example/... ./showcase/...
 
   lint:
     name: Lint
-    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -102,7 +150,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
           cache-dependency-path: go.sum
 
@@ -117,7 +165,6 @@ jobs:
 
   format:
     name: Format Check
-    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -127,7 +174,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
           cache-dependency-path: go.sum
 
@@ -144,8 +191,8 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
-  build:
-    name: Build
+  security:
+    name: Security Scan
     runs-on: ubuntu-latest
 
     steps:
@@ -156,41 +203,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Build
-        run: go build -v ./...
-
-      - name: Build cmd
-        run: go build -v -o specta ./cmd/...
-
-      - name: Run unit tests
-        run: go test -v -race ./. ./cmd/...
-
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: specta-binary
-          path: specta
-          retention-days: 30
-
-  security:
-    name: Security Scan
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
           cache: true
           cache-dependency-path: go.sum
 
@@ -208,7 +220,6 @@ jobs:
 
   dependency-check:
     name: Dependency Check
-    needs: build
     runs-on: ubuntu-latest
 
     steps:
