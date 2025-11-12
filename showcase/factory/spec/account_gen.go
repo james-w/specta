@@ -5,6 +5,28 @@
 // Package spec provides low-level specifications for building test data.
 //
 // Most users should use the high-level Recipe API from the parent factory package instead.
+//
+// Example usage:
+//
+//	// Create a spec and set fields explicitly
+//	spec := NewAccountSpec()
+//	opts := []testgen.Opt[AccountSpec]{
+//
+//
+//		WithAccountUser(value),
+//
+//
+//	}
+//	for _, opt := range opts {
+//		opt(&spec)
+//	}
+//	result := BuildAccount(testgen.New(), spec)
+//
+//	// Or use a factory for convenience
+//	factory := NewAccountFactory(testgen.New())
+//
+//
+//	result := factory.Make(WithAccountUser(value))
 package spec
 
 import (
@@ -33,7 +55,7 @@ var (
 	AccountDefaultStatus = func(p testgen.Primitives) string { return p.StringWith("status_") }
 )
 
-// BuildAccount constructs an Account from an AccountSpec.
+// BuildAccount constructs a Account from a AccountSpec.
 func BuildAccount(p testgen.Primitives, s AccountSpec) showcase.Account {
 	user := s.User.Get(p, AccountDefaultUser)
 	status := s.Status.Get(p, AccountDefaultStatus)

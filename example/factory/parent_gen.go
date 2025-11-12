@@ -56,6 +56,8 @@ func (r ParentRecipe) Child(v example.UserView) ParentRecipe {
 }
 
 // ChildFromRecipe sets the Child field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r ParentRecipe) ChildFromRecipe(v UserViewRecipe) ParentRecipe {
 	r.opts = append(r.opts, spec.WithParentChildFromProvider(v.Provider()))
 	r.childRecipe = &v

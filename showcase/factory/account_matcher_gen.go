@@ -26,12 +26,6 @@ func (m AccountMatcher) User(matcher testgen.Matcher[showcase.User]) AccountMatc
 	return m
 }
 
-// UserMatches is a convenience method that accepts a UserMatcher.
-func (m AccountMatcher) UserMatches(matcher UserMatcher) AccountMatcher {
-	m.userMatcher = matcher.Matcher()
-	return m
-}
-
 // Status adds a matcher for the Status property (via GetStatus).
 func (m AccountMatcher) Status(matcher testgen.Matcher[string]) AccountMatcher {
 	m.statusMatcher = matcher

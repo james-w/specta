@@ -110,6 +110,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(iDValue)
 			fieldResults["ID"] = &result
@@ -117,6 +118,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 				hasFailures = true
 			}
 		}
+
 		if m.emailMatcher != nil {
 			result := m.emailMatcher.Matches(emailValue)
 			fieldResults["Email"] = &result
@@ -124,6 +126,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 				hasFailures = true
 			}
 		}
+
 		if m.firstNameMatcher != nil {
 			result := m.firstNameMatcher.Matches(firstNameValue)
 			fieldResults["FirstName"] = &result
@@ -131,6 +134,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 				hasFailures = true
 			}
 		}
+
 		if m.lastNameMatcher != nil {
 			result := m.lastNameMatcher.Matches(lastNameValue)
 			fieldResults["LastName"] = &result
@@ -138,6 +142,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 				hasFailures = true
 			}
 		}
+
 		if m.activeMatcher != nil {
 			result := m.activeMatcher.Matches(activeValue)
 			fieldResults["Active"] = &result
@@ -145,6 +150,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 				hasFailures = true
 			}
 		}
+
 		if m.addressMatcher != nil {
 			result := m.addressMatcher.Matches(addressValue)
 			fieldResults["Address"] = &result
@@ -152,6 +158,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 				hasFailures = true
 			}
 		}
+
 		if m.createdAtMatcher != nil {
 			result := m.createdAtMatcher.Matches(createdAtValue)
 			fieldResults["CreatedAt"] = &result
@@ -159,6 +166,7 @@ func (m UserMatcher) Matcher() testgen.Matcher[showcase.User] {
 				hasFailures = true
 			}
 		}
+
 		if m.updatedAtMatcher != nil {
 			result := m.updatedAtMatcher.Matches(updatedAtValue)
 			fieldResults["UpdatedAt"] = &result

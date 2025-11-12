@@ -66,6 +66,7 @@ func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.iDMatcher != nil {
 			result := m.iDMatcher.Matches(iDValue)
 			fieldResults["ID"] = &result
@@ -73,6 +74,7 @@ func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
 				hasFailures = true
 			}
 		}
+
 		if m.nameMatcher != nil {
 			result := m.nameMatcher.Matches(nameValue)
 			fieldResults["Name"] = &result
@@ -80,6 +82,7 @@ func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
 				hasFailures = true
 			}
 		}
+
 		if m.activeMatcher != nil {
 			result := m.activeMatcher.Matches(activeValue)
 			fieldResults["Active"] = &result
@@ -87,6 +90,7 @@ func (m UserViewMatcher) Matcher() testgen.Matcher[example.UserView] {
 				hasFailures = true
 			}
 		}
+
 		if m.scoreMatcher != nil {
 			result := m.scoreMatcher.Matches(scoreValue)
 			fieldResults["Score"] = &result

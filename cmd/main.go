@@ -527,13 +527,127 @@ func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, type
 			return fmt.Errorf("type %s: getter method %s has invalid signature (expected exactly 1 return value)",
 				typeName, mf.Getter)
 		}
+
+		// Qualify custom types with package name
+		qualifiedReturnType := qualifyReturnType(returnType, d.ParentPackage)
+
 		d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
 			Name:       mf.Name,
 			Getter:     mf.Getter,
-			ReturnType: returnType,
+			ReturnType: qualifiedReturnType,
 		})
 	}
 	return nil
+}
+
+func qualifyReturnType(returnType, parentPackage string) string {
+	// Check if it's a primitive type that doesn't need qualification
+	if isPrimitiveType(returnType) {
+		return returnType
+	}
+
+	// Handle pointer types
+	if strings.HasPrefix(returnType, "*") {
+		elemType := strings.TrimPrefix(returnType, "*")
+		return "*" + qualifyReturnType(elemType, parentPackage)
+	}
+
+	// Handle slice types
+	if strings.HasPrefix(returnType, "[]") {
+		elemType := strings.TrimPrefix(returnType, "[]")
+		return "[]" + qualifyReturnType(elemType, parentPackage)
+	}
+
+	// Handle map types: map[K]V
+	if strings.HasPrefix(returnType, "map[") {
+		return qualifyMapType(returnType, parentPackage)
+	}
+
+	// Handle channel types: chan T, <-chan T, chan<- T
+	if strings.HasPrefix(returnType, "chan ") || strings.HasPrefix(returnType, "<-chan ") || strings.HasPrefix(returnType, "chan<- ") {
+		return qualifyChannelType(returnType, parentPackage)
+	}
+
+	// Check if already qualified (contains a dot)
+	if strings.Contains(returnType, ".") {
+		return returnType
+	}
+
+	// Qualify custom types with parent package
+	return parentPackage + "." + returnType
+}
+
+func isPrimitiveType(typeName string) bool {
+	primitives := map[string]bool{
+		// Numeric types
+		"int": true, "int8": true, "int16": true, "int32": true, "int64": true,
+		"uint": true, "uint8": true, "uint16": true, "uint32": true, "uint64": true,
+		"uintptr": true,
+		"byte":    true, "rune": true,
+		"float32": true, "float64": true,
+		"complex64": true, "complex128": true,
+		// Other built-in types
+		"bool":   true,
+		"string": true,
+		"error":  true,
+		// Special types from standard library that don't need qualification
+		"time.Time":     true,
+		"time.Duration": true,
+	}
+	return primitives[typeName]
+}
+
+func qualifyMapType(mapType, parentPackage string) string {
+	// Parse map[K]V syntax
+	// Find the matching closing bracket for the key type
+	if !strings.HasPrefix(mapType, "map[") {
+		return mapType
+	}
+
+	rest := mapType[4:] // Skip "map["
+	depth := 1
+	keyEnd := -1
+
+	for i, ch := range rest {
+		if ch == '[' {
+			depth++
+		} else if ch == ']' {
+			depth--
+			if depth == 0 {
+				keyEnd = i
+				break
+			}
+		}
+	}
+
+	if keyEnd == -1 {
+		return mapType // Malformed, return as-is
+	}
+
+	keyType := rest[:keyEnd]
+	valueType := rest[keyEnd+1:] // Skip the ']'
+
+	qualifiedKey := qualifyReturnType(keyType, parentPackage)
+	qualifiedValue := qualifyReturnType(valueType, parentPackage)
+
+	return "map[" + qualifiedKey + "]" + qualifiedValue
+}
+
+func qualifyChannelType(chanType, parentPackage string) string {
+	// Handle different channel types
+	if strings.HasPrefix(chanType, "<-chan ") {
+		elemType := strings.TrimPrefix(chanType, "<-chan ")
+		return "<-chan " + qualifyReturnType(elemType, parentPackage)
+	}
+	if strings.HasPrefix(chanType, "chan<- ") {
+		elemType := strings.TrimPrefix(chanType, "chan<- ")
+		return "chan<- " + qualifyReturnType(elemType, parentPackage)
+	}
+	if strings.HasPrefix(chanType, "chan ") {
+		elemType := strings.TrimPrefix(chanType, "chan ")
+		return "chan " + qualifyReturnType(elemType, parentPackage)
+	}
+	return chanType
 }
 
 func generateFiles(d data, dirs struct{ factory, spec string }, typeName string) error {
@@ -1274,7 +1388,6 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 	expected := spec.Build{{.TypeName}}(p, s)
 	{{- end}}
 	return testgen.DeepEqual(expected)
-	{{- end}}
 	{{- else}}
 	// Apply opts to a spec to see what was set
 	s := spec.New{{.SpecName}}()
@@ -1415,8 +1528,8 @@ func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.Ty
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
-
 		{{- range .Fields}}
+
 		if m.{{lower .Name}}Matcher != nil {
 			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
 			fieldResults["{{.Name}}"] = &result
@@ -1425,8 +1538,8 @@ func (m {{.TypeName}}Matcher) Matcher() testgen.Matcher[{{.ParentPackage}}.{{.Ty
 			}
 		}
 		{{- end}}
-
 		{{- range .GetterMatchers}}
+
 		if m.{{lower .Name}}Matcher != nil {
 			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
 			fieldResults["{{.Name}}"] = &result

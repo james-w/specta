@@ -65,6 +65,8 @@ func (r CommentRecipe) Post(v showcase.BlogPost) CommentRecipe {
 }
 
 // PostFromRecipe sets the Post field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r CommentRecipe) PostFromRecipe(v BlogPostRecipe) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentPostFromProvider(v.Provider()))
 	r.postRecipe = &v
@@ -79,6 +81,8 @@ func (r CommentRecipe) Author(v showcase.User) CommentRecipe {
 }
 
 // AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r CommentRecipe) AuthorFromRecipe(v UserRecipe) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentAuthorFromProvider(v.Provider()))
 	r.authorRecipe = &v

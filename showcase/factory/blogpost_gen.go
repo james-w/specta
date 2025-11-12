@@ -76,6 +76,8 @@ func (r BlogPostRecipe) Author(v showcase.User) BlogPostRecipe {
 }
 
 // AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r BlogPostRecipe) AuthorFromRecipe(v UserRecipe) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostAuthorFromProvider(v.Provider()))
 	r.authorRecipe = &v

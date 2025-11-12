@@ -64,6 +64,8 @@ func (r OrderRecipe) User(v showcase.User) OrderRecipe {
 }
 
 // UserFromRecipe sets the User field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderUserFromProvider(v.Provider()))
 	r.userRecipe = &v

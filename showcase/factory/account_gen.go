@@ -3,6 +3,34 @@
 // +build !ignore_testgen
 
 // Package factory provides a fluent Recipe API for building test data and matchers.
+//
+// Example usage:
+//
+//	// Build a single instance with custom fields
+//
+//
+//	result := Account().User(value).Build(testgen.New())
+//
+//
+//
+//	// Build many instances with unique values
+//	results := Account().Many(5, testgen.New())
+//
+//	// Build a matcher to verify specific fields
+//
+//
+//	matcher := AccountMatches().User(testgen.DeepEqual(expectedValue))
+//
+//
+//	testgen.AssertThat(t, actual, matcher.Matcher())
+//
+//	// Convert a recipe to a matcher for partial matching
+//
+//
+//	partialMatcher := Account().User(expected).AsEqualMatcher()
+//
+//
+//	testgen.AssertThat(t, actual, partialMatcher)
 package factory
 
 import (

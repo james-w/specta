@@ -75,6 +75,7 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.streetMatcher != nil {
 			result := m.streetMatcher.Matches(streetValue)
 			fieldResults["Street"] = &result
@@ -82,6 +83,7 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 				hasFailures = true
 			}
 		}
+
 		if m.cityMatcher != nil {
 			result := m.cityMatcher.Matches(cityValue)
 			fieldResults["City"] = &result
@@ -89,6 +91,7 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 				hasFailures = true
 			}
 		}
+
 		if m.stateMatcher != nil {
 			result := m.stateMatcher.Matches(stateValue)
 			fieldResults["State"] = &result
@@ -96,6 +99,7 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 				hasFailures = true
 			}
 		}
+
 		if m.zipCodeMatcher != nil {
 			result := m.zipCodeMatcher.Matches(zipCodeValue)
 			fieldResults["ZipCode"] = &result
@@ -103,6 +107,7 @@ func (m AddressMatcher) Matcher() testgen.Matcher[showcase.Address] {
 				hasFailures = true
 			}
 		}
+
 		if m.countryMatcher != nil {
 			result := m.countryMatcher.Matches(countryValue)
 			fieldResults["Country"] = &result

@@ -45,6 +45,7 @@ func (m ParentMatcher) Matcher() testgen.Matcher[example.Parent] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.childMatcher != nil {
 			result := m.childMatcher.Matches(childValue)
 			fieldResults["Child"] = &result
