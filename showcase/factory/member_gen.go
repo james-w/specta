@@ -46,6 +46,20 @@ type MemberRecipe struct {
 }
 
 // Member creates a new MemberRecipe for building Member instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - TeamID (string)
+//   - Team (*showcase.Team)
+//
+// Example:
+//
+//	p := testgen.New()
+//	member := factory.Member().
+//	    ID("custom_value").
+//	    Name("another").
+//	    Build(p)
 func Member() MemberRecipe { return MemberRecipe{} }
 
 // ID sets the ID field.

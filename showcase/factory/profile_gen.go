@@ -46,6 +46,21 @@ type ProfileRecipe struct {
 }
 
 // Profile creates a new ProfileRecipe for building Profile instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Description (string)
+//   - Manager (*showcase.User)
+//   - IsPublic (bool)
+//
+// Example:
+//
+//	p := testgen.New()
+//	profile := factory.Profile().
+//	    ID("custom_value").
+//	    Name("another").
+//	    Build(p)
 func Profile() ProfileRecipe { return ProfileRecipe{} }
 
 // ID sets the ID field.

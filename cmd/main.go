@@ -597,23 +597,55 @@ func isPrimitiveType(typeName string) bool {
 }
 
 func generateFiles(d data, dirs struct{ factory, spec string }, typeName string) error {
-	// Generate spec file (low-level API)
+	// Define output paths
 	specOut := filepath.Join(dirs.spec, strings.ToLower(typeName)+"_gen.go")
-	if err := renderSpec(specOut, d); err != nil {
+	recipeOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_gen.go")
+	matcherOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_matcher_gen.go")
+
+	// Generate all three files in memory
+	specSrc, err := generateSpec(d)
+	if err != nil {
+		return fmt.Errorf("generate spec: %w", err)
+	}
+
+	recipeSrc, err := generateRecipe(d)
+	if err != nil {
+		return fmt.Errorf("generate recipe: %w", err)
+	}
+
+	matcherSrc, err := generateMatcher(d)
+	if err != nil {
+		return fmt.Errorf("generate matcher: %w", err)
+	}
+
+	// Verify all three files together using overlays before writing
+	if err := verifyFilesAsPackage(map[string][]byte{
+		specOut:    specSrc,
+		recipeOut:  recipeSrc,
+		matcherOut: matcherSrc,
+	}); err != nil {
+		// Write broken files for debugging
+		_ = os.WriteFile(specOut+".broken", specSrc, 0644)
+		_ = os.WriteFile(recipeOut+".broken", recipeSrc, 0644)
+		_ = os.WriteFile(matcherOut+".broken", matcherSrc, 0644)
+		return fmt.Errorf("type-check failed: %v", err)
+	}
+
+	// Write all files
+	if err := os.MkdirAll(filepath.Dir(specOut), 0755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(specOut, specSrc, 0644); err != nil {
 		return err
 	}
 	log.Printf("wrote %s", specOut)
 
-	// Generate recipe file (high-level API)
-	recipeOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_gen.go")
-	if err := renderRecipe(recipeOut, d); err != nil {
+	if err := os.WriteFile(recipeOut, recipeSrc, 0644); err != nil {
 		return err
 	}
 	log.Printf("wrote %s", recipeOut)
 
-	// Generate matcher file
-	matcherOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_matcher_gen.go")
-	if err := renderMatcher(matcherOut, d); err != nil {
+	if err := os.WriteFile(matcherOut, matcherSrc, 0644); err != nil {
 		return err
 	}
 	log.Printf("wrote %s", matcherOut)
@@ -740,7 +772,97 @@ func qualifyTypeExprStr(typeExpr string, pkg string) string {
 	return pkg + "." + typeExpr
 }
 
-// verifyCompiles checks that the generated code type-checks without writing it to disk
+// generateSpec generates the spec file source code
+func generateSpec(d data) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := specTmpl.Execute(&buf, d); err != nil {
+		return nil, err
+	}
+	src, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes(), fmt.Errorf("format: %w", err)
+	}
+	return src, nil
+}
+
+// generateRecipe generates the recipe file source code
+func generateRecipe(d data) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := recipeTmpl.Execute(&buf, d); err != nil {
+		return nil, err
+	}
+	src, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes(), fmt.Errorf("format: %w", err)
+	}
+	return src, nil
+}
+
+// generateMatcher generates the matcher file source code
+func generateMatcher(d data) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := matcherTmpl.Execute(&buf, d); err != nil {
+		return nil, err
+	}
+	src, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes(), fmt.Errorf("format: %w", err)
+	}
+	return src, nil
+}
+
+// verifyFilesAsPackage verifies that a set of files compile together as a package
+func verifyFilesAsPackage(files map[string][]byte) error {
+	if len(files) == 0 {
+		return nil
+	}
+
+	// Get the directory from the first file
+	var dir string
+	for path := range files {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("abs path: %w", err)
+		}
+		dir = filepath.Dir(absPath)
+		break
+	}
+
+	// Create overlay with absolute paths
+	overlay := make(map[string][]byte)
+	for path, content := range files {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("abs path: %w", err)
+		}
+		overlay[absPath] = content
+	}
+
+	cfg := &packages.Config{
+		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
+		Overlay: overlay,
+	}
+
+	// Load the package containing these files
+	pkgs, err := packages.Load(cfg, dir)
+	if err != nil {
+		return fmt.Errorf("load for type-check: %w", err)
+	}
+
+	// Check for type errors
+	for _, pkg := range pkgs {
+		if len(pkg.Errors) > 0 {
+			var errs []string
+			for _, e := range pkg.Errors {
+				errs = append(errs, e.Error())
+			}
+			return fmt.Errorf("type errors in generated code:\n%s", strings.Join(errs, "\n"))
+		}
+	}
+
+	return nil
+}
+
 func verifyCompiles(src []byte, filename string) error {
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
@@ -774,78 +896,6 @@ func verifyCompiles(src []byte, filename string) error {
 	}
 
 	return nil
-}
-
-func renderSpec(out string, d data) error {
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := specTmpl.Execute(&buf, d); err != nil {
-		return err
-	}
-	src, err := format.Source(buf.Bytes())
-	if err != nil {
-		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
-		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
-	}
-
-	// Verify it compiles before writing
-	// Temporarily disabled to allow forward references (matcher depends on recipe)
-	// if err := verifyCompiles(src, out); err != nil {
-	// 	_ = os.WriteFile(out+".broken", src, 0644)
-	// 	return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
-	// }
-
-	return os.WriteFile(out, src, 0644)
-}
-
-func renderRecipe(out string, d data) error {
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := recipeTmpl.Execute(&buf, d); err != nil {
-		return err
-	}
-	src, err := format.Source(buf.Bytes())
-	if err != nil {
-		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
-		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
-	}
-
-	// Verify it compiles before writing
-	// Temporarily disabled to allow forward references (matcher depends on recipe)
-	// if err := verifyCompiles(src, out); err != nil {
-	// 	_ = os.WriteFile(out+".broken", src, 0644)
-	// 	return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
-	// }
-
-	return os.WriteFile(out, src, 0644)
-}
-
-func renderMatcher(out string, d data) error {
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := matcherTmpl.Execute(&buf, d); err != nil {
-		return err
-	}
-	src, err := format.Source(buf.Bytes())
-	if err != nil {
-		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
-		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
-	}
-
-	// Verify it compiles before writing
-	// Temporarily disabled to allow forward references (matcher depends on recipe)
-	// if err := verifyCompiles(src, out); err != nil {
-	// 	_ = os.WriteFile(out+".broken", src, 0644)
-	// 	return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
-	// }
-
-	return os.WriteFile(out, src, 0644)
 }
 
 var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{

@@ -17,6 +17,20 @@ type TeamMatcher struct {
 }
 
 // TeamMatches creates a new TeamMatcher for matching Team instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Members ([]showcase.Member)
+//
+// Example:
+//
+//	matcher := factory.TeamMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Name(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualTeam, matcher)
 func TeamMatches() TeamMatcher {
 	return TeamMatcher{}
 }

@@ -45,6 +45,19 @@ type TeamRecipe struct {
 }
 
 // Team creates a new TeamRecipe for building Team instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Members ([]showcase.Member)
+//
+// Example:
+//
+//	p := testgen.New()
+//	team := factory.Team().
+//	    ID("custom_value").
+//	    Name("another").
+//	    Build(p)
 func Team() TeamRecipe { return TeamRecipe{} }
 
 // ID sets the ID field.

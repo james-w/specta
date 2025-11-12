@@ -19,6 +19,22 @@ type ProfileMatcher struct {
 }
 
 // ProfileMatches creates a new ProfileMatcher for matching Profile instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Description (string)
+//   - Manager (*showcase.User)
+//   - IsPublic (bool)
+//
+// Example:
+//
+//	matcher := factory.ProfileMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Name(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualProfile, matcher)
 func ProfileMatches() ProfileMatcher {
 	return ProfileMatcher{}
 }

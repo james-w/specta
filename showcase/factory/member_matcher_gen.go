@@ -18,6 +18,21 @@ type MemberMatcher struct {
 }
 
 // MemberMatches creates a new MemberMatcher for matching Member instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - TeamID (string)
+//   - Team (*showcase.Team)
+//
+// Example:
+//
+//	matcher := factory.MemberMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Name(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualMember, matcher)
 func MemberMatches() MemberMatcher {
 	return MemberMatcher{}
 }

@@ -20,6 +20,23 @@ type OrganizationMatcher struct {
 }
 
 // OrganizationMatches creates a new OrganizationMatcher for matching Organization instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - CEO (*showcase.User)
+//   - Teams ([]showcase.Team)
+//   - Members ([]showcase.Member)
+//   - Metadata (map[string]string)
+//
+// Example:
+//
+//	matcher := factory.OrganizationMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Name(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualOrganization, matcher)
 func OrganizationMatches() OrganizationMatcher {
 	return OrganizationMatcher{}
 }

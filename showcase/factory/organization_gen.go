@@ -46,6 +46,22 @@ type OrganizationRecipe struct {
 }
 
 // Organization creates a new OrganizationRecipe for building Organization instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - CEO (*showcase.User)
+//   - Teams ([]showcase.Team)
+//   - Members ([]showcase.Member)
+//   - Metadata (map[string]string)
+//
+// Example:
+//
+//	p := testgen.New()
+//	organization := factory.Organization().
+//	    ID("custom_value").
+//	    Name("another").
+//	    Build(p)
 func Organization() OrganizationRecipe { return OrganizationRecipe{} }
 
 // ID sets the ID field.
