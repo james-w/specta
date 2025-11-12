@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"testing"
 
 	"github.com/rliebz/ghost/ghostlib"
 )
@@ -31,15 +30,22 @@ func (f MatcherFunc[T]) Matches(actual T) MatchResult {
 	return f(actual)
 }
 
+// TestingT is the minimal interface required by AssertThat.
+// Both *testing.T and *testing.B satisfy this interface.
+type TestingT interface {
+	Helper()
+	Errorf(format string, args ...interface{})
+}
+
 // AssertThat checks if actual matches the given matcher, failing the test if not.
-func AssertThat[T any](t *testing.T, actual T, matcher Matcher[T]) {
+func AssertThat[T any](t TestingT, actual T, matcher Matcher[T]) {
 	t.Helper()
 
 	// Capture the expression from AST for better error messages
 	args := ghostlib.ArgsFromAST(actual)
 	expr := ""
-	if len(args) > 0 {
-		expr = args[0]
+	if len(args) > 1 {
+		expr = args[1]
 	}
 
 	result := matcher.Matches(actual)
