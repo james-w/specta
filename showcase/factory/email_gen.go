@@ -100,15 +100,16 @@ func (r EmailRecipe) Many(n int, p testgen.Primitives) []showcase.Email {
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
 func (r EmailRecipe) AsEqualMatcher() testgen.Matcher[showcase.Email] {
-	// Constructor-based types: matchers are not yet fully supported, using deep equality
+	// Constructor-based type with matchers configured: use matcher builder for partial matching
 	s := spec.NewEmailSpec()
 	for _, opt := range r.opts {
 		opt(&s)
 	}
 	p := testgen.New()
-	expected, err := spec.BuildEmail(p, s)
-	if err != nil {
-		panic("AsEqualMatcher: failed to build expected value: " + err.Error())
+
+	m := EmailMatches()
+	if s.Address.IsSet() {
+		m = m.Address(testgen.Equal(s.Address.Value(p)))
 	}
-	return testgen.DeepEqual(expected)
+	return m.Matcher()
 }
