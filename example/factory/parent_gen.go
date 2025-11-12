@@ -46,6 +46,16 @@ type ParentRecipe struct {
 }
 
 // Parent creates a new ParentRecipe for building Parent instances.
+//
+// This is a struct-based type with the following fields:
+//   - Child (example.UserView)
+//
+// Example:
+//
+//	p := testgen.New()
+//	parent := factory.Parent().
+//	    Child(value).
+//	    Build(p)
 func Parent() ParentRecipe { return ParentRecipe{} }
 
 // Child sets the Child field.

@@ -18,6 +18,21 @@ type UserViewMatcher struct {
 }
 
 // UserViewMatches creates a new UserViewMatcher for matching UserView instances.
+//
+// This matcher provides methods for the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Active (bool)
+//   - Score (int)
+//
+// Example:
+//
+//	matcher := factory.UserViewMatches().
+//	    ID(testgen.Equal("expected_value")).
+//	    Name(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualUserView, matcher)
 func UserViewMatches() UserViewMatcher {
 	return UserViewMatcher{}
 }

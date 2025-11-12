@@ -45,6 +45,20 @@ type UserViewRecipe struct {
 }
 
 // UserView creates a new UserViewRecipe for building UserView instances.
+//
+// This is a struct-based type with the following fields:
+//   - ID (string)
+//   - Name (string)
+//   - Active (bool)
+//   - Score (int)
+//
+// Example:
+//
+//	p := testgen.New()
+//	userView := factory.UserView().
+//	    ID("custom_value").
+//	    Name("another").
+//	    Build(p)
 func UserView() UserViewRecipe { return UserViewRecipe{} }
 
 // ID sets the ID field.
