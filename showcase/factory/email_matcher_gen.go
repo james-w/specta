@@ -15,11 +15,23 @@ type EmailMatcher struct {
 }
 
 // EmailMatches creates a new EmailMatcher for matching Email instances.
+//
+// This matcher provides methods for properties accessed via getters:
+//   - Address: matches GetAddress() → string
+//
+// Example:
+//
+//	matcher := factory.EmailMatches().
+//	    Address(testgen.Equal("expected_value")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualEmail, matcher)
 func EmailMatches() EmailMatcher {
 	return EmailMatcher{}
 }
 
-// Address adds a matcher for the Address property (via GetAddress).
+// Address adds a matcher for the Address property.
+// This property is accessed via the GetAddress() method.
 func (m EmailMatcher) Address(matcher testgen.Matcher[string]) EmailMatcher {
 	m.addressMatcher = matcher
 	return m

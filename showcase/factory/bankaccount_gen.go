@@ -45,15 +45,27 @@ type BankAccountRecipe struct {
 }
 
 // BankAccount creates a new BankAccountRecipe for building BankAccount instances.
+//
+// The underlying constructor is NewBankAccount(name string, balance int).
+//
+// Default values are generated automatically for all parameters.
+//
+// Example:
+//
+//	p := testgen.New()
+//	bankAccount := factory.BankAccount().
+//	    Name("custom_value").
+//	    Balance(200).
+//	    Build(p)
 func BankAccount() BankAccountRecipe { return BankAccountRecipe{} }
 
-// Name sets the Name parameter.
+// Name sets the name parameter of NewBankAccount.
 func (r BankAccountRecipe) Name(v string) BankAccountRecipe {
 	r.opts = append(r.opts, spec.WithBankAccountName(v))
 	return r
 }
 
-// Balance sets the Balance parameter.
+// Balance sets the balance parameter of NewBankAccount.
 func (r BankAccountRecipe) Balance(v int) BankAccountRecipe {
 	r.opts = append(r.opts, spec.WithBankAccountBalance(v))
 	return r

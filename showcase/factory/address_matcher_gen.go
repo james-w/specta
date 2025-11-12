@@ -19,6 +19,22 @@ type AddressMatcher struct {
 }
 
 // AddressMatches creates a new AddressMatcher for matching Address instances.
+//
+// This matcher provides methods for the following fields:
+//   - Street (string)
+//   - City (string)
+//   - State (string)
+//   - ZipCode (string)
+//   - Country (string)
+//
+// Example:
+//
+//	matcher := factory.AddressMatches().
+//	    Street(testgen.Equal("expected_value")).
+//	    City(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualAddress, matcher)
 func AddressMatches() AddressMatcher {
 	return AddressMatcher{}
 }

@@ -46,9 +46,21 @@ type AccountRecipe struct {
 }
 
 // Account creates a new AccountRecipe for building Account instances.
+//
+// The underlying constructor is NewAccount(user showcase.User, status string).
+//
+// Default values are generated automatically for all parameters.
+//
+// Example:
+//
+//	p := testgen.New()
+//	account := factory.Account().
+//	    User(value).
+//	    Status("another").
+//	    Build(p)
 func Account() AccountRecipe { return AccountRecipe{} }
 
-// User sets the User parameter.
+// User sets the user parameter of NewAccount.
 func (r AccountRecipe) User(v showcase.User) AccountRecipe {
 	r.opts = append(r.opts, spec.WithAccountUser(v))
 	r.userRecipe = nil
@@ -64,7 +76,7 @@ func (r AccountRecipe) UserFromRecipe(v UserRecipe) AccountRecipe {
 	return r
 }
 
-// Status sets the Status parameter.
+// Status sets the status parameter of NewAccount.
 func (r AccountRecipe) Status(v string) AccountRecipe {
 	r.opts = append(r.opts, spec.WithAccountStatus(v))
 	return r

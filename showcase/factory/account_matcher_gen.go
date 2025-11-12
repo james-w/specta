@@ -16,17 +16,32 @@ type AccountMatcher struct {
 }
 
 // AccountMatches creates a new AccountMatcher for matching Account instances.
+//
+// This matcher provides methods for properties accessed via getters:
+//   - User: matches GetUser() → User
+//   - Status: matches GetStatus() → string
+//
+// Example:
+//
+//	matcher := factory.AccountMatches().
+//	    User(testgen.Equal(expectedValue)).
+//	    Status(testgen.Contains("substring")).
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actualAccount, matcher)
 func AccountMatches() AccountMatcher {
 	return AccountMatcher{}
 }
 
-// User adds a matcher for the User property (via GetUser).
+// User adds a matcher for the User property.
+// This property is accessed via the GetUser() method.
 func (m AccountMatcher) User(matcher testgen.Matcher[showcase.User]) AccountMatcher {
 	m.userMatcher = matcher
 	return m
 }
 
-// Status adds a matcher for the Status property (via GetStatus).
+// Status adds a matcher for the Status property.
+// This property is accessed via the GetStatus() method.
 func (m AccountMatcher) Status(matcher testgen.Matcher[string]) AccountMatcher {
 	m.statusMatcher = matcher
 	return m
@@ -48,7 +63,6 @@ func (m AccountMatcher) Matcher() testgen.Matcher[showcase.Account] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
-
 		if m.userMatcher != nil {
 			result := m.userMatcher.Matches(userValue)
 			fieldResults["User"] = &result
@@ -56,7 +70,6 @@ func (m AccountMatcher) Matcher() testgen.Matcher[showcase.Account] {
 				hasFailures = true
 			}
 		}
-
 		if m.statusMatcher != nil {
 			result := m.statusMatcher.Matches(statusValue)
 			fieldResults["Status"] = &result

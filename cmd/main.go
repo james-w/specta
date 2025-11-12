@@ -1228,11 +1228,61 @@ type {{.RecipeName}} struct{
 }
 
 // {{.TypeName}} creates a new {{.RecipeName}} for building {{.TypeName}} instances.
+{{- if .HasConstructor}}
+//
+// The underlying constructor is {{.ConstructorName}}({{range $i, $p := .ConstructorParams}}{{if $i}}, {{end}}{{lower $p.Name}} {{qualifiedTypeParam $.ParentPackage $p}}{{end}}).
+{{- if .CustomDefaults}}
+//
+// Custom default providers:
+{{- range $p := .ConstructorParams}}
+{{- if index $.CustomDefaults $p.Name}}
+//   - {{$p.Name}}: {{if eq (index $.CustomDefaults $p.Name) "func(p testgen.Primitives) string { return p.StringWith(\"user\") + \"@example.com\" }"}}generates valid email addresses (e.g., "user_1@example.com"){{else if eq (index $.CustomDefaults $p.Name) "func(p testgen.Primitives) string { return \"https://example.com/\" + p.StringWith(\"path\") }"}}generates URLs (e.g., "https://example.com/path_1"){{else if eq (index $.CustomDefaults $p.Name) "func(p testgen.Primitives) string { return p.UUID().String() }"}}generates UUIDs{{else}}uses custom provider{{end}}
+{{- end}}
+{{- end}}
+{{- else}}
+//
+// Default values are generated automatically for all parameters.
+{{- end}}
+{{- else}}
+//
+// This is a struct-based type with the following fields:
+{{- range .Fields}}
+//   - {{.Name}} ({{qualifiedType $.ParentPackage .}})
+{{- end}}
+{{- end}}
+//
+// Example:
+//
+{{- if .HasConstructor}}
+//	p := testgen.New()
+//	{{lower .TypeName}} := factory.{{.TypeName}}().
+{{- with index .ConstructorParams 0}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"custom_value"{{else if eq .TypeExpr "int"}}100{{else if eq .TypeExpr "bool"}}true{{else}}value{{end}}).
+{{- end}}
+{{- if gt (len .ConstructorParams) 1}}
+{{- with index .ConstructorParams 1}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"another"{{else if eq .TypeExpr "int"}}200{{else if eq .TypeExpr "bool"}}false{{else}}value{{end}}).
+{{- end}}
+{{- end}}
+//	    Build(p)
+{{- else}}
+//	p := testgen.New()
+//	{{lower .TypeName}} := factory.{{.TypeName}}().
+{{- with index .Fields 0}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"custom_value"{{else if eq .TypeExpr "int"}}100{{else if eq .TypeExpr "bool"}}true{{else}}value{{end}}).
+{{- end}}
+{{- if gt (len .Fields) 1}}
+{{- with index .Fields 1}}
+//	    {{.Name}}({{if eq .TypeExpr "string"}}"another"{{else if eq .TypeExpr "int"}}200{{else if eq .TypeExpr "bool"}}false{{else}}value{{end}}).
+{{- end}}
+{{- end}}
+//	    Build(p)
+{{- end}}
 func {{.TypeName}}() {{.RecipeName}} { return {{.RecipeName}}{} }
 
 {{- if .HasConstructor}}
 {{range .ConstructorParams}}
-// {{.Name}} sets the {{.Name}} parameter.
+// {{.Name}} sets the {{lower .Name}} parameter of {{$.ConstructorName}}.
 func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedTypeParam $.ParentPackage .}}) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}(v))
 	{{- if .IsCustomType}}
@@ -1434,6 +1484,35 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 		r[0] = []rune(strings.ToLower(string(r[0])))[0]
 		return string(r)
 	},
+	"qualifiedReturnType": func(pkg string, returnType string) string {
+		// If already qualified (contains .) or is a primitive, return as-is
+		if strings.Contains(returnType, ".") {
+			return returnType
+		}
+		// Check if it's a known primitive type
+		isPrimitive := returnType == "string" || returnType == "int" || returnType == "int64" ||
+			returnType == "uint64" || returnType == "bool" || returnType == "float64" ||
+			returnType == "time.Time" || returnType == "time.Duration" || returnType == "error"
+		if isPrimitive {
+			return returnType
+		}
+		// Handle slices
+		if strings.HasPrefix(returnType, "[]") {
+			elemType := strings.TrimPrefix(returnType, "[]")
+			if strings.Contains(elemType, ".") {
+				return returnType
+			}
+			isElemPrimitive := elemType == "string" || elemType == "int" || elemType == "int64" ||
+				elemType == "uint64" || elemType == "bool" || elemType == "float64" ||
+				elemType == "time.Time" || elemType == "time.Duration"
+			if isElemPrimitive {
+				return returnType
+			}
+			return "[]" + pkg + "." + elemType
+		}
+		// Otherwise, qualify with package
+		return pkg + "." + returnType
+	},
 	"qualifiedType": func(pkg string, f field) string {
 		// Handle slice of custom type
 		if strings.HasPrefix(f.TypeExpr, "[]") {
@@ -1472,11 +1551,51 @@ type {{.TypeName}}Matcher struct {
 	{{lower .Name}}Matcher testgen.Matcher[{{qualifiedType $.ParentPackage .}}]
 	{{- end}}
 	{{- range .GetterMatchers}}
-	{{lower .Name}}Matcher testgen.Matcher[{{.ReturnType}}]
+	{{lower .Name}}Matcher testgen.Matcher[{{qualifiedReturnType $.ParentPackage .ReturnType}}]
 	{{- end}}
 }
 
 // {{.TypeName}}Matches creates a new {{.TypeName}}Matcher for matching {{.TypeName}} instances.
+{{- if .GetterMatchers}}
+//
+// This matcher provides methods for properties accessed via getters:
+{{- range .GetterMatchers}}
+//   - {{.Name}}: matches {{.Getter}}() → {{.ReturnType}}
+{{- end}}
+{{- end}}
+{{- if .Fields}}
+//
+// This matcher provides methods for the following fields:
+{{- range .Fields}}
+//   - {{.Name}} ({{qualifiedType $.ParentPackage .}})
+{{- end}}
+{{- end}}
+//
+// Example:
+//
+//	matcher := factory.{{.TypeName}}Matches().
+{{- if .GetterMatchers}}
+{{- with index .GetterMatchers 0}}
+//	    {{.Name}}(testgen.Equal({{if eq .ReturnType "string"}}"expected_value"{{else if eq .ReturnType "int"}}100{{else if eq .ReturnType "bool"}}true{{else}}expectedValue{{end}})).
+{{- end}}
+{{- if gt (len .GetterMatchers) 1}}
+{{- with index .GetterMatchers 1}}
+//	    {{.Name}}(testgen.{{if eq .ReturnType "string"}}Contains("substring"){{else if eq .ReturnType "int"}}GreaterThan(0){{else}}Equal(expectedValue){{end}}).
+{{- end}}
+{{- end}}
+{{- else if .Fields}}
+{{- with index .Fields 0}}
+//	    {{.Name}}(testgen.Equal({{if eq .TypeExpr "string"}}"expected_value"{{else if eq .TypeExpr "int"}}100{{else if eq .TypeExpr "bool"}}true{{else}}expectedValue{{end}})).
+{{- end}}
+{{- if gt (len .Fields) 1}}
+{{- with index .Fields 1}}
+//	    {{.Name}}(testgen.{{if eq .TypeExpr "string"}}Contains("substring"){{else if eq .TypeExpr "int"}}GreaterThan(0){{else}}Equal(expectedValue){{end}}).
+{{- end}}
+{{- end}}
+{{- end}}
+//	    Matcher()
+//
+//	testgen.AssertThat(t, actual{{.TypeName}}, matcher)
 func {{.TypeName}}Matches() {{.TypeName}}Matcher {
 	return {{.TypeName}}Matcher{}
 }
@@ -1497,8 +1616,9 @@ func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.TypeExpr}}Matcher) {{
 {{end}}
 
 {{range .GetterMatchers}}
-// {{.Name}} adds a matcher for the {{.Name}} property (via {{.Getter}}).
-func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{.ReturnType}}]) {{$.TypeName}}Matcher {
+// {{.Name}} adds a matcher for the {{.Name}} property.
+// This property is accessed via the {{.Getter}}() method.
+func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{qualifiedReturnType $.ParentPackage .ReturnType}}]) {{$.TypeName}}Matcher {
 	m.{{lower .Name}}Matcher = matcher
 	return m
 }
