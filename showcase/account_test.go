@@ -98,3 +98,64 @@ func TestAccountDirectUserSetClearsNestedRecipe(t *testing.T) {
 		t.Errorf("Expected FirstName=Charlie, got %s", account.GetUser().FirstName)
 	}
 }
+
+func TestDeeplyNestedRecipePartialMatching(t *testing.T) {
+	p := testgen.New()
+
+	// Test 6: Deeply nested recipes (Account → User → Address)
+	// Build an account with deeply nested recipe specifications
+	account := factory.Account().
+		UserFromRecipe(
+			factory.User().
+				FirstName("Alice").
+				AddressFromRecipe(
+					factory.Address().City("NYC").State("NY"),
+				),
+		).
+		Status("active").
+		Build(p)
+
+	// Verify the deeply nested structure was built correctly
+	if account.GetUser().FirstName != "Alice" {
+		t.Errorf("Expected FirstName=Alice, got %s", account.GetUser().FirstName)
+	}
+	if account.GetUser().Address.City != "NYC" {
+		t.Errorf("Expected City=NYC, got %s", account.GetUser().Address.City)
+	}
+	if account.GetUser().Address.State != "NY" {
+		t.Errorf("Expected State=NY, got %s", account.GetUser().Address.State)
+	}
+
+	// Test recursive partial matching with deeply nested recipes
+	// This should only check: FirstName=Alice, Address.City=NYC, Address.State=NY
+	matcher := factory.Account().
+		UserFromRecipe(
+			factory.User().
+				FirstName("Alice").
+				AddressFromRecipe(
+					factory.Address().City("NYC").State("NY"),
+				),
+		).
+		AsEqualMatcher()
+
+	result := matcher.Matches(account)
+	if !result.Matched {
+		t.Errorf("Expected deeply nested partial match to pass, but got failure: %s", result.Message)
+	}
+
+	// Test that deeply nested partial matching fails appropriately
+	accountWithDifferentCity := factory.Account().
+		UserFromRecipe(
+			factory.User().
+				FirstName("Alice").
+				AddressFromRecipe(
+					factory.Address().City("LA"), // Different city
+				),
+		).
+		Build(p)
+
+	result = matcher.Matches(accountWithDifferentCity)
+	if result.Matched {
+		t.Errorf("Expected deeply nested partial match to fail for different city, but it passed")
+	}
+}

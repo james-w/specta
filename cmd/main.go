@@ -1131,6 +1131,8 @@ func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedTypeParam $.ParentPackage .}}) 
 {{if .IsCustomType}}
 {{- if not (hasPrefix .TypeExpr "[]")}}
 // {{.Name}}FromRecipe sets the {{.Name}} parameter using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(v.Provider()))
 	r.{{lower .Name}}Recipe = &v
@@ -1154,6 +1156,8 @@ func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedType $.ParentPackage .}}) {{$.R
 {{if .IsCustomType}}
 {{- if not (hasPrefix .TypeExpr "[]")}}
 // {{.Name}}FromRecipe sets the {{.Name}} field using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(v.Provider()))
 	r.{{lower .Name}}Recipe = &v
@@ -1242,7 +1246,7 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 			{{- end -}}
 		{{- end -}}
 		{{- if $isCustomType}}
-		// Check if we have a nested recipe for partial matching
+		// Use nested recipe for partial matching if available
 		if r.{{lower .Name}}Recipe != nil {
 			m = m.{{.Name}}(r.{{lower .Name}}Recipe.AsEqualMatcher())
 		} else {

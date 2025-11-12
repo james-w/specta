@@ -28,6 +28,8 @@ func (r AccountRecipe) User(v showcase.User) AccountRecipe {
 }
 
 // UserFromRecipe sets the User parameter using another Recipe (creates unique instances).
+// The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
+// The nested recipe is used for partial matching in AsEqualMatcher.
 func (r AccountRecipe) UserFromRecipe(v UserRecipe) AccountRecipe {
 	r.opts = append(r.opts, spec.WithAccountUserFromProvider(v.Provider()))
 	r.userRecipe = &v
@@ -60,7 +62,7 @@ func (r AccountRecipe) Many(n int, p testgen.Primitives) []showcase.Account {
 // This enables partial matching where you only verify specific fields.
 // For nested types set via FromRecipe, partial matching is applied recursively.
 func (r AccountRecipe) AsEqualMatcher() testgen.Matcher[showcase.Account] {
-	// Constructor-based types with matchers: use matcher-based approach for partial matching
+	// Constructor-based type with matchers configured: use matcher builder for partial matching
 	s := spec.NewAccountSpec()
 	for _, opt := range r.opts {
 		opt(&s)
@@ -69,17 +71,15 @@ func (r AccountRecipe) AsEqualMatcher() testgen.Matcher[showcase.Account] {
 
 	m := AccountMatches()
 	if s.User.IsSet() {
-		// Check if we have a nested recipe for partial matching
+		// Use nested recipe for partial matching if available
 		if r.userRecipe != nil {
-			// Find the corresponding getter matcher for this param
-			// Note: This assumes the getter name matches the param name
 			m = m.User(r.userRecipe.AsEqualMatcher())
 		} else {
-			m = m.User(testgen.DeepEqual(s.User.Value(p)))
+			m = m.User(testgen.Equal(s.User.Value(p)))
 		}
 	}
 	if s.Status.IsSet() {
-		m = m.Status(testgen.DeepEqual(s.Status.Value(p)))
+		m = m.Status(testgen.Equal(s.Status.Value(p)))
 	}
 	return m.Matcher()
 }

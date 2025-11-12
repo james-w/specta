@@ -212,51 +212,64 @@ MapHasSize[K comparable, V any](size int) Matcher[map[K]V]
 
 ---
 
-### 5. Nested Recipe Tracking for Constructor Types
+### 5. Nested Recipe Tracking for Constructor Types (COMPLETED)
 **Goal:** Support FromRecipe methods for constructor parameters
 
-**Current Limitation:**
+**Completed Solution:**
 ```go
-// Constructor-based types skip nested recipe tracking
-type EmailRecipe struct {
-    opts []testgen.Opt[spec.EmailSpec]
-    // ❌ No nested recipe fields
-}
-```
-
-**Desired Behavior:**
-```go
-type OrderRecipe struct {
-    opts []testgen.Opt[spec.OrderSpec]
+type AccountRecipe struct {
+    opts []testgen.Opt[spec.AccountSpec]
     userRecipe *UserRecipe  // ✅ Track nested recipe for partial matching
 }
 
-func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
-    r.opts = append(r.opts, spec.WithOrderUserFromProvider(v.Provider()))
-    r.userRecipe = &v
+func (r AccountRecipe) UserFromRecipe(v UserRecipe) AccountRecipe {
+    r.opts = append(r.opts, spec.WithAccountUserFromProvider(v.Provider()))
+    r.userRecipe = &v  // Store recipe for AsEqualMatcher
     return r
 }
 ```
 
-**Requirements:**
-- Constructor param must be a custom type
-- That custom type must have a Recipe
-- Need to track recipe for AsEqualMatcher
+**Implementation Details:**
+- [x] Detect custom types in constructor params
+- [x] Generate nested recipe fields for custom params (non-slice only)
+- [x] Generate FromRecipe methods for custom params
+- [x] Update AsEqualMatcher to use nested recipes for partial matching
+- [x] Handle error-returning constructors with nested types
+- [x] Added comprehensive tests for nested partial matching
 
-**Tasks:**
-- [ ] Detect custom types in constructor params
-- [ ] Generate nested recipe fields for custom params
-- [ ] Generate FromRecipe methods for custom params
-- [ ] Update AsEqualMatcher to use nested recipes for partial matching
-- [ ] Handle error-returning constructors with nested types
-- [ ] Add tests for nested partial matching with constructors
+**Key Features:**
+- Nested recipes enable recursive partial matching
+- Setting value directly clears the nested recipe
+- FromRecipe creates unique instances for each build
+- Works with AsEqualMatcher for partial matching
+- Compatible with existing matcher infrastructure
 
-**Considerations:**
-- Does the custom type have a factory?
-- Is it in the same package or imported?
-- Error handling if nested type returns error
+**Example Usage:**
+```go
+// Build with nested recipe
+account := factory.Account().
+    UserFromRecipe(factory.User().FirstName("Alice")).
+    Status("active").
+    Build(p)
 
-**Commit point:** "feat: support nested recipes for constructor parameters"
+// Partial matching - only checks FirstName
+matcher := factory.Account().
+    UserFromRecipe(factory.User().FirstName("Alice")).
+    AsEqualMatcher()
+```
+
+**Files Modified:**
+- `cmd/main.go` - Updated recipe and AsEqualMatcher templates
+- `showcase/types.go` - Added Account type as test case
+- `showcase/testgen.yaml` - Configured Account type
+- `showcase/account_test.go` - Comprehensive tests
+- `showcase/factory/account_gen.go` - Generated recipe
+- `showcase/factory/account_matcher_gen.go` - Generated matcher
+- `showcase/factory/spec/account_gen.go` - Generated spec
+
+**Commit:** "feat: support nested recipes for constructor parameters"
+
+**Note:** Recipe pointers use value semantics - the recipe is captured at the time FromRecipe is called.
 
 ---
 
