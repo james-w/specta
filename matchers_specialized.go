@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -109,7 +110,7 @@ func ErrorContains(substr string) Matcher[error] {
 			}
 		}
 		errMsg := actual.Error()
-		if contains(errMsg, substr) {
+		if strings.Contains(errMsg, substr) {
 			return MatchResult{Matched: true}
 		}
 		return MatchResult{
@@ -280,18 +281,4 @@ func MatchesPattern(regex *regexp.Regexp) Matcher[string] {
 			Actual:   actual,
 		}
 	})
-}
-
-// Helper function for string contains check (used by ErrorContains)
-func contains(s, substr string) bool {
-	return len(substr) == 0 || len(s) >= len(substr) && (s == substr || findSubstring(s, substr))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
