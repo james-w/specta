@@ -7,24 +7,28 @@ go_build_flags = "-v"
 
 # Test commands
 [command.exec.test]
-description = "Run all tests"
-command = "go test {globals.go_test_flags} ./..."
+description = "Run all tests (with code generation)"
+command = "go run ./cmd/main.go && gotestsum --format testname -- {globals.go_test_flags} ./..."
 
 [command.exec.test-short]
-description = "Run all tests (short mode)"
-command = "go test -short {globals.go_test_flags} ./..."
+description = "Run all tests (short mode, with generation)"
+command = "go run ./cmd/main.go && gotestsum --format testname -- -short {globals.go_test_flags} ./..."
+
+[command.exec.test-core]
+description = "Run core tests only (. and ./cmd, no generation)"
+command = "gotestsum --format testname -- {globals.go_test_flags} . ./cmd/..."
 
 [command.exec.test-example]
-description = "Run example package tests"
-command = "go test {globals.go_test_flags} ./example"
+description = "Run example package tests (with generation)"
+command = "go run ./cmd/main.go -config ./example/testgen.yaml && gotestsum --format testname -- {globals.go_test_flags} ./example"
 
 [command.exec.test-showcase]
-description = "Run showcase package tests"
-command = "go test {globals.go_test_flags} ./showcase"
+description = "Run showcase package tests (with generation)"
+command = "go run ./cmd/main.go -config ./showcase/testgen.yaml && gotestsum --format testname -- {globals.go_test_flags} ./showcase"
 
 [command.exec.test-coverage]
-description = "Run tests with coverage report"
-command = "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
+description = "Run tests with coverage report (with generation)"
+command = "go run ./cmd/main.go && gotestsum --format testname -- -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
 
 # Code generation
 [command.exec.generate]
@@ -68,12 +72,12 @@ command = "go build {globals.go_build_flags} ./..."
 # Verification commands (for CI)
 # Note: Using shell chaining (&&) for fail-fast behavior
 [command.exec.verify]
-description = "Run all verification checks (fmt, lint, test)"
-command = "test -z \"$(gofmt -s -l .)\" && golangci-lint run && go test {globals.go_test_flags} ./..."
+description = "Run all verification checks (fmt, lint, generate, test)"
+command = "test -z \"$(gofmt -s -l .)\" && golangci-lint run && go run ./cmd/main.go && gotestsum --format testname -- {globals.go_test_flags} ./..."
 
 [command.exec.ci]
 description = "Run full CI pipeline (fmt, lint, generate, test with coverage)"
-command = "test -z \"$(gofmt -s -l .)\" && golangci-lint run && go run ./cmd/main.go && go test -coverprofile=coverage.out ./..."
+command = "test -z \"$(gofmt -s -l .)\" && golangci-lint run && go run ./cmd/main.go && gotestsum --format testname -- -coverprofile=coverage.out ./..."
 
 # Development helpers
 [command.exec.clean]
