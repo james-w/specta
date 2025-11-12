@@ -800,7 +800,7 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		r[0] = []rune(strings.ToLower(string(r[0])))[0]
 		return string(r)
 	},
-	"isPrimitiveType":   isPrimitiveType,
+	"isPrimitiveType": isPrimitiveType,
 	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
@@ -1037,7 +1037,7 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		return string(r)
 	},
 	"isPrimitiveType": isPrimitiveType,
-	"hasPrefix": strings.HasPrefix,
+	"hasPrefix":       strings.HasPrefix,
 	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
 		if len(returns) == 0 {
 			return pkg + "." + typeName
