@@ -109,11 +109,11 @@ jobs:
 
       - name: Generate test files for example
         working-directory: example
-        run: ../specta -config testgen.yaml
+        run: ../specta -config specta.yaml
 
       - name: Generate test files for showcase
         working-directory: showcase
-        run: ../specta -config testgen.yaml
+        run: ../specta -config specta.yaml
 
       - name: Check generated files match committed versions
         run: |
@@ -152,11 +152,11 @@ jobs:
 
       - name: Generate test files for example
         working-directory: example
-        run: ../specta -config testgen.yaml
+        run: ../specta -config specta.yaml
 
       - name: Generate test files for showcase
         working-directory: showcase
-        run: ../specta -config testgen.yaml
+        run: ../specta -config specta.yaml
 
       - name: Run integration tests
         run: go test -v -race ./example/... ./showcase/...

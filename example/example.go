@@ -1,6 +1,6 @@
 package example
 
-//go:generate specta -config testgen.yaml
+//go:generate specta -config specta.yaml
 
 type UserView struct {
 	ID     string

@@ -46,7 +46,7 @@ type Config struct {
 	} `yaml:"targets"`
 }
 
-var cfgPath = flag.String("config", "testgen.yaml", "path to config (JSON for this skeleton)")
+var cfgPath = flag.String("config", "specta.yaml", "path to config")
 
 func main() {
 	flag.Parse()

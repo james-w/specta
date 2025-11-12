@@ -110,7 +110,7 @@ types:
 
 **Files Modified:**
 - `cmd/main.go`: Config struct, pattern resolution, template
-- `showcase/testgen.yaml`: Added Email pattern config
+- `showcase/specta.yaml`: Added Email pattern config
 - `showcase/factory_test.go`: Updated Email test to expect success
 - `TODO.md`: This file
 
@@ -261,7 +261,7 @@ matcher := factory.Account().
 **Files Modified:**
 - `cmd/main.go` - Updated recipe and AsEqualMatcher templates
 - `showcase/types.go` - Added Account type as test case
-- `showcase/testgen.yaml` - Configured Account type
+- `showcase/specta.yaml` - Configured Account type
 - `showcase/account_test.go` - Comprehensive tests
 - `showcase/factory/account_gen.go` - Generated recipe
 - `showcase/factory/account_matcher_gen.go` - Generated matcher
