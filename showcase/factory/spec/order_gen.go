@@ -110,6 +110,14 @@ func WithOrderItems(v []showcase.OrderItem) testgen.Opt[OrderSpec] {
 	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[[]showcase.OrderItem]) { s.Items = m }, v)
 }
 
+// WithOrderItemsFromProvider sets the Items field using a Provider (evaluated lazily).
+func WithOrderItemsFromProvider(prov testgen.Provider[[]showcase.OrderItem]) testgen.Opt[OrderSpec] {
+	return testgen.SetWith(
+		func(s *OrderSpec, m testgen.Maybe[[]showcase.OrderItem]) { s.Items = m },
+		prov,
+	)
+}
+
 // WithOrderTotal sets the Total field to a literal value.
 func WithOrderTotal(v float64) testgen.Opt[OrderSpec] {
 	return testgen.SetLit(func(s *OrderSpec, m testgen.Maybe[float64]) { s.Total = m }, v)

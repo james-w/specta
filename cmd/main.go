@@ -145,16 +145,18 @@ func validateConfig(c *Config) error {
 }
 
 type field struct {
-	Name         string
-	TypeExpr     string
-	IsCustomType bool   // true if this is a local struct type (not primitive)
-	RecipeName   string // e.g., "UserRecipe" if IsCustomType
+	Name                string
+	TypeExpr            string // qualified type expression (e.g., "showcase.User")
+	UnqualifiedTypeName string // unqualified type name (e.g., "User") for function/type references
+	IsCustomType        bool   // true if this is a local struct type (not primitive)
+	RecipeName          string // e.g., "UserRecipe" if IsCustomType
 }
 
 type ConstructorParam struct {
-	Name         string
-	TypeExpr     string
-	IsCustomType bool
+	Name                string
+	TypeExpr            string // qualified type expression
+	UnqualifiedTypeName string // unqualified type name for function/type references
+	IsCustomType        bool
 }
 
 type GetterInfo struct {
@@ -262,21 +264,29 @@ func analyzeConstructorParams(fn *ast.FuncDecl, pkg *packages.Package, typeNames
 			continue // skip unnamed params for now
 		}
 
-		// Render the type expression
-		var buf bytes.Buffer
-		if err := printer.Fprint(&buf, pkg.Fset, param.Type); err != nil {
-			continue
+		// Use AST-based type qualification
+		typeExpr := qualifyTypeExpr(pkg, param.Type, pkg.Name)
+		if typeExpr == "" {
+			// Fallback if qualification fails
+			var buf bytes.Buffer
+			if err := printer.Fprint(&buf, pkg.Fset, param.Type); err != nil {
+				continue
+			}
+			typeExpr = buf.String()
 		}
-		typeExpr := buf.String()
+
+		// Extract unqualified type name for function/type references
+		unqualifiedTypeName := extractUnqualifiedTypeName(typeExpr)
 
 		// Check if custom type
-		isCustomType := typeNames[typeExpr]
+		isCustomType := typeNames[unqualifiedTypeName]
 
 		for _, name := range param.Names {
 			params = append(params, ConstructorParam{
-				Name:         capitalizeFirst(name.Name),
-				TypeExpr:     typeExpr,
-				IsCustomType: isCustomType,
+				Name:                capitalizeFirst(name.Name),
+				TypeExpr:            typeExpr,
+				UnqualifiedTypeName: unqualifiedTypeName,
+				IsCustomType:        isCustomType,
 			})
 		}
 	}
@@ -597,23 +607,55 @@ func isPrimitiveType(typeName string) bool {
 }
 
 func generateFiles(d data, dirs struct{ factory, spec string }, typeName string) error {
-	// Generate spec file (low-level API)
+	// Define output paths
 	specOut := filepath.Join(dirs.spec, strings.ToLower(typeName)+"_gen.go")
-	if err := renderSpec(specOut, d); err != nil {
+	recipeOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_gen.go")
+	matcherOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_matcher_gen.go")
+
+	// Generate all three files in memory
+	specSrc, err := generateSpec(d)
+	if err != nil {
+		return fmt.Errorf("generate spec: %w", err)
+	}
+
+	recipeSrc, err := generateRecipe(d)
+	if err != nil {
+		return fmt.Errorf("generate recipe: %w", err)
+	}
+
+	matcherSrc, err := generateMatcher(d)
+	if err != nil {
+		return fmt.Errorf("generate matcher: %w", err)
+	}
+
+	// Verify all three files together using overlays before writing
+	if err := verifyFilesAsPackage(map[string][]byte{
+		specOut:    specSrc,
+		recipeOut:  recipeSrc,
+		matcherOut: matcherSrc,
+	}); err != nil {
+		// Write broken files for debugging
+		_ = os.WriteFile(specOut+".broken", specSrc, 0644)
+		_ = os.WriteFile(recipeOut+".broken", recipeSrc, 0644)
+		_ = os.WriteFile(matcherOut+".broken", matcherSrc, 0644)
+		return fmt.Errorf("type-check failed: %v", err)
+	}
+
+	// Write all files
+	if err := os.MkdirAll(filepath.Dir(specOut), 0755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(specOut, specSrc, 0644); err != nil {
 		return err
 	}
 	log.Printf("wrote %s", specOut)
 
-	// Generate recipe file (high-level API)
-	recipeOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_gen.go")
-	if err := renderRecipe(recipeOut, d); err != nil {
+	if err := os.WriteFile(recipeOut, recipeSrc, 0644); err != nil {
 		return err
 	}
 	log.Printf("wrote %s", recipeOut)
 
-	// Generate matcher file
-	matcherOut := filepath.Join(dirs.factory, strings.ToLower(typeName)+"_matcher_gen.go")
-	if err := renderMatcher(matcherOut, d); err != nil {
+	if err := os.WriteFile(matcherOut, matcherSrc, 0644); err != nil {
 		return err
 	}
 	log.Printf("wrote %s", matcherOut)
@@ -641,6 +683,22 @@ func findStruct(files []*ast.File, typeName string) *ast.StructType {
 	return out
 }
 
+// extractUnqualifiedTypeName extracts the unqualified type name from a qualified type expression
+// E.g., "showcase.User" -> "User", "*showcase.User" -> "User", "[]showcase.Item" -> "Item"
+func extractUnqualifiedTypeName(typeExpr string) string {
+	// Strip pointer/slice prefixes
+	baseType := typeExpr
+	for strings.HasPrefix(baseType, "*") || strings.HasPrefix(baseType, "[]") {
+		baseType = strings.TrimPrefix(baseType, "*")
+		baseType = strings.TrimPrefix(baseType, "[]")
+	}
+	// Remove package prefix
+	if idx := strings.LastIndex(baseType, "."); idx >= 0 {
+		return baseType[idx+1:]
+	}
+	return baseType
+}
+
 func collectFields(pkg *packages.Package, st *ast.StructType, typeNames map[string]bool) []field {
 	var out []field
 	for _, f := range st.Fields.List {
@@ -649,32 +707,33 @@ func collectFields(pkg *packages.Package, st *ast.StructType, typeNames map[stri
 		}
 		name := f.Names[0].Name
 
-		// Render ONLY the type node. This never includes tags.
-		var buf bytes.Buffer
-		// Either printer.Fprint or format.Node works; printer is fine here.
-		if err := printer.Fprint(&buf, pkg.Fset, f.Type); err != nil {
-			// fallback: extremely conservative
-			buf.WriteString("interface{}")
-		}
-		typ := buf.String()
-
-		// Just in case: if weird spacing left a tag tail, drop anything after a backtick.
-		if i := strings.IndexByte(typ, '`'); i >= 0 {
-			typ = strings.TrimSpace(typ[:i])
+		// Use AST-based type qualification
+		typ := qualifyTypeExpr(pkg, f.Type, pkg.Name)
+		if typ == "" {
+			// Fallback if qualification fails
+			var buf bytes.Buffer
+			if err := printer.Fprint(&buf, pkg.Fset, f.Type); err != nil {
+				buf.WriteString("interface{}")
+			}
+			typ = buf.String()
 		}
 
-		// Detect if this is a custom struct type (not slices)
-		isCustomType := typeNames[typ]
+		// Extract unqualified type name for function/type references
+		unqualifiedTypeName := extractUnqualifiedTypeName(typ)
+
+		// Check if custom type
+		isCustomType := typeNames[unqualifiedTypeName]
 		recipeName := ""
 		if isCustomType {
-			recipeName = typ + "Recipe"
+			recipeName = unqualifiedTypeName + "Recipe"
 		}
 
 		out = append(out, field{
-			Name:         name,
-			TypeExpr:     typ,
-			IsCustomType: isCustomType,
-			RecipeName:   recipeName,
+			Name:                name,
+			TypeExpr:            typ,
+			UnqualifiedTypeName: unqualifiedTypeName,
+			IsCustomType:        isCustomType,
+			RecipeName:          recipeName,
 		})
 	}
 	return out
@@ -689,24 +748,79 @@ func anyHas(fields []field, typ string) bool {
 	return false
 }
 
-// verifyCompiles checks that the generated code type-checks without writing it to disk
-func verifyCompiles(src []byte, filename string) error {
-	absPath, err := filepath.Abs(filename)
+// generateSpec generates the spec file source code
+func generateSpec(d data) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := specTmpl.Execute(&buf, d); err != nil {
+		return nil, err
+	}
+	src, err := format.Source(buf.Bytes())
 	if err != nil {
-		return fmt.Errorf("abs path: %w", err)
+		return buf.Bytes(), fmt.Errorf("format: %w", err)
+	}
+	return src, nil
+}
+
+// generateRecipe generates the recipe file source code
+func generateRecipe(d data) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := recipeTmpl.Execute(&buf, d); err != nil {
+		return nil, err
+	}
+	src, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes(), fmt.Errorf("format: %w", err)
+	}
+	return src, nil
+}
+
+// generateMatcher generates the matcher file source code
+func generateMatcher(d data) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := matcherTmpl.Execute(&buf, d); err != nil {
+		return nil, err
+	}
+	src, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes(), fmt.Errorf("format: %w", err)
+	}
+	return src, nil
+}
+
+// verifyFilesAsPackage verifies that a set of files compile together as a package
+func verifyFilesAsPackage(files map[string][]byte) error {
+	if len(files) == 0 {
+		return nil
 	}
 
-	// Use packages.Load with an overlay to type-check without writing
+	// Get the directory from the first file
+	var dir string
+	for path := range files {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("abs path: %w", err)
+		}
+		dir = filepath.Dir(absPath)
+		break
+	}
+
+	// Create overlay with absolute paths
+	overlay := make(map[string][]byte)
+	for path, content := range files {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("abs path: %w", err)
+		}
+		overlay[absPath] = content
+	}
+
 	cfg := &packages.Config{
-		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
-		Dir:  filepath.Dir(absPath),
-		Overlay: map[string][]byte{
-			absPath: src,
-		},
+		Mode:    packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
+		Overlay: overlay,
 	}
 
-	// Load the package containing this file
-	pkgs, err := packages.Load(cfg, filepath.Dir(absPath))
+	// Load the package containing these files
+	pkgs, err := packages.Load(cfg, dir)
 	if err != nil {
 		return fmt.Errorf("load for type-check: %w", err)
 	}
@@ -723,75 +837,6 @@ func verifyCompiles(src []byte, filename string) error {
 	}
 
 	return nil
-}
-
-func renderSpec(out string, d data) error {
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := specTmpl.Execute(&buf, d); err != nil {
-		return err
-	}
-	src, err := format.Source(buf.Bytes())
-	if err != nil {
-		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
-		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
-	}
-
-	// Verify it compiles before writing
-	if err := verifyCompiles(src, out); err != nil {
-		_ = os.WriteFile(out+".broken", src, 0644)
-		return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
-	}
-
-	return os.WriteFile(out, src, 0644)
-}
-
-func renderRecipe(out string, d data) error {
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := recipeTmpl.Execute(&buf, d); err != nil {
-		return err
-	}
-	src, err := format.Source(buf.Bytes())
-	if err != nil {
-		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
-		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
-	}
-
-	// Verify it compiles before writing
-	if err := verifyCompiles(src, out); err != nil {
-		_ = os.WriteFile(out+".broken", src, 0644)
-		return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
-	}
-
-	return os.WriteFile(out, src, 0644)
-}
-
-func renderMatcher(out string, d data) error {
-	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
-		return fmt.Errorf("mkdir: %w", err)
-	}
-	var buf bytes.Buffer
-	if err := matcherTmpl.Execute(&buf, d); err != nil {
-		return err
-	}
-	src, err := format.Source(buf.Bytes())
-	if err != nil {
-		_ = os.WriteFile(out+".broken", buf.Bytes(), 0644)
-		return fmt.Errorf("format: %v (wrote %s.broken)", err, out)
-	}
-
-	// Verify it compiles before writing
-	if err := verifyCompiles(src, out); err != nil {
-		_ = os.WriteFile(out+".broken", src, 0644)
-		return fmt.Errorf("type-check failed: %v (wrote %s.broken)", err, out)
-	}
-
-	return os.WriteFile(out, src, 0644)
 }
 
 var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
@@ -822,31 +867,11 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 		return "(" + strings.Join(parts, ", ") + ")"
 	},
 	"qualifiedType": func(pkg string, f field) string {
-		// Handle slice of custom type
-		if strings.HasPrefix(f.TypeExpr, "[]") {
-			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			if !isPrimitiveType(elemType) {
-				return "[]" + pkg + "." + elemType
-			}
-		}
-		// Handle custom type
-		if f.IsCustomType && !strings.HasPrefix(f.TypeExpr, "[]") {
-			return pkg + "." + f.TypeExpr
-		}
+		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
 		return f.TypeExpr
 	},
 	"qualifiedTypeParam": func(pkg string, p ConstructorParam) string {
-		// Handle slice of custom type
-		if strings.HasPrefix(p.TypeExpr, "[]") {
-			elemType := strings.TrimPrefix(p.TypeExpr, "[]")
-			if !isPrimitiveType(elemType) {
-				return "[]" + pkg + "." + elemType
-			}
-		}
-		// Handle custom type
-		if p.IsCustomType && !strings.HasPrefix(p.TypeExpr, "[]") {
-			return pkg + "." + p.TypeExpr
-		}
+		// TypeExpr is already qualified by analyzeConstructorParams using qualifyTypeExpr
 		return p.TypeExpr
 	},
 	"defaultProviderParam": func(pkg string, p ConstructorParam) string {
@@ -869,7 +894,8 @@ var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
 			return "func(p testgen.Primitives) time.Duration { return p.Duration() }"
 		default:
 			if p.IsCustomType {
-				return "testgen.FromSpec(Build" + p.TypeExpr + ", New" + p.TypeExpr + "Spec)"
+				// Use unqualified name for function references
+				return "testgen.FromSpec(Build" + p.UnqualifiedTypeName + ", New" + p.UnqualifiedTypeName + "Spec)"
 			}
 			return "func(p testgen.Primitives) " + p.TypeExpr + " { return " + p.TypeExpr + "{} }"
 		}
@@ -1053,31 +1079,11 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
 		return "(" + strings.Join(parts, ", ") + ")"
 	},
 	"qualifiedType": func(pkg string, f field) string {
-		// Handle slice of custom type
-		if strings.HasPrefix(f.TypeExpr, "[]") {
-			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			if !isPrimitiveType(elemType) {
-				return "[]" + pkg + "." + elemType
-			}
-		}
-		// Handle custom type
-		if f.IsCustomType && !strings.HasPrefix(f.TypeExpr, "[]") {
-			return pkg + "." + f.TypeExpr
-		}
+		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
 		return f.TypeExpr
 	},
 	"qualifiedTypeParam": func(pkg string, p ConstructorParam) string {
-		// Handle slice of custom type
-		if strings.HasPrefix(p.TypeExpr, "[]") {
-			elemType := strings.TrimPrefix(p.TypeExpr, "[]")
-			if !isPrimitiveType(elemType) {
-				return "[]" + pkg + "." + elemType
-			}
-		}
-		// Handle custom type
-		if p.IsCustomType && !strings.HasPrefix(p.TypeExpr, "[]") {
-			return pkg + "." + p.TypeExpr
-		}
+		// TypeExpr is already qualified by analyzeConstructorParams using qualifyTypeExpr
 		return p.TypeExpr
 	},
 }).Parse(`// Code generated by testgen-gen; DO NOT EDIT.
@@ -1146,7 +1152,11 @@ type {{.RecipeName}} struct{
 	{{- range .ConstructorParams}}
 	{{- if .IsCustomType}}
 	{{- if not (hasPrefix .TypeExpr "[]")}}
-	{{lower .Name}}Recipe *{{.TypeExpr}}Recipe
+	{{- $baseType := .TypeExpr}}
+	{{- if hasPrefix .TypeExpr "*"}}
+	{{- $baseType = (slice .TypeExpr 1)}}
+	{{- end}}
+	{{lower .Name}}Recipe *{{.UnqualifiedTypeName}}Recipe
 	{{- end}}
 	{{- end}}
 	{{- end}}
@@ -1154,7 +1164,7 @@ type {{.RecipeName}} struct{
 	{{- range .Fields}}
 	{{- if .IsCustomType}}
 	{{- if not (hasPrefix .TypeExpr "[]")}}
-	{{lower .Name}}Recipe *{{.TypeExpr}}Recipe
+	{{lower .Name}}Recipe *{{.RecipeName}}
 	{{- end}}
 	{{- end}}
 	{{- end}}
@@ -1219,8 +1229,12 @@ func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedTypeParam $.ParentPackage .}}) 
 // {{.Name}}FromRecipe sets the {{.Name}} parameter using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
-func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeName}} {
+func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.UnqualifiedTypeName}}Recipe) {{$.RecipeName}} {
+	{{- if hasPrefix .TypeExpr "*"}}
+	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(testgen.PtrOf(v.Provider())))
+	{{- else}}
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(v.Provider()))
+	{{- end}}
 	r.{{lower .Name}}Recipe = &v
 	return r
 }
@@ -1244,8 +1258,12 @@ func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedType $.ParentPackage .}}) {{$.R
 // {{.Name}}FromRecipe sets the {{.Name}} field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
-func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.TypeExpr}}Recipe) {{$.RecipeName}} {
+func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.RecipeName}}) {{$.RecipeName}} {
+	{{- if hasPrefix .TypeExpr "*"}}
+	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(testgen.PtrOf(v.Provider())))
+	{{- else}}
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromProvider(v.Provider()))
+	{{- end}}
 	r.{{lower .Name}}Recipe = &v
 	return r
 }
@@ -1334,7 +1352,15 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 		{{- if $isCustomType}}
 		// Use nested recipe for partial matching if available
 		if r.{{lower .Name}}Recipe != nil {
+			{{- range $.ConstructorParams -}}
+			{{- if eq .Name $matcherName -}}
+			{{- if hasPrefix .TypeExpr "*"}}
+			m = m.{{.Name}}(testgen.PointsTo(r.{{lower .Name}}Recipe.AsEqualMatcher()))
+			{{- else}}
 			m = m.{{.Name}}(r.{{lower .Name}}Recipe.AsEqualMatcher())
+			{{- end -}}
+			{{- end -}}
+			{{- end}}
 		} else {
 			m = m.{{.Name}}(testgen.Equal(s.{{.Name}}.Value(p)))
 		}
@@ -1379,7 +1405,11 @@ func (r {{.RecipeName}}) AsEqualMatcher() testgen.Matcher[{{.ParentPackage}}.{{.
 		{{- if not (hasPrefix .TypeExpr "[]")}}
 		// Check if we have a nested recipe for partial matching
 		if r.{{lower .Name}}Recipe != nil {
+			{{- if hasPrefix .TypeExpr "*"}}
+			m = m.{{.Name}}(testgen.PointsTo(r.{{lower .Name}}Recipe.AsEqualMatcher()))
+			{{- else}}
 			m = m.{{.Name}}(r.{{lower .Name}}Recipe.AsEqualMatcher())
+			{{- end}}
 		} else {
 			m = m.{{.Name}}(testgen.DeepEqual(s.{{.Name}}.Value(p)))
 		}
@@ -1430,18 +1460,9 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 		// Otherwise, qualify with package
 		return pkg + "." + returnType
 	},
+	"hasPrefix": strings.HasPrefix,
 	"qualifiedType": func(pkg string, f field) string {
-		// Handle slice of custom type
-		if strings.HasPrefix(f.TypeExpr, "[]") {
-			elemType := strings.TrimPrefix(f.TypeExpr, "[]")
-			if !isPrimitiveType(elemType) {
-				return "[]" + pkg + "." + elemType
-			}
-		}
-		// Handle custom type
-		if f.IsCustomType && !strings.HasPrefix(f.TypeExpr, "[]") {
-			return pkg + "." + f.TypeExpr
-		}
+		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
 		return f.TypeExpr
 	},
 }).Parse(`// Code generated by testgen-gen; DO NOT EDIT.
@@ -1519,9 +1540,9 @@ func (m {{$.TypeName}}Matcher) {{.Name}}(matcher testgen.Matcher[{{qualifiedType
 	m.{{lower .Name}}Matcher = matcher
 	return m
 }
-{{if .IsCustomType}}
-// {{.Name}}Matches is a convenience method that accepts a {{.TypeExpr}}Matcher.
-func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.TypeExpr}}Matcher) {{$.TypeName}}Matcher {
+{{if and .IsCustomType (not (hasPrefix .TypeExpr "[]")) (not (hasPrefix .TypeExpr "*"))}}
+// {{.Name}}Matches is a convenience method that accepts a {{.UnqualifiedTypeName}}Matcher.
+func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.UnqualifiedTypeName}}Matcher) {{$.TypeName}}Matcher {
 	m.{{lower .Name}}Matcher = matcher.Matcher()
 	return m
 }
@@ -1599,20 +1620,32 @@ func defaultProvider(pkg string, f field) string {
 	name := f.Name
 	typ := f.TypeExpr
 
-	// Handle slices separately - need to qualify custom types
+	// Handle pointers separately
+	if strings.HasPrefix(typ, "*") {
+		elemType := strings.TrimPrefix(typ, "*")
+		// Check if elem is primitive
+		isPrimitive := isPrimitiveType(elemType)
+
+		if isPrimitive {
+			return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
+		}
+		// Custom type pointer - use PtrOf with FromSpec, use unqualified name for function references
+		return fmt.Sprintf("testgen.PtrOf(testgen.FromSpec(Build%s, New%sSpec))", f.UnqualifiedTypeName, f.UnqualifiedTypeName)
+	}
+
+	// Handle slices separately
 	if strings.HasPrefix(typ, "[]") {
 		elemType := strings.TrimPrefix(typ, "[]")
 		if isPrimitiveType(elemType) {
 			return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 		}
-		// Custom type slice - qualify it
-		qualifiedType := "[]" + pkg + "." + elemType
-		return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", qualifiedType, qualifiedType)
+		// Custom type slice - type is already qualified from collectFields
+		return fmt.Sprintf("func(p testgen.Primitives) %s { var zero %s; return zero }", typ, typ)
 	}
 
-	// If it's a custom type, use FromSpec
+	// If it's a custom type, use FromSpec with unqualified name for function references
 	if f.IsCustomType {
-		return fmt.Sprintf("testgen.FromSpec(Build%s, New%sSpec)", typ, typ)
+		return fmt.Sprintf("testgen.FromSpec(Build%s, New%sSpec)", f.UnqualifiedTypeName, f.UnqualifiedTypeName)
 	}
 
 	switch typ {
