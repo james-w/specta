@@ -689,12 +689,8 @@ func extractUnqualifiedTypeName(typeExpr string) string {
 	// Strip pointer/slice prefixes
 	baseType := typeExpr
 	for strings.HasPrefix(baseType, "*") || strings.HasPrefix(baseType, "[]") {
-		if strings.HasPrefix(baseType, "*") {
-			baseType = strings.TrimPrefix(baseType, "*")
-		}
-		if strings.HasPrefix(baseType, "[]") {
-			baseType = strings.TrimPrefix(baseType, "[]")
-		}
+		baseType = strings.TrimPrefix(baseType, "*")
+		baseType = strings.TrimPrefix(baseType, "[]")
 	}
 	// Remove package prefix
 	if idx := strings.LastIndex(baseType, "."); idx >= 0 {
@@ -825,41 +821,6 @@ func verifyFilesAsPackage(files map[string][]byte) error {
 
 	// Load the package containing these files
 	pkgs, err := packages.Load(cfg, dir)
-	if err != nil {
-		return fmt.Errorf("load for type-check: %w", err)
-	}
-
-	// Check for type errors
-	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			var errs []string
-			for _, e := range pkg.Errors {
-				errs = append(errs, e.Error())
-			}
-			return fmt.Errorf("type errors in generated code:\n%s", strings.Join(errs, "\n"))
-		}
-	}
-
-	return nil
-}
-
-func verifyCompiles(src []byte, filename string) error {
-	absPath, err := filepath.Abs(filename)
-	if err != nil {
-		return fmt.Errorf("abs path: %w", err)
-	}
-
-	// Use packages.Load with an overlay to type-check without writing
-	cfg := &packages.Config{
-		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
-		Dir:  filepath.Dir(absPath),
-		Overlay: map[string][]byte{
-			absPath: src,
-		},
-	}
-
-	// Load the package containing this file
-	pkgs, err := packages.Load(cfg, filepath.Dir(absPath))
 	if err != nil {
 		return fmt.Errorf("load for type-check: %w", err)
 	}
