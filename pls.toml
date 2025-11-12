@@ -1,0 +1,93 @@
+# pls.toml - Task runner configuration for specta
+# https://github.com/james-w/pls
+
+[globals]
+go_test_flags = "-v -race"
+go_build_flags = "-v"
+
+# Test commands
+[command.exec.test]
+description = "Run all tests"
+command = "go test {globals.go_test_flags} ./..."
+
+[command.exec.test-short]
+description = "Run all tests (short mode)"
+command = "go test -short {globals.go_test_flags} ./..."
+
+[command.exec.test-example]
+description = "Run example package tests"
+command = "go test {globals.go_test_flags} ./example"
+
+[command.exec.test-showcase]
+description = "Run showcase package tests"
+command = "go test {globals.go_test_flags} ./showcase"
+
+[command.exec.test-coverage]
+description = "Run tests with coverage report"
+command = "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
+
+# Code generation
+[command.exec.generate]
+description = "Run code generator for all testgen.yaml files"
+command = "go run ./cmd/main.go"
+
+[command.exec.generate-example]
+description = "Generate test code for example package"
+command = "go run ./cmd/main.go -config ./example/testgen.yaml"
+
+[command.exec.generate-showcase]
+description = "Generate test code for showcase package"
+command = "go run ./cmd/main.go -config ./showcase/testgen.yaml"
+
+# Linting and formatting
+[command.exec.lint]
+description = "Run golangci-lint"
+command = "golangci-lint run"
+
+[command.exec.lint-fix]
+description = "Run golangci-lint with auto-fix"
+command = "golangci-lint run --fix"
+
+[command.exec.fmt]
+description = "Format all Go code"
+command = "gofmt -s -w ."
+
+[command.exec.fmt-check]
+description = "Check if code is formatted"
+command = "test -z \"$(gofmt -s -l .)\""
+
+# Build commands
+[command.exec.build]
+description = "Build the code generator"
+command = "go build {globals.go_build_flags} -o bin/specta-gen ./cmd/main.go"
+
+[command.exec.build-all]
+description = "Build and verify all packages compile"
+command = "go build {globals.go_build_flags} ./..."
+
+# Verification commands (for CI)
+# Note: Using shell chaining (&&) for fail-fast behavior
+[command.exec.verify]
+description = "Run all verification checks (fmt, lint, test)"
+command = "test -z \"$(gofmt -s -l .)\" && golangci-lint run && go test {globals.go_test_flags} ./..."
+
+[command.exec.ci]
+description = "Run full CI pipeline (fmt, lint, generate, test with coverage)"
+command = "test -z \"$(gofmt -s -l .)\" && golangci-lint run && go run ./cmd/main.go && go test -coverprofile=coverage.out ./..."
+
+# Development helpers
+[command.exec.clean]
+description = "Clean build artifacts and coverage reports"
+command = "rm -rf bin/ coverage.out coverage.html"
+
+[command.exec.deps]
+description = "Download Go dependencies"
+command = "go mod download"
+
+[command.exec.tidy]
+description = "Tidy Go modules"
+command = "go mod tidy"
+
+# To watch tests or generation, use:
+#   pls watch test
+#   pls watch generate
