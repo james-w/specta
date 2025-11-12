@@ -86,7 +86,7 @@ type TestType struct {
 	}
 
 	cfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles,
+		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedImports | packages.NeedDeps,
 		Dir:  tmpDir,
 	}
 
