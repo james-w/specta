@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	testgen "github.com/james-w/specta"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -191,9 +192,7 @@ type TestType struct {
 			gotNorm := strings.Join(strings.Fields(got), " ")
 			wantNorm := strings.Join(strings.Fields(tt.want), " ")
 
-			if gotNorm != wantNorm {
-				t.Errorf("qualifyTypeExpr() = %q, want %q", got, tt.want)
-			}
+			testgen.AssertThat(t, gotNorm, testgen.Equal(wantNorm))
 		})
 	}
 }
@@ -228,9 +227,7 @@ type User struct { Name string }
 
 	// Should fall back to string representation
 	result := qualifyTypeExpr(pkg, userIdent, "test")
-	if result == "" {
-		t.Error("qualifyTypeExpr should fall back to string representation when TypeInfo is nil")
-	}
+	testgen.AssertThat(t, result, testgen.Not(testgen.Equal("")))
 }
 
 func TestIsPrimitiveType(t *testing.T) {
@@ -279,9 +276,7 @@ func TestIsPrimitiveType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := isPrimitiveType(tt.typeName)
-			if got != tt.want {
-				t.Errorf("isPrimitiveType(%q) = %v, want %v", tt.typeName, got, tt.want)
-			}
+			testgen.AssertThat(t, got, testgen.Equal(tt.want))
 		})
 	}
 }
