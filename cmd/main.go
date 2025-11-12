@@ -819,7 +819,7 @@ func verifyFilesAsPackage(files map[string][]byte) error {
 	}
 
 	cfg := &packages.Config{
-		Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
+		Mode:    packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
 		Overlay: overlay,
 	}
 

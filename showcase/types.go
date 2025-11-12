@@ -184,8 +184,8 @@ type Member struct {
 type Organization struct {
 	ID       string
 	Name     string
-	CEO      *User         // Pointer to struct
-	Teams    []Team        // Slice of structs with circular deps
-	Members  []Member      // Another slice of structs
+	CEO      *User    // Pointer to struct
+	Teams    []Team   // Slice of structs with circular deps
+	Members  []Member // Another slice of structs
 	Metadata map[string]string
 }
