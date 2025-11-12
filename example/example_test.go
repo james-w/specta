@@ -6,6 +6,7 @@ import (
 	"github.com/james-w/specta"
 	"github.com/james-w/specta/example"
 	"github.com/james-w/specta/example/factory"
+	"github.com/james-w/specta/testlib"
 )
 
 // ExampleUserViewMatcher_singleFieldMismatch demonstrates the structured diff output when a single field doesn't match.
@@ -330,30 +331,28 @@ func ExampleAllOf_failure() {
 // ExampleAssertThat_expressionCapture demonstrates how AssertThat captures and displays
 // the actual expression that was tested using AST parsing.
 func ExampleAssertThat_expressionCapture() {
+	spy := testlib.NewSpy()
 	user := example.UserView{Name: "Bob"}
 
-	// The expression "user.Name" will be captured and shown in the error
-	result := specta.Equal("Alice").Matches(user.Name)
+	// AssertThat captures "user.Name" from the AST and includes it in the error
+	specta.AssertThat(spy, user.Name, specta.Equal("Alice"))
 
-	if !result.Matched {
-		// This shows what happens with a simple expression
-		fmt.Printf("user.Name: %s\n", result.Message)
-	}
+	// Print what AssertThat output
+	fmt.Println(spy.Errors[0])
 	// Output:
 	// user.Name: expected "Alice" but got "Bob"
 }
 
 // ExampleAssertThat_complexExpression demonstrates AST capture with a complex expression.
 func ExampleAssertThat_complexExpression() {
+	spy := testlib.NewSpy()
 	p := specta.New()
 	user := factory.UserView().Name("Alice").Score(42).Build(p)
 
-	// Complex expressions like field access or arithmetic are captured
-	result := specta.GreaterThan(50).Matches(user.Score)
+	// Complex expressions like field access are captured
+	specta.AssertThat(spy, user.Score, specta.GreaterThan(50))
 
-	if !result.Matched {
-		fmt.Printf("user.Score: %s\n", result.Message)
-	}
+	fmt.Println(spy.Errors[0])
 	// Output:
 	// user.Score: expected value > 50 but got 42
 }
@@ -361,6 +360,7 @@ func ExampleAssertThat_complexExpression() {
 // ExampleAssertThat_structuredDiffWithExpression demonstrates how the expression
 // is displayed as a header for multi-line structured diffs.
 func ExampleAssertThat_structuredDiffWithExpression() {
+	spy := testlib.NewSpy()
 	p := specta.New()
 	actual := factory.UserView().Name("Bob").Score(50).Build(p)
 
@@ -370,11 +370,9 @@ func ExampleAssertThat_structuredDiffWithExpression() {
 		Score(specta.GreaterThan(90)).
 		Matcher()
 
-	result := matcher.Matches(actual)
-	if !result.Matched {
-		// This demonstrates multi-line output with expression header
-		fmt.Printf("%s didn't match:\n%s\n", "actual", result.Message)
-	}
+	specta.AssertThat(spy, actual, matcher)
+
+	fmt.Println(spy.Errors[0])
 	// Output:
 	// actual didn't match:
 	// UserView {
