@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/format"
 	"go/printer"
+	"go/types"
 	"log"
 	"os"
 	"path/filepath"
@@ -341,18 +342,19 @@ func findGetterMethod(pkg *packages.Package, typeName string, methodName string)
 }
 
 // analyzeGetterMethod extracts the return type from a getter method
-func analyzeGetterMethod(fn *ast.FuncDecl, pkg *packages.Package) string {
+// Returns both the AST expression and a string representation (for backwards compatibility)
+func analyzeGetterMethod(fn *ast.FuncDecl, pkg *packages.Package) (string, ast.Expr) {
 	if fn.Type == nil || fn.Type.Results == nil || len(fn.Type.Results.List) == 0 {
-		return ""
+		return "", nil
 	}
 
 	// Get first return type
 	result := fn.Type.Results.List[0]
 	var buf bytes.Buffer
 	if err := printer.Fprint(&buf, pkg.Fset, result.Type); err != nil {
-		return ""
+		return "", nil
 	}
-	return buf.String()
+	return buf.String(), result.Type
 }
 
 func processTarget(cfg *Config, tgt struct {
@@ -383,7 +385,7 @@ func processTarget(cfg *Config, tgt struct {
 
 func loadPackage(packagePath string) (*packages.Package, error) {
 	pkgCfg := &packages.Config{
-		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedFiles | packages.NeedImports | packages.NeedDeps,
+		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedFiles | packages.NeedImports | packages.NeedDeps,
 		Dir:  ".",
 	}
 	pkgs, err := packages.Load(pkgCfg, packagePath)
@@ -522,14 +524,14 @@ func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, type
 			return fmt.Errorf("type %s: getter method %s not found (configured in types.%s.matchers)",
 				typeName, mf.Getter, typeName)
 		}
-		returnType := analyzeGetterMethod(getter, pkg)
-		if returnType == "" {
+		returnType, returnTypeExpr := analyzeGetterMethod(getter, pkg)
+		if returnType == "" || returnTypeExpr == nil {
 			return fmt.Errorf("type %s: getter method %s has invalid signature (expected exactly 1 return value)",
 				typeName, mf.Getter)
 		}
 
-		// Qualify custom types with package name
-		qualifiedReturnType := qualifyReturnType(returnType, d.ParentPackage)
+		// Qualify custom types with package name using go/types
+		qualifiedReturnType := qualifyTypeExpr(pkg, returnTypeExpr, d.ParentPackage)
 
 		d.GetterMatchers = append(d.GetterMatchers, GetterInfo{
 			Name:       mf.Name,
@@ -540,41 +542,35 @@ func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, type
 	return nil
 }
 
-func qualifyReturnType(returnType, parentPackage string) string {
-	// Check if it's a primitive type that doesn't need qualification
-	if isPrimitiveType(returnType) {
-		return returnType
+// qualifyTypeExpr uses go/types to properly qualify a type expression.
+// This handles all Go type patterns correctly: functions, arrays, maps, channels, etc.
+func qualifyTypeExpr(pkg *packages.Package, expr ast.Expr, parentPackage string) string {
+	// Get the type information from the type checker
+	typ := pkg.TypesInfo.TypeOf(expr)
+	if typ == nil {
+		// Fallback: use printer to get string representation
+		var buf bytes.Buffer
+		if err := printer.Fprint(&buf, pkg.Fset, expr); err != nil {
+			return ""
+		}
+		return buf.String()
 	}
 
-	// Handle pointer types
-	if strings.HasPrefix(returnType, "*") {
-		elemType := strings.TrimPrefix(returnType, "*")
-		return "*" + qualifyReturnType(elemType, parentPackage)
+	// Create a qualifier function that adds package prefix for types in parentPackage
+	qualifier := func(p *types.Package) string {
+		if p == nil {
+			return ""
+		}
+		// If this is the parent package we're generating for, use the package name
+		if p.Path() == pkg.PkgPath {
+			return parentPackage
+		}
+		// For other packages, use their name (e.g., "time" for time.Time)
+		return p.Name()
 	}
 
-	// Handle slice types
-	if strings.HasPrefix(returnType, "[]") {
-		elemType := strings.TrimPrefix(returnType, "[]")
-		return "[]" + qualifyReturnType(elemType, parentPackage)
-	}
-
-	// Handle map types: map[K]V
-	if strings.HasPrefix(returnType, "map[") {
-		return qualifyMapType(returnType, parentPackage)
-	}
-
-	// Handle channel types: chan T, <-chan T, chan<- T
-	if strings.HasPrefix(returnType, "chan ") || strings.HasPrefix(returnType, "<-chan ") || strings.HasPrefix(returnType, "chan<- ") {
-		return qualifyChannelType(returnType, parentPackage)
-	}
-
-	// Check if already qualified (contains a dot)
-	if strings.Contains(returnType, ".") {
-		return returnType
-	}
-
-	// Qualify custom types with parent package
-	return parentPackage + "." + returnType
+	// Use types.TypeString with our qualifier to get the fully qualified type
+	return types.TypeString(typ, qualifier)
 }
 
 func isPrimitiveType(typeName string) bool {
@@ -595,59 +591,6 @@ func isPrimitiveType(typeName string) bool {
 		"time.Duration": true,
 	}
 	return primitives[typeName]
-}
-
-func qualifyMapType(mapType, parentPackage string) string {
-	// Parse map[K]V syntax
-	// Find the matching closing bracket for the key type
-	if !strings.HasPrefix(mapType, "map[") {
-		return mapType
-	}
-
-	rest := mapType[4:] // Skip "map["
-	depth := 1
-	keyEnd := -1
-
-	for i, ch := range rest {
-		if ch == '[' {
-			depth++
-		} else if ch == ']' {
-			depth--
-			if depth == 0 {
-				keyEnd = i
-				break
-			}
-		}
-	}
-
-	if keyEnd == -1 {
-		return mapType // Malformed, return as-is
-	}
-
-	keyType := rest[:keyEnd]
-	valueType := rest[keyEnd+1:] // Skip the ']'
-
-	qualifiedKey := qualifyReturnType(keyType, parentPackage)
-	qualifiedValue := qualifyReturnType(valueType, parentPackage)
-
-	return "map[" + qualifiedKey + "]" + qualifiedValue
-}
-
-func qualifyChannelType(chanType, parentPackage string) string {
-	// Handle different channel types
-	if strings.HasPrefix(chanType, "<-chan ") {
-		elemType := strings.TrimPrefix(chanType, "<-chan ")
-		return "<-chan " + qualifyReturnType(elemType, parentPackage)
-	}
-	if strings.HasPrefix(chanType, "chan<- ") {
-		elemType := strings.TrimPrefix(chanType, "chan<- ")
-		return "chan<- " + qualifyReturnType(elemType, parentPackage)
-	}
-	if strings.HasPrefix(chanType, "chan ") {
-		elemType := strings.TrimPrefix(chanType, "chan ")
-		return "chan " + qualifyReturnType(elemType, parentPackage)
-	}
-	return chanType
 }
 
 func generateFiles(d data, dirs struct{ factory, spec string }, typeName string) error {
