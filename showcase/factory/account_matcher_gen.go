@@ -18,7 +18,7 @@ type AccountMatcher struct {
 // AccountMatches creates a new AccountMatcher for matching Account instances.
 //
 // This matcher provides methods for properties accessed via getters:
-//   - User: matches GetUser() → User
+//   - User: matches GetUser() → showcase.User
 //   - Status: matches GetStatus() → string
 //
 // Example:
@@ -63,6 +63,7 @@ func (m AccountMatcher) Matcher() testgen.Matcher[showcase.Account] {
 		// Check matchers using cached values and store results
 		fieldResults := make(map[string]*testgen.MatchResult)
 		hasFailures := false
+
 		if m.userMatcher != nil {
 			result := m.userMatcher.Matches(userValue)
 			fieldResults["User"] = &result
@@ -70,6 +71,7 @@ func (m AccountMatcher) Matcher() testgen.Matcher[showcase.Account] {
 				hasFailures = true
 			}
 		}
+
 		if m.statusMatcher != nil {
 			result := m.statusMatcher.Matches(statusValue)
 			fieldResults["Status"] = &result
