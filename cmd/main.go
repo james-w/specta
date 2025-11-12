@@ -546,7 +546,10 @@ func analyzeGetterMatchers(d *data, pkg *packages.Package, typeName string, type
 // This handles all Go type patterns correctly: functions, arrays, maps, channels, etc.
 func qualifyTypeExpr(pkg *packages.Package, expr ast.Expr, parentPackage string) string {
 	// Get the type information from the type checker
-	typ := pkg.TypesInfo.TypeOf(expr)
+	var typ types.Type
+	if pkg.TypesInfo != nil {
+		typ = pkg.TypesInfo.TypeOf(expr)
+	}
 	if typ == nil {
 		// Fallback: use printer to get string representation
 		var buf bytes.Buffer
@@ -556,21 +559,21 @@ func qualifyTypeExpr(pkg *packages.Package, expr ast.Expr, parentPackage string)
 		return buf.String()
 	}
 
-	// Create a qualifier function that adds package prefix for types in parentPackage
-	qualifier := func(p *types.Package) string {
-		if p == nil {
-			return ""
-		}
-		// If this is the parent package we're generating for, use the package name
-		if p.Path() == pkg.PkgPath {
-			return parentPackage
-		}
-		// For other packages, use their name (e.g., "time" for time.Time)
-		return p.Name()
+	// Create a qualifier function that adds package prefix for all types.
+	// We use types.RelativeTo(nil) to get a qualifier that qualifies all packages
+	// with their full import path.
+	qualifier := types.RelativeTo(nil) // nil package means qualify everything
+
+	result := types.TypeString(typ, qualifier)
+
+	// Replace the full package path with the desired package name
+	// For example, "github.com/james-w/specta/showcase.User" becomes "showcase.User"
+	pkgPath := pkg.PkgPath
+	if pkgPath != "" {
+		result = strings.ReplaceAll(result, pkgPath+".", parentPackage+".")
 	}
 
-	// Use types.TypeString with our qualifier to get the fully qualified type
-	return types.TypeString(typ, qualifier)
+	return result
 }
 
 func isPrimitiveType(typeName string) bool {
