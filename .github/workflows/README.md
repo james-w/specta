@@ -22,14 +22,21 @@ The main CI workflow runs on every push to `master`/`main` and on all pull reque
 - **Annotations**: Test failures are automatically annotated in PRs with line numbers
 - **Coverage**: Only unit tests contribute to coverage metrics (not integration tests)
 
+#### Verify Generated Files
+- **Depends on**: Build job (needs the binary artifact)
+- Downloads the `specta` binary built in the Build job
+- Generates test fixtures for `example/` and `showcase/` directories
+- Verifies generated files match committed versions
+- Runs once (no matrix)
+- **Purpose**: Ensures developers have committed the latest generated code
+
 #### Integration Tests
 - **Depends on**: Build job (needs the binary artifact)
 - Tests against multiple Go versions (1.22, 1.23)
 - Downloads the `specta` binary built in the Build job
 - Generates test fixtures for `example/` and `showcase/` directories
-- Verifies generated files match committed versions
-- Runs integration tests to ensure generated code works across Go versions
-- **Purpose**: Validates that the binary produces correct output and generated code compiles with supported Go versions
+- Runs integration tests to ensure generated code compiles and works across Go versions
+- **Purpose**: Validates that generated code is compatible with supported Go versions
 
 #### Lint
 - Runs golangci-lint with comprehensive linters
@@ -61,7 +68,8 @@ The main CI workflow runs on every push to `master`/`main` and on all pull reque
 ### Parallel Execution
 Most jobs run in parallel for faster CI times:
 - Build, Unit Tests, Lint, Format Check, Security Scan, and Dependency Check all run simultaneously
-- Only Integration Tests wait for Build (since they need the binary artifact)
+- Verify Generated Files and Integration Tests wait for Build (since they need the binary artifact)
+- Verify Generated Files and Integration Tests run in parallel with each other
 
 ### Test Strategy
 - **Unit Tests**: Test source code with Go 1.23, collect coverage
@@ -92,11 +100,12 @@ The following jobs provide inline annotations in PRs:
 - **Test failures**: Stack traces are linked to source lines
 - **gosec**: Security issues are annotated
 - **Format check**: Shows which files need formatting
-- **Integration tests**: Shows diffs if generated code is out of date
+- **Verify Generated Files**: Shows diffs if generated code is out of date
 
 ### Binary Artifacts
 The Build job uploads the `specta` binary as an artifact:
 - Available for download from GitHub Actions UI
+- Used by Verify Generated Files to check committed code
 - Used by Integration Tests to generate fixtures
 - Retained for 30 days
 
@@ -109,7 +118,7 @@ Run the same checks locally before pushing:
 go install ./cmd/...
 
 # Run unit tests
-go test -v -race ./. ./cmd/...
+go test -v -race . ./cmd/...
 
 # Generate test fixtures (requires specta in PATH)
 go generate ./...
