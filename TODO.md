@@ -341,48 +341,65 @@ func BankAccountMatches() BankAccountMatcher
 
 ## Medium Priority
 
-### 7. Additional Matcher Types
+### 7. Additional Matcher Types (COMPLETED)
 **Specific matchers beyond collections**
 
-#### Nil/Pointer Matchers
+**Completed:**
+- [x] Implemented 3 nil/pointer matchers
+- [x] Implemented 5 error matchers
+- [x] Implemented 4 time matchers
+- [x] Implemented 2 regex matchers
+- [x] All matchers include Expected/Actual values for structured diffs
+- [x] Comprehensive test coverage (70+ test cases)
+- [x] Clear, descriptive error messages
+
+**Implemented Matchers:**
+
+#### Nil/Pointer Matchers (3 total)
 ```go
-IsNil[T any]() Matcher[*T]
-IsNotNil[T any]() Matcher[*T]
-PointsTo[T any](matcher Matcher[T]) Matcher[*T]
+IsNil[T any]() Matcher[*T]              // Checks if pointer is nil
+IsNotNil[T any]() Matcher[*T]           // Checks if pointer is non-nil
+PointsTo[T any](matcher Matcher[T]) Matcher[*T]  // Matches dereferenced value
 ```
 
-#### Error Matchers
+#### Error Matchers (5 total)
 ```go
-IsError() Matcher[error]
-NoErr() Matcher[error] // Not(IsError()) would be more typing for something super-common, should we even have a replacement for AssertThat specifically for this?
-ErrorContains(substr string) Matcher[error]
-ErrorIs(target error) Matcher[error]
-ErrorAs[T error](target *T) Matcher[error]
+IsError() Matcher[error]                 // Checks if error is non-nil
+NoErr() Matcher[error]                   // Checks if error is nil (common case)
+ErrorContains(substr string) Matcher[error]  // Error message contains substring
+ErrorIs(target error) Matcher[error]     // Uses errors.Is for chain checking
+ErrorAs[T error](target *T) Matcher[error]   // Uses errors.As for type checking
 ```
 
-#### Time Matchers
+#### Time Matchers (4 total)
 ```go
-After(t time.Time) Matcher[time.Time]
-Before(t time.Time) Matcher[time.Time]
-Between(start, end time.Time) Matcher[time.Time]
-WithinDuration(t time.Time, delta time.Duration) Matcher[time.Time]
+After(t time.Time) Matcher[time.Time]    // Time is after expected
+Before(t time.Time) Matcher[time.Time]   // Time is before expected
+Between(start, end time.Time) Matcher[time.Time]  // Time in range (inclusive)
+WithinDuration(t time.Time, delta time.Duration) Matcher[time.Time]  // Fuzzy comparison
 ```
 
-#### Regex Matchers
+#### Regex Matchers (2 total)
 ```go
-MatchesRegex(pattern string) Matcher[string]
-MatchesPattern(regex *regexp.Regexp) Matcher[string]
+MatchesRegex(pattern string) Matcher[string]  // Compiles and matches pattern
+MatchesPattern(regex *regexp.Regexp) Matcher[string]  // Uses pre-compiled regex
 ```
 
-**Tasks:**
-- [ ] Implement nil/pointer matchers
-- [ ] Implement error matchers
-- [ ] Implement time matchers
-- [ ] Implement regex matchers
-- [ ] Add comprehensive tests
-- [ ] Document with examples
+**Implementation Notes:**
+- All pointer matchers handle nil gracefully
+- Error matchers properly integrate with Go 1.13+ error wrapping (errors.Is, errors.As)
+- NoErr is a convenience for the very common "no error" assertion
+- Time matchers support various comparison modes (absolute, relative, fuzzy)
+- WithinDuration useful for fuzzy time comparisons where exact equality isn't practical
+- Regex matchers support both string patterns and pre-compiled regexes for efficiency
+- All matchers provide clear error messages with context
 
-**Commit point:** "feat: add specialized matchers (nil, error, time, regex)"
+**Files Modified:**
+- `matchers_specialized.go` - New file with all specialized matchers
+- `matchers_specialized_test.go` - Comprehensive test suite (70+ tests)
+- `TODO.md` - This file
+
+**Commit:** "feat: add specialized matchers (nil, error, time, regex)"
 
 ---
 
