@@ -154,3 +154,38 @@ func (a Account) GetUser() User {
 func (a Account) GetStatus() string {
 	return a.status
 }
+
+// Profile demonstrates pointer to struct as child
+// The manager field can be nil
+type Profile struct {
+	ID          string
+	Name        string
+	Description string
+	Manager     *User // Pointer to another struct
+	IsPublic    bool
+}
+
+// Team demonstrates circular dependency (Team has Members, Member has Team)
+type Team struct {
+	ID      string
+	Name    string
+	Members []Member // Slice of structs
+}
+
+// Member demonstrates circular dependency (references Team)
+type Member struct {
+	ID     string
+	Name   string
+	TeamID string
+	Team   *Team // Circular reference back to Team
+}
+
+// Organization demonstrates multiple complex patterns
+type Organization struct {
+	ID       string
+	Name     string
+	CEO      *User         // Pointer to struct
+	Teams    []Team        // Slice of structs with circular deps
+	Members  []Member      // Another slice of structs
+	Metadata map[string]string
+}

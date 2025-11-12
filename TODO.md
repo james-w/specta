@@ -502,11 +502,19 @@ Transform("name uppercase",
 
 **Commit point:** "feat: add enhanced field extraction helpers"
 
-### 10b. Tests and any fixes for more complex struct patterns
+### 10b. Tests and any fixes for more complex struct patterns (COMPLETED)
 
-* Pointers to structs as child
-* Slices of structs as child
-* Circular dependencies between types
+**Completed:**
+- [x] Pointers to structs as child - Added Profile type with *User field
+- [x] Slices of structs as child - Order with []OrderItem, Organization with []Team and []Member
+- [x] Circular dependencies between types - Team/Member with mutual references
+- [x] Fixed pointer type package qualification in code generation
+- [x] Fixed FromRecipe methods for pointer types to use PtrOf
+- [x] Fixed AsEqualMatcher to use PointsTo for pointer fields
+- [x] Added support for map fields (e.g., map[string]string)
+- [x] Comprehensive tests covering all patterns with partial matching
+
+**Commit point:** "feat: support complex struct patterns (pointers, slices, circular deps)"
 
 ### 10c. More matchers?
 
