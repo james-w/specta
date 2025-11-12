@@ -14,8 +14,118 @@ permissions:
   actions: read
 
 jobs:
-  test:
-    name: Test
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Build cmd
+        run: go build -v -o specta ./cmd/...
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: specta-binary
+          path: specta
+          retention-days: 30
+
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic . ./cmd/...
+
+      - name: Generate coverage report
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.out
+            coverage.html
+          retention-days: 30
+
+      - name: Check test coverage threshold
+        run: |
+          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: $coverage%"
+          if (( $(echo "$coverage < 70" | bc -l) )); then
+            echo "::warning::Coverage is below 70% (current: $coverage%)"
+          fi
+
+  verify-generated:
+    name: Verify Generated Files
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: specta-binary
+
+      - name: Make binary executable
+        run: chmod +x specta
+
+      - name: Generate test files for example
+        working-directory: example
+        run: ../specta -config testgen.yaml
+
+      - name: Generate test files for showcase
+        working-directory: showcase
+        run: ../specta -config testgen.yaml
+
+      - name: Check generated files match committed versions
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Generated files differ from committed versions. Please run 'go generate ./...' and commit the changes"
+            git diff
+            exit 1
+          fi
+
+  integration-test:
+    name: Integration Tests
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -32,37 +142,24 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Verify dependencies
-        run: go mod verify
-
-      - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-
-      - name: Generate coverage report
-        if: matrix.go-version == '1.22'
-        run: go tool cover -html=coverage.out -o coverage.html
-
-      - name: Upload coverage report
-        if: matrix.go-version == '1.22'
-        uses: actions/upload-artifact@v4
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
         with:
-          name: coverage-report
-          path: |
-            coverage.out
-            coverage.html
-          retention-days: 30
+          name: specta-binary
 
-      - name: Check test coverage threshold
-        if: matrix.go-version == '1.22'
-        run: |
-          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          echo "Total coverage: $coverage%"
-          if (( $(echo "$coverage < 70" | bc -l) )); then
-            echo "::warning::Coverage is below 70% (current: $coverage%)"
-          fi
+      - name: Make binary executable
+        run: chmod +x specta
+
+      - name: Generate test files for example
+        working-directory: example
+        run: ../specta -config testgen.yaml
+
+      - name: Generate test files for showcase
+        working-directory: showcase
+        run: ../specta -config testgen.yaml
+
+      - name: Run integration tests
+        run: go test -v -race ./example/... ./showcase/...
 
   lint:
     name: Lint
@@ -75,7 +172,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
           cache-dependency-path: go.sum
 
@@ -99,7 +196,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
           cache-dependency-path: go.sum
 
@@ -116,56 +213,6 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
-  generate:
-    name: Go Generate Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Run go generate
-        run: go generate ./... || true
-
-      - name: Check for changes
-        run: |
-          if ! git diff --exit-code; then
-            echo "::error::go generate produced changes. Please run 'go generate ./...' and commit the changes"
-            git diff
-            exit 1
-          fi
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Build
-        run: go build -v ./...
-
-      - name: Build cmd
-        run: go build -v -o /tmp/testgen ./cmd/...
-
   security:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -177,7 +224,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
           cache: true
           cache-dependency-path: go.sum
 
