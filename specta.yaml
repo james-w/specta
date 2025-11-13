@@ -3,7 +3,6 @@ targets:
   - package: ./example
     types:
       include: [UserView, Parent]
-    file_suffix: _testgen_gen.go
 
 defaults:
   primitives:
