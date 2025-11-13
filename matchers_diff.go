@@ -45,7 +45,7 @@ func BuildMatcherStructDiff(typeName string, fieldValues map[string]any, fieldRe
 
 // formatMatchedField formats a field that passed its matcher.
 func formatMatchedField(name string, value any, indent int) string {
-	symbol := colorize("✓", colorGreen)
+	symbol := colorize("✓", colorizeGreen)
 	indentStr := strings.Repeat("  ", indent)
 	valueStr := formatValue(value, indent)
 	return fmt.Sprintf("%s%s %s: %s\n", indentStr, symbol, name, valueStr)
@@ -53,7 +53,7 @@ func formatMatchedField(name string, value any, indent int) string {
 
 // formatFailedField formats a field that failed its matcher.
 func formatFailedField(name string, value any, result *MatchResult, indent int) string {
-	symbol := colorize("✗", colorRed)
+	symbol := colorize("✗", colorizeRed)
 	indentStr := strings.Repeat("  ", indent)
 
 	// Check if message is multi-line (nested struct diff)
@@ -75,7 +75,7 @@ func formatFailedField(name string, value any, result *MatchResult, indent int) 
 
 // formatUncheckedField formats a field that had no matcher.
 func formatUncheckedField(name string, value any, indent int) string {
-	symbol := colorize("~", colorGrey)
+	symbol := colorize("~", colorizeGrey)
 	indentStr := strings.Repeat("  ", indent)
 	valueStr := formatValue(value, indent)
 	return fmt.Sprintf("%s%s %s: %s\n", indentStr, symbol, name, valueStr)
