@@ -14,8 +14,76 @@ permissions:
   actions: read
 
 jobs:
-  build-and-test:
-    name: Build and Test (Core)
+  build:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for goreleaser
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run GoReleaser (snapshot mode)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --snapshot --clean --skip=publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload all binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: dist/
+          retention-days: 7
+
+      # Upload platform-specific binaries for testing
+      - name: Upload Linux AMD64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: specta-linux-amd64
+          path: dist/specta_linux_amd64_v1/specta
+          retention-days: 7
+
+      - name: Upload Darwin AMD64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: specta-darwin-amd64
+          path: dist/specta_darwin_amd64_v1/specta
+          retention-days: 7
+
+      - name: Upload Darwin ARM64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: specta-darwin-arm64
+          path: dist/specta_darwin_arm64_*/specta
+          retention-days: 7
+
+      - name: Upload Windows AMD64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: specta-windows-amd64
+          path: dist/specta_windows_amd64_v1/specta.exe
+          retention-days: 7
+
+  test-core:
+    name: Test Core Library
     runs-on: ubuntu-latest
 
     steps:
@@ -31,15 +99,6 @@ jobs:
             go.sum
             example/go.sum
             showcase/go.sum
-
-      - name: Verify dependencies
-        run: go mod verify
-
-      - name: Build
-        run: go build -v ./...
-
-      - name: Build cmd
-        run: go build -v -o specta ./cmd/...
 
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic . ./cmd/...
@@ -64,16 +123,9 @@ jobs:
             echo "::warning::Coverage is below 70% (current: $coverage%)"
           fi
 
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: specta-binary
-          path: specta
-          retention-days: 30
-
   verify-generated:
     name: Verify Generated Files
-    needs: build-and-test
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -90,10 +142,10 @@ jobs:
             example/go.sum
             showcase/go.sum
 
-      - name: Download binary artifact
+      - name: Download Linux binary
         uses: actions/download-artifact@v4
         with:
-          name: specta-binary
+          name: specta-linux-amd64
 
       - name: Make binary executable
         run: chmod +x specta
@@ -114,13 +166,34 @@ jobs:
             exit 1
           fi
 
-  test-example:
-    name: Test Example Module
-    needs: build-and-test
-    runs-on: ubuntu-latest
+  integration-tests:
+    name: Integration Tests (${{ matrix.platform }} / Go ${{ matrix.go-version }})
+    needs: build
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        go-version: ['1.22', '1.23']
+        include:
+          # Linux with Go 1.22 and 1.23
+          - platform: linux-amd64
+            os: ubuntu-latest
+            artifact: specta-linux-amd64
+            go-version: '1.22'
+          - platform: linux-amd64
+            os: ubuntu-latest
+            artifact: specta-linux-amd64
+            go-version: '1.23'
+          # macOS with Go 1.23 only
+          - platform: darwin-arm64
+            os: macos-latest
+            artifact: specta-darwin-arm64
+            go-version: '1.23'
+          # Windows with Go 1.23 only
+          - platform: windows-amd64
+            os: windows-latest
+            artifact: specta-windows-amd64
+            go-version: '1.23'
+            binary-name: specta.exe
 
     steps:
       - name: Checkout code
@@ -134,57 +207,42 @@ jobs:
           cache-dependency-path: |
             go.sum
             example/go.sum
+            showcase/go.sum
 
-      - name: Download binary artifact
+      - name: Download binary for ${{ matrix.platform }}
         uses: actions/download-artifact@v4
         with:
-          name: specta-binary
+          name: ${{ matrix.artifact }}
 
-      - name: Make binary executable
+      - name: Make binary executable (Unix)
+        if: runner.os != 'Windows'
         run: chmod +x specta
 
       - name: Generate test files for example
         working-directory: example
-        run: ../specta -config specta.yaml
-
-      - name: Run example module tests
-        working-directory: example
-        run: go test -v -race ./...
-
-  test-showcase:
-    name: Test Showcase Module
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ['1.22', '1.23']
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
-          cache: true
-          cache-dependency-path: |
-            go.sum
-            showcase/go.sum
-
-      - name: Download binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: specta-binary
-
-      - name: Make binary executable
-        run: chmod +x specta
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            ../specta.exe -config specta.yaml
+          else
+            ../specta -config specta.yaml
+          fi
 
       - name: Generate test files for showcase
         working-directory: showcase
-        run: ../specta -config specta.yaml
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            ../specta.exe -config specta.yaml
+          else
+            ../specta -config specta.yaml
+          fi
 
-      - name: Run showcase module tests
+      - name: Run example tests
+        working-directory: example
+        run: go test -v -race ./...
+
+      - name: Run showcase tests
         working-directory: showcase
         run: go test -v -race ./...
 
