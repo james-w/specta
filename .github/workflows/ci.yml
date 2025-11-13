@@ -61,13 +61,6 @@ jobs:
           path: dist/specta_linux_amd64_v1/specta
           retention-days: 7
 
-      - name: Upload Darwin AMD64 binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: specta-darwin-amd64
-          path: dist/specta_darwin_amd64_v1/specta
-          retention-days: 7
-
       - name: Upload Darwin ARM64 binary
         uses: actions/upload-artifact@v4
         with:

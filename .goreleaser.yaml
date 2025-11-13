@@ -2,8 +2,8 @@ version: 2
 
 before:
   hooks:
-    # Ensure dependencies are up to date
-    - go mod tidy
+    # Verify dependencies are correct
+    - go mod verify
 
 builds:
   - id: specta
@@ -23,11 +23,8 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      # Strip debug info and embed version
+      # Strip debug info
       - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
 
 archives:
   - id: specta
