@@ -839,33 +839,46 @@ func verifyFilesAsPackage(files map[string][]byte) error {
 	return nil
 }
 
-var specTmpl = template.Must(template.New("spec").Funcs(template.FuncMap{
-	"lower": func(s string) string {
-		if s == "" {
-			return s
-		}
-		r := []rune(s)
-		r[0] = []rune(strings.ToLower(string(r[0])))[0]
-		return string(r)
-	},
-	"isPrimitiveType": isPrimitiveType,
+// lower converts the first character of a string to lowercase
+func lower(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = []rune(strings.ToLower(string(r[0])))[0]
+	return string(r)
+}
+
+// buildReturnSignature constructs the return type signature for a constructor
+func buildReturnSignature(pkg string, typeName string, returns []string) string {
+	if len(returns) == 0 {
+		// No explicit returns means single return of the type
+		return pkg + "." + typeName
+	}
+	if len(returns) == 1 {
+		// Single return - could be just the type, or could be qualified
+		// First return is always the constructed type
+		return pkg + "." + typeName
+	}
+	// Multiple returns - (Type, error) or (Type, bool, error) etc
+	// First is the type, rest are passed through
+	parts := []string{pkg + "." + typeName}
+	parts = append(parts, returns[1:]...)
+	return "(" + strings.Join(parts, ", ") + ")"
+}
+
+// commonFuncMap returns the shared template functions used across all templates
+func commonFuncMap() template.FuncMap {
+	return template.FuncMap{
+		"lower":                lower,
+		"isPrimitiveType":      isPrimitiveType,
+		"buildReturnSignature": buildReturnSignature,
+		"hasPrefix":            strings.HasPrefix,
+	}
+}
+
+var specTmpl = template.Must(template.New("spec").Funcs(commonFuncMap()).Funcs(template.FuncMap{
 	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
-	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
-		if len(returns) == 0 {
-			// No explicit returns means single return of the type
-			return pkg + "." + typeName
-		}
-		if len(returns) == 1 {
-			// Single return - could be just the type, or could be qualified
-			// First return is always the constructed type
-			return pkg + "." + typeName
-		}
-		// Multiple returns - (Type, error) or (Type, bool, error) etc
-		// First is the type, rest are passed through
-		parts := []string{pkg + "." + typeName}
-		parts = append(parts, returns[1:]...)
-		return "(" + strings.Join(parts, ", ") + ")"
-	},
 	"qualifiedType": func(pkg string, f field) string {
 		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
 		return f.TypeExpr
@@ -1056,28 +1069,7 @@ func With{{$.TypeName}}{{.Name}}FromProvider(prov specta.Provider[{{qualifiedTyp
 {{- end}}
 `))
 
-var recipeTmpl = template.Must(template.New("recipe").Funcs(template.FuncMap{
-	"lower": func(s string) string {
-		if s == "" {
-			return s
-		}
-		r := []rune(s)
-		r[0] = []rune(strings.ToLower(string(r[0])))[0]
-		return string(r)
-	},
-	"isPrimitiveType": isPrimitiveType,
-	"hasPrefix":       strings.HasPrefix,
-	"buildReturnSignature": func(pkg string, typeName string, returns []string) string {
-		if len(returns) == 0 {
-			return pkg + "." + typeName
-		}
-		if len(returns) == 1 {
-			return pkg + "." + typeName
-		}
-		parts := []string{pkg + "." + typeName}
-		parts = append(parts, returns[1:]...)
-		return "(" + strings.Join(parts, ", ") + ")"
-	},
+var recipeTmpl = template.Must(template.New("recipe").Funcs(commonFuncMap()).Funcs(template.FuncMap{
 	"qualifiedType": func(pkg string, f field) string {
 		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
 		return f.TypeExpr
@@ -1427,16 +1419,7 @@ func (r {{.RecipeName}}) AsEqualMatcher() specta.Matcher[{{.ParentPackage}}.{{.T
 }
 `))
 
-var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
-	"isPrimitiveType": isPrimitiveType,
-	"lower": func(s string) string {
-		if s == "" {
-			return s
-		}
-		r := []rune(s)
-		r[0] = []rune(strings.ToLower(string(r[0])))[0]
-		return string(r)
-	},
+var matcherTmpl = template.Must(template.New("matcher").Funcs(commonFuncMap()).Funcs(template.FuncMap{
 	"qualifiedReturnType": func(pkg string, returnType string) string {
 		// If already qualified (contains .) or is a primitive, return as-is
 		if strings.Contains(returnType, ".") {
@@ -1460,7 +1443,6 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(template.FuncMap{
 		// Otherwise, qualify with package
 		return pkg + "." + returnType
 	},
-	"hasPrefix": strings.HasPrefix,
 	"qualifiedType": func(pkg string, f field) string {
 		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
 		return f.TypeExpr
