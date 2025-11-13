@@ -142,7 +142,7 @@ govulncheck ./...
 The project uses `go:generate` directives that assume `specta` is in your PATH:
 
 ```go
-//go:generate specta -config testgen.yaml
+//go:generate specta -config specta.yaml
 ```
 
 To run these locally:
