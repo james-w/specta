@@ -1,5 +1,0 @@
-63df759bcc07e2c0affb4d193cfda587a4ad468a7398e56c606785abf5cea759  specta_0.0.1-next_darwin_amd64.tar.gz
-b732fdf3cca549467e266e2c30c986218db19b4c25fe949a90d79f489568c4c9  specta_0.0.1-next_darwin_arm64.tar.gz
-5b57cf507b4388a5679d54e39850b87ea8496653bc9d49fb529ced817ab09c21  specta_0.0.1-next_linux_amd64.tar.gz
-c4f820771d25f14150338e8e03829b31503059c903537887be612b20dd31c0c3  specta_0.0.1-next_linux_arm64.tar.gz
-d49874f1ef037e67be0609765cb2aaf5598e9a62b3dc86b34bd43b79317b9d67  specta_0.0.1-next_windows_amd64.zip
