@@ -44,7 +44,6 @@ type Config struct {
 		Types   struct {
 			Include []string `yaml:"include"`
 		} `yaml:"types"`
-		FileSuffix string `yaml:"file_suffix"`
 	} `yaml:"targets"`
 }
 
@@ -168,9 +167,6 @@ func validateConfig(c *Config) error {
 	for i, target := range c.Targets {
 		if target.Package == "" {
 			return fmt.Errorf("targets[%d]: package is required", i)
-		}
-		if target.FileSuffix == "" {
-			return fmt.Errorf("targets[%d]: file_suffix is required", i)
 		}
 
 		// Check that types configured in global types section are in the include list
@@ -414,13 +410,8 @@ func processTarget(cfg *Config, tgt struct {
 	Types   struct {
 		Include []string `yaml:"include"`
 	} `yaml:"types"`
-	FileSuffix string `yaml:"file_suffix"`
 }) (targetStats, error) {
 	stats := targetStats{}
-
-	if tgt.FileSuffix == "" {
-		tgt.FileSuffix = "_testgen_gen.go"
-	}
 
 	fmt.Printf("%s %s\n", cyan("→"), bold(tgt.Package))
 

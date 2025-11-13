@@ -40,7 +40,6 @@ targets:
         - Team
         - Member
         - Organization
-    file_suffix: _gen.go
 
 defaults:
   primitives:
