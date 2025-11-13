@@ -1,32 +1,16 @@
 package specta
 
-import (
-	"fmt"
-	"os"
+import "github.com/fatih/color"
+
+// Color functions for matcher output.
+// These respect NO_COLOR, FORCE_COLOR env vars and TTY detection automatically.
+var (
+	colorizeGreen = color.New(color.FgGreen).SprintFunc()
+	colorizeRed   = color.New(color.FgRed).SprintFunc()
+	colorizeGrey  = color.New(color.FgHiBlack).SprintFunc()
 )
 
-// ANSI color codes
-const (
-	colorReset = 0
-	colorRed   = 31
-	colorGreen = 32
-	colorGrey  = 90
-)
-
-// isTerminal checks if stdout is connected to a terminal (TTY).
-func isTerminal() bool {
-	fileInfo, err := os.Stdout.Stat()
-	if err != nil {
-		return false
-	}
-	// Check if it's a character device (terminal)
-	return (fileInfo.Mode() & os.ModeCharDevice) != 0
-}
-
-// colorize wraps text with ANSI color codes if stdout is a terminal.
-func colorize(text string, colorCode int) string {
-	if !isTerminal() {
-		return text
-	}
-	return fmt.Sprintf("\x1b[%dm%s\x1b[%dm", colorCode, text, colorReset)
+// colorize wraps text with the appropriate color.
+func colorize(text string, colorFn func(...interface{}) string) string {
+	return colorFn(text)
 }

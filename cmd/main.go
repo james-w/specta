@@ -8,12 +8,13 @@ import (
 	"go/format"
 	"go/printer"
 	"go/types"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
+	"github.com/fatih/color"
 	"golang.org/x/tools/go/packages"
 	"gopkg.in/yaml.v3"
 )
@@ -47,21 +48,63 @@ type Config struct {
 	} `yaml:"targets"`
 }
 
+type targetStats struct {
+	filesGenerated int
+}
+
 var cfgPath = flag.String("config", "specta.yaml", "path to config (JSON for this skeleton)")
+
+// Color helpers
+var (
+	bold    = color.New(color.Bold).SprintFunc()
+	green   = color.New(color.FgGreen).SprintFunc()
+	cyan    = color.New(color.FgCyan).SprintFunc()
+	yellow  = color.New(color.FgYellow).SprintFunc()
+	red     = color.New(color.FgRed).SprintFunc()
+	faint   = color.New(color.Faint).SprintFunc()
+	success = color.New(color.FgGreen, color.Bold).SprintFunc()
+)
 
 func main() {
 	flag.Parse()
+	startTime := time.Now()
+
+	// Print header
+	fmt.Printf("\n%s\n", bold("specta code generator"))
+	fmt.Printf("%s %s\n\n", faint("Config:"), *cfgPath)
+
 	cfg, err := loadConfig(*cfgPath)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("%s %v\n", red("✗ Error:"), err)
+		os.Exit(1)
 	}
 
+	// Statistics
+	totalTypes := 0
+	totalFiles := 0
+
 	for _, t := range cfg.Targets {
-		if err := processTarget(cfg, t); err != nil {
-			log.Fatalf("target %s: %v", t.Package, err)
-		}
+		totalTypes += len(t.Types.Include)
 	}
-	log.Println("ok")
+
+	fmt.Printf("Processing %s in %s...\n\n",
+		bold(fmt.Sprintf("%d types", totalTypes)),
+		bold(fmt.Sprintf("%d targets", len(cfg.Targets))))
+
+	for _, t := range cfg.Targets {
+		stats, err := processTarget(cfg, t)
+		if err != nil {
+			fmt.Printf("%s %s: %v\n", red("✗"), t.Package, err)
+			os.Exit(1)
+		}
+		totalFiles += stats.filesGenerated
+	}
+
+	elapsed := time.Since(startTime)
+	fmt.Printf("\n%s Generated %s in %s\n",
+		success("✓"),
+		bold(fmt.Sprintf("%d files", totalFiles)),
+		faint(elapsed.Round(time.Millisecond).String()))
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -373,24 +416,33 @@ func processTarget(cfg *Config, tgt struct {
 		Include []string `yaml:"include"`
 	} `yaml:"types"`
 	FileSuffix string `yaml:"file_suffix"`
-}) error {
+}) (targetStats, error) {
+	stats := targetStats{}
+
 	if tgt.FileSuffix == "" {
 		tgt.FileSuffix = "_testgen_gen.go"
 	}
 
+	fmt.Printf("%s %s\n", cyan("→"), bold(tgt.Package))
+
 	pkg, err := loadPackage(tgt.Package)
 	if err != nil {
-		return err
+		return stats, err
 	}
 
 	typeNames := collectTypeNames(tgt.Types.Include)
 
-	for _, typeName := range tgt.Types.Include {
-		if err := processType(cfg, pkg, typeName, typeNames); err != nil {
-			return err
+	for i, typeName := range tgt.Types.Include {
+		fmt.Printf("  %s %s ", faint(fmt.Sprintf("[%d/%d]", i+1, len(tgt.Types.Include))), typeName)
+		fileCount, err := processType(cfg, pkg, typeName, typeNames)
+		if err != nil {
+			fmt.Printf("%s\n", red("✗"))
+			return stats, err
 		}
+		fmt.Printf("%s %s\n", green("✓"), faint(fmt.Sprintf("(%d files)", fileCount)))
+		stats.filesGenerated += fileCount
 	}
-	return nil
+	return stats, nil
 }
 
 func loadPackage(packagePath string) (*packages.Package, error) {
@@ -419,29 +471,33 @@ func collectTypeNames(include []string) map[string]bool {
 	return typeNames
 }
 
-func processType(cfg *Config, pkg *packages.Package, typeName string, typeNames map[string]bool) error {
+func processType(cfg *Config, pkg *packages.Package, typeName string, typeNames map[string]bool) (int, error) {
 	st := findStruct(pkg.Syntax, typeName)
 	if st == nil {
-		return fmt.Errorf("type %s not found in package %s (configured in types.include)", typeName, pkg.Name)
+		return 0, fmt.Errorf("type %s not found in package %s (configured in types.include)", typeName, pkg.Name)
 	}
 
 	dirs, err := setupOutputDirectories(pkg)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	d := buildData(cfg, pkg, typeName)
 	typeCfg := findTypeConfig(cfg, typeName)
 
 	if err := analyzeTypeStructure(cfg, pkg, &d, typeName, typeCfg, st, typeNames); err != nil {
-		return err
+		return 0, err
 	}
 
 	if err := analyzeGetterMatchers(&d, pkg, typeName, typeCfg); err != nil {
-		return err
+		return 0, err
 	}
 
-	return generateFiles(d, dirs, typeName)
+	if err := generateFiles(d, dirs, typeName); err != nil {
+		return 0, err
+	}
+
+	return 3, nil // spec, recipe, matcher files
 }
 
 func setupOutputDirectories(pkg *packages.Package) (struct{ factory, spec string }, error) {
@@ -648,17 +704,14 @@ func generateFiles(d data, dirs struct{ factory, spec string }, typeName string)
 	if err := os.WriteFile(specOut, specSrc, 0644); err != nil {
 		return err
 	}
-	log.Printf("wrote %s", specOut)
 
 	if err := os.WriteFile(recipeOut, recipeSrc, 0644); err != nil {
 		return err
 	}
-	log.Printf("wrote %s", recipeOut)
 
 	if err := os.WriteFile(matcherOut, matcherSrc, 0644); err != nil {
 		return err
 	}
-	log.Printf("wrote %s", matcherOut)
 
 	return nil
 }
