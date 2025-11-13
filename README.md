@@ -699,6 +699,43 @@ With specta:
 
 This is the difference between *writing assertions* and *building a test framework*.
 
+## Repository Structure
+
+This repository uses Go modules to separate the core library from example/demonstration code:
+
+- **Main module** (`github.com/james-w/specta`): The core testing library that you should import
+- **Example module** (`example/`): Simple examples demonstrating library features (do not import)
+- **Showcase module** (`showcase/`): Comprehensive examples with complex types (do not import)
+
+### For Users
+
+Simply import the main module:
+
+```bash
+go get github.com/james-w/specta
+```
+
+```go
+import "github.com/james-w/specta"
+```
+
+The `example/` and `showcase/` directories are separate modules used only for testing and documentation. They should **not** be imported by your code.
+
+### For Contributors
+
+The repository uses `replace` directives in `example/go.mod` and `showcase/go.mod` to reference the local main module. This means:
+
+- No special setup required - just clone and go
+- Changes to the main module are immediately visible in examples
+- Tests can be run per-module:
+  ```bash
+  go test ./...              # Test main module
+  cd example && go test ./... # Test example module
+  cd showcase && go test ./...# Test showcase module
+  ```
+
+This structure keeps the core library clean while providing extensive, testable examples.
+
 ## Contributing
 
 Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md).

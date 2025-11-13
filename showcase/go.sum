@@ -1,0 +1,4 @@
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/rliebz/ghost v0.3.0 h1:HxnJJfGyK9emrTzBvTai7AYHGr+3jQwYtCjTedWGnkg=
+github.com/rliebz/ghost v0.3.0/go.mod h1:CV31lR7nP6ooBfMteWkcGJ+dtHDDrxh6OWqVWw8sUWE=

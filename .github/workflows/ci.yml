@@ -14,8 +14,8 @@ permissions:
   actions: read
 
 jobs:
-  build:
-    name: Build
+  build-and-test:
+    name: Build and Test (Core)
     runs-on: ubuntu-latest
 
     steps:
@@ -27,38 +27,19 @@ jobs:
         with:
           go-version: '1.23'
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
+
+      - name: Verify dependencies
+        run: go mod verify
 
       - name: Build
         run: go build -v ./...
 
       - name: Build cmd
         run: go build -v -o specta ./cmd/...
-
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: specta-binary
-          path: specta
-          retention-days: 30
-
-  unit-test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23'
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Verify dependencies
-        run: go mod verify
 
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic . ./cmd/...
@@ -83,9 +64,16 @@ jobs:
             echo "::warning::Coverage is below 70% (current: $coverage%)"
           fi
 
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: specta-binary
+          path: specta
+          retention-days: 30
+
   verify-generated:
     name: Verify Generated Files
-    needs: build
+    needs: build-and-test
     runs-on: ubuntu-latest
 
     steps:
@@ -97,7 +85,10 @@ jobs:
         with:
           go-version: '1.23'
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
 
       - name: Download binary artifact
         uses: actions/download-artifact@v4
@@ -123,9 +114,9 @@ jobs:
             exit 1
           fi
 
-  integration-test:
-    name: Integration Tests
-    needs: build
+  test-example:
+    name: Test Example Module
+    needs: build-and-test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -140,7 +131,9 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
 
       - name: Download binary artifact
         uses: actions/download-artifact@v4
@@ -154,16 +147,53 @@ jobs:
         working-directory: example
         run: ../specta -config specta.yaml
 
+      - name: Run example module tests
+        working-directory: example
+        run: go test -v -race ./...
+
+  test-showcase:
+    name: Test Showcase Module
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.22', '1.23']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            showcase/go.sum
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: specta-binary
+
+      - name: Make binary executable
+        run: chmod +x specta
+
       - name: Generate test files for showcase
         working-directory: showcase
         run: ../specta -config specta.yaml
 
-      - name: Run integration tests
-        run: go test -v -race ./example/... ./showcase/...
+      - name: Run showcase module tests
+        working-directory: showcase
+        run: go test -v -race ./...
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ['.', 'example', 'showcase']
 
     steps:
       - name: Checkout code
@@ -174,12 +204,16 @@ jobs:
         with:
           go-version: '1.23'
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.61.0
+          working-directory: ${{ matrix.module }}
           # Only show new issues in PR mode
           only-new-issues: ${{ github.event_name == 'pull_request' }}
           # Automatically adds annotations to the PR
@@ -198,7 +232,10 @@ jobs:
         with:
           go-version: '1.23'
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
 
       - name: Check formatting
         run: |
@@ -210,7 +247,15 @@ jobs:
             exit 1
           fi
 
-      - name: Run go vet
+      - name: Run go vet on root module
+        run: go vet ./...
+
+      - name: Run go vet on example module
+        working-directory: example
+        run: go vet ./...
+
+      - name: Run go vet on showcase module
+        working-directory: showcase
         run: go vet ./...
 
   security:
@@ -226,7 +271,10 @@ jobs:
         with:
           go-version: '1.23'
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
 
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
@@ -253,7 +301,10 @@ jobs:
         with:
           go-version: '1.23'
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
 
       - name: Check for known vulnerabilities
         run: |
