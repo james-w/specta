@@ -59,7 +59,6 @@ var (
 	bold    = color.New(color.Bold).SprintFunc()
 	green   = color.New(color.FgGreen).SprintFunc()
 	cyan    = color.New(color.FgCyan).SprintFunc()
-	yellow  = color.New(color.FgYellow).SprintFunc()
 	red     = color.New(color.FgRed).SprintFunc()
 	faint   = color.New(color.Faint).SprintFunc()
 	success = color.New(color.FgGreen, color.Bold).SprintFunc()

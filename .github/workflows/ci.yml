@@ -261,7 +261,7 @@ jobs:
             showcase/go.sum
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.6.1
           working-directory: ${{ matrix.module }}
