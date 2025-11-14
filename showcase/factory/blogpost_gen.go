@@ -7,29 +7,17 @@
 // Example usage:
 //
 //	// Build a single instance with custom fields
-//
-//
 //	result := BlogPost().ID("example").Build(specta.New())
-//
-//
 //
 //	// Build many instances with unique values
 //	results := BlogPost().Many(5, specta.New())
 //
 //	// Build a matcher to verify specific fields
-//
-//
 //	matcher := BlogPostMatches().ID(specta.DeepEqual("expected"))
-//
-//
 //	specta.AssertThat(t, actual, matcher.Matcher())
 //
 //	// Convert a recipe to a matcher for partial matching
-//
-//
 //	partialMatcher := BlogPost().ID("expected").AsEqualMatcher()
-//
-//
 //	specta.AssertThat(t, actual, partialMatcher)
 package factory
 
