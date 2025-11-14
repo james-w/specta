@@ -2,21 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
-// Package factory provides a fluent Recipe API for building test data and matchers.
+// This file contains generated matchers for Member.
 //
-// This file contains generated matchers for type-safe assertions.
-//
-// Example usage:
-//
-//	// Create a matcher for specific fields
-//	matcher := factory.MemberMatches().
-//	    ID(specta.Equal("expected")).
-//	    Matcher()
-//	specta.AssertThat(t, actual, matcher)
-//
-//	// For partial matching, use Recipe.AsEqualMatcher():
-//	partial := factory.Member().ID("expected").AsEqualMatcher()
-//	specta.AssertThat(t, actual, partial)
+// Use MemberMatches() to build type-safe matchers for assertions,
+// or use Member().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (

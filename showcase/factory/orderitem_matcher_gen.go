@@ -2,21 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
-// Package factory provides a fluent Recipe API for building test data and matchers.
+// This file contains generated matchers for OrderItem.
 //
-// This file contains generated matchers for type-safe assertions.
-//
-// Example usage:
-//
-//	// Create a matcher for specific fields
-//	matcher := factory.OrderItemMatches().
-//	    Product(specta.Equal(value)).
-//	    Matcher()
-//	specta.AssertThat(t, actual, matcher)
-//
-//	// For partial matching, use Recipe.AsEqualMatcher():
-//	partial := factory.OrderItem().Product(value).AsEqualMatcher()
-//	specta.AssertThat(t, actual, partial)
+// Use OrderItemMatches() to build type-safe matchers for assertions,
+// or use OrderItem().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (
