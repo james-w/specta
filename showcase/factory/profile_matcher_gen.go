@@ -2,6 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// This file contains generated matchers for Profile.
+//
+// Use ProfileMatches() to build type-safe matchers for assertions,
+// or use Profile().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (

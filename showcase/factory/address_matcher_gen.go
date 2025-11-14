@@ -2,6 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// This file contains generated matchers for Address.
+//
+// Use AddressMatches() to build type-safe matchers for assertions,
+// or use Address().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (

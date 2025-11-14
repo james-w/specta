@@ -2,6 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// This file contains generated matchers for Organization.
+//
+// Use OrganizationMatches() to build type-safe matchers for assertions,
+// or use Organization().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (

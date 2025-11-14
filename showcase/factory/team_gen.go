@@ -2,23 +2,9 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
-// Package factory provides a fluent Recipe API for building test data and matchers.
+// This file contains the recipe (test data builder) for Team.
 //
-// Example usage:
-//
-//	// Build a single instance with custom fields
-//	result := Team().ID("example").Build(specta.New())
-//
-//	// Build many instances with unique values
-//	results := Team().Many(5, specta.New())
-//
-//	// Build a matcher to verify specific fields
-//	matcher := TeamMatches().ID(specta.DeepEqual("expected"))
-//	specta.AssertThat(t, actual, matcher.Matcher())
-//
-//	// Convert a recipe to a matcher for partial matching
-//	partialMatcher := Team().ID("expected").AsEqualMatcher()
-//	specta.AssertThat(t, actual, partialMatcher)
+// Use Team() to build instances with custom fields, or Many() for multiple unique instances.
 package factory
 
 import (

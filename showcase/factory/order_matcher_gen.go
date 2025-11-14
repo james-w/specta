@@ -2,6 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// This file contains generated matchers for Order.
+//
+// Use OrderMatches() to build type-safe matchers for assertions,
+// or use Order().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (

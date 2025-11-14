@@ -2,23 +2,9 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
-// Package factory provides a fluent Recipe API for building test data and matchers.
+// This file contains the recipe (test data builder) for Order.
 //
-// Example usage:
-//
-//	// Build a single instance with custom fields
-//	result := Order().ID("example").Build(specta.New())
-//
-//	// Build many instances with unique values
-//	results := Order().Many(5, specta.New())
-//
-//	// Build a matcher to verify specific fields
-//	matcher := OrderMatches().ID(specta.DeepEqual("expected"))
-//	specta.AssertThat(t, actual, matcher.Matcher())
-//
-//	// Convert a recipe to a matcher for partial matching
-//	partialMatcher := Order().ID("expected").AsEqualMatcher()
-//	specta.AssertThat(t, actual, partialMatcher)
+// Use Order() to build instances with custom fields, or Many() for multiple unique instances.
 package factory
 
 import (

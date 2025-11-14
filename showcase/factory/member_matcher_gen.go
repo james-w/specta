@@ -2,6 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// This file contains generated matchers for Member.
+//
+// Use MemberMatches() to build type-safe matchers for assertions,
+// or use Member().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (

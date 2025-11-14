@@ -2,6 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// This file contains generated matchers for Team.
+//
+// Use TeamMatches() to build type-safe matchers for assertions,
+// or use Team().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (

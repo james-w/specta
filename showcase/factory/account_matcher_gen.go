@@ -2,6 +2,11 @@
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// This file contains generated matchers for Account.
+//
+// Use AccountMatches() to build type-safe matchers for assertions,
+// or use Account().AsEqualMatcher() for partial matching based on recipes.
+
 package factory
 
 import (
