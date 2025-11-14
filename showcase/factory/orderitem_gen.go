@@ -5,7 +5,6 @@
 // This file contains the recipe (test data builder) for OrderItem.
 //
 // Use OrderItem() to build instances with custom fields, or Many() for multiple unique instances.
-
 package factory
 
 import (

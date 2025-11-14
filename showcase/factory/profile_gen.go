@@ -5,7 +5,6 @@
 // This file contains the recipe (test data builder) for Profile.
 //
 // Use Profile() to build instances with custom fields, or Many() for multiple unique instances.
-
 package factory
 
 import (
