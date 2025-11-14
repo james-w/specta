@@ -1494,6 +1494,37 @@ var matcherTmpl = template.Must(template.New("matcher").Funcs(commonFuncMap()).F
 //go:build !ignore_testgen
 // +build !ignore_testgen
 
+// Package factory provides a fluent Recipe API for building test data and matchers.
+//
+// This file contains generated matchers for type-safe assertions.
+//
+// Example usage:
+//
+//	// Create a matcher for specific fields
+//	matcher := factory.{{.TypeName}}Matches().
+{{- if .GetterMatchers}}
+{{- with index .GetterMatchers 0}}
+//	    {{.Name}}(specta.Equal({{if eq .ReturnType "string"}}"expected"{{else if eq .ReturnType "int"}}42{{else}}value{{end}})).
+{{- end}}
+{{- else if .Fields}}
+{{- with index .Fields 0}}
+//	    {{.Name}}(specta.Equal({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}})).
+{{- end}}
+{{- end}}
+//	    Matcher()
+//	specta.AssertThat(t, actual, matcher)
+//
+//	// For partial matching, use Recipe.AsEqualMatcher():
+{{- if .GetterMatchers}}
+{{- with index .GetterMatchers 0}}
+//	partial := factory.{{$.TypeName}}().{{.Name}}({{if eq .ReturnType "string"}}"expected"{{else if eq .ReturnType "int"}}42{{else}}value{{end}}).AsEqualMatcher()
+{{- end}}
+{{- else if .Fields}}
+{{- with index .Fields 0}}
+//	partial := factory.{{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}).AsEqualMatcher()
+{{- end}}
+{{- end}}
+//	specta.AssertThat(t, actual, partial)
 package factory
 
 import (
