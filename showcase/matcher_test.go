@@ -618,3 +618,105 @@ func TestConstructorTypeAsEqualMatcher(t *testing.T) {
 		}
 	})
 }
+
+// TestCustomUserMatchers demonstrates using custom matchers from user_matcher.go
+func TestCustomUserMatchers(t *testing.T) {
+	p := specta.New()
+
+	t.Run("IsAdmin matcher", func(t *testing.T) {
+		admin := factory.AdminUser().Build(p)
+		guest := factory.GuestUser().Build(p)
+
+		// Should match admin user
+		result := factory.IsAdmin().Matches(admin)
+		if !result.Matched {
+			t.Errorf("expected IsAdmin to match admin user, got: %s", result.Message)
+		}
+
+		// Should not match guest user
+		result = factory.IsAdmin().Matches(guest)
+		if result.Matched {
+			t.Error("expected IsAdmin to not match guest user")
+		}
+	})
+
+	t.Run("IsActive matcher", func(t *testing.T) {
+		activeUser := factory.User().Active(true).Build(p)
+		inactiveUser := factory.User().Active(false).Build(p)
+
+		// Should match active user
+		result := factory.IsActive().Matches(activeUser)
+		if !result.Matched {
+			t.Errorf("expected IsActive to match active user, got: %s", result.Message)
+		}
+
+		// Should not match inactive user
+		result = factory.IsActive().Matches(inactiveUser)
+		if result.Matched {
+			t.Error("expected IsActive to not match inactive user")
+		}
+	})
+
+	t.Run("IsGuest matcher", func(t *testing.T) {
+		guest := factory.GuestUser().Build(p)
+		admin := factory.AdminUser().Build(p)
+
+		// Should match guest user
+		result := factory.IsGuest().Matches(guest)
+		if !result.Matched {
+			t.Errorf("expected IsGuest to match guest user, got: %s", result.Message)
+		}
+
+		// Should not match admin user
+		result = factory.IsGuest().Matches(admin)
+		if result.Matched {
+			t.Error("expected IsGuest to not match admin user")
+		}
+	})
+
+	t.Run("HasTestEmail matcher", func(t *testing.T) {
+		testUser := factory.User().WithTestEmail("alice").Build(p)
+		prodUser := factory.User().Email("user@production.com").Build(p)
+
+		// Should match test email
+		result := factory.HasTestEmail().Matches(testUser)
+		if !result.Matched {
+			t.Errorf("expected HasTestEmail to match test user, got: %s", result.Message)
+		}
+
+		// Should not match production email
+		result = factory.HasTestEmail().Matches(prodUser)
+		if result.Matched {
+			t.Error("expected HasTestEmail to not match production email")
+		}
+		if !strings.Contains(result.Message, "@test.example.com") {
+			t.Errorf("expected error message to mention @test.example.com, got: %s", result.Message)
+		}
+	})
+
+	t.Run("composing custom matchers with AllOf", func(t *testing.T) {
+		user := factory.User().
+			Active(true).
+			WithTestEmail("admin").
+			Build(p)
+
+		// Combine custom matchers
+		matcher := specta.AllOf(
+			factory.IsActive(),
+			factory.HasTestEmail(),
+		)
+
+		result := matcher.Matches(user)
+		if !result.Matched {
+			t.Errorf("expected user to match both IsActive and HasTestEmail, got: %s", result.Message)
+		}
+	})
+
+	t.Run("using with AssertThat", func(t *testing.T) {
+		admin := factory.AdminUser().Build(p)
+
+		// Custom matchers work with AssertThat
+		specta.AssertThat(t, admin, factory.IsAdmin())
+		specta.AssertThat(t, admin, factory.IsActive())
+	})
+}
