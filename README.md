@@ -637,6 +637,120 @@ func TestPushNotification(t *testing.T) {
 
 This lets you define matching logic once based on the interface contract, then apply it to all implementing types.
 
+## Extending Generated Code
+
+Generated code provides the foundation, but you can extend it with custom domain-specific patterns. Create separate files (not ending in `_gen.go`) in the same package to add your own methods.
+
+### Custom Recipe Methods
+
+Add convenience methods to generated recipes for common patterns:
+
+```go
+// showcase/factory/user.go
+package factory
+
+// WithAdminRole configures a user with admin privileges
+func (r UserRecipe) WithAdminRole() UserRecipe {
+    return r.FirstName("Admin").LastName("User").Email("admin@example.com").Active(true)
+}
+
+// AdminUser returns a recipe for an admin user
+func AdminUser() UserRecipe {
+    return User().WithAdminRole()
+}
+```
+
+Use in tests:
+
+```go
+admin := factory.AdminUser().Build(p)
+// Or compose with other methods
+superAdmin := factory.User().WithAdminRole().FirstName("SuperAdmin").Build(p)
+```
+
+### Custom Matchers
+
+Create reusable domain matchers for common assertions:
+
+```go
+// showcase/factory/user_matcher.go
+package factory
+
+// IsAdmin matches users with admin privileges
+func IsAdmin() specta.Matcher[showcase.User] {
+    return UserMatches().
+        FirstName(specta.Equal("Admin")).
+        Email(specta.Equal("admin@example.com")).
+        Active(specta.Equal(true)).
+        Matcher()
+}
+
+// HasTestEmail matches users with @test.example.com emails
+func HasTestEmail() specta.Matcher[showcase.User] {
+    return specta.MatcherFunc[showcase.User](func(actual showcase.User) specta.MatchResult {
+        if strings.HasSuffix(actual.Email, "@test.example.com") {
+            return specta.MatchResult{Matched: true}
+        }
+        return specta.MatchResult{
+            Matched: false,
+            Message: "expected email to end with @test.example.com, got: " + actual.Email,
+        }
+    })
+}
+```
+
+Use in tests:
+
+```go
+specta.AssertThat(t, user, factory.IsAdmin())
+specta.AssertThat(t, user, specta.AllOf(factory.IsActive(), factory.HasTestEmail()))
+```
+
+### Custom Defaults
+
+Override generated default providers to customize test data generation:
+
+```go
+// showcase/factory/spec/user_defaults.go
+package spec
+
+import "github.com/james-w/specta"
+
+func init() {
+    // Override email default to use a more realistic test pattern
+    UserDefaultEmail = func(p specta.Primitives) string {
+        return fmt.Sprintf("user%d@test.example.com", p.Next())
+    }
+
+    // Override Active default to always be true
+    UserDefaultActive = func(p specta.Primitives) bool {
+        return true
+    }
+}
+```
+
+This gives you full Go capabilities (imports, complex logic, external libraries) while YAML config provides quick shortcuts for common patterns like `pattern: email`.
+
+### File Organization
+
+```
+showcase/
+  types.go                           # Your domain types
+  specta.yaml                        # Generation config
+  factory/
+    user_gen.go                      # Generated - never touch
+    user.go                          # Custom recipe methods
+    user_matcher.go                  # Custom matchers
+    user_matcher_gen.go              # Generated - never touch
+    spec/
+      user_gen.go                    # Generated - never touch
+      user_defaults.go               # Custom default overrides
+```
+
+**Convention**: Generated files end in `_gen.go`. All other `.go` files are yours to modify and will never be overwritten.
+
+See `showcase/factory/user.go`, `showcase/factory/user_matcher.go`, and `showcase/factory/spec/user_defaults.go` for working examples.
+
 ## Code Generation
 
 Generate matchers and factories for your types:

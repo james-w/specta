@@ -586,3 +586,96 @@ func TestIDGeneration(t *testing.T) {
 		}
 	})
 }
+
+// TestCustomUserRecipes demonstrates using custom recipe methods from user.go
+func TestCustomUserRecipes(t *testing.T) {
+	p := specta.New()
+
+	t.Run("AdminUser", func(t *testing.T) {
+		admin := factory.AdminUser().Build(p)
+
+		if admin.FirstName != "Admin" {
+			t.Errorf("expected FirstName='Admin', got %q", admin.FirstName)
+		}
+		if admin.LastName != "User" {
+			t.Errorf("expected LastName='User', got %q", admin.LastName)
+		}
+		if admin.Email != "admin@example.com" {
+			t.Errorf("expected Email='admin@example.com', got %q", admin.Email)
+		}
+		if !admin.Active {
+			t.Error("expected Active=true")
+		}
+	})
+
+	t.Run("GuestUser", func(t *testing.T) {
+		guest := factory.GuestUser().Build(p)
+
+		if guest.FirstName != "Guest" {
+			t.Errorf("expected FirstName='Guest', got %q", guest.FirstName)
+		}
+		if guest.LastName != "User" {
+			t.Errorf("expected LastName='User', got %q", guest.LastName)
+		}
+		if guest.Active {
+			t.Error("expected Active=false")
+		}
+	})
+
+	t.Run("WithAdminRole", func(t *testing.T) {
+		user := factory.User().WithAdminRole().Build(p)
+
+		if user.FirstName != "Admin" {
+			t.Errorf("expected FirstName='Admin', got %q", user.FirstName)
+		}
+		if !user.Active {
+			t.Error("expected Active=true")
+		}
+	})
+
+	t.Run("WithTestEmail", func(t *testing.T) {
+		user := factory.User().WithTestEmail("alice").Build(p)
+
+		if user.Email != "alice@test.example.com" {
+			t.Errorf("expected Email='alice@test.example.com', got %q", user.Email)
+		}
+	})
+
+	t.Run("composing custom methods", func(t *testing.T) {
+		// Custom methods compose with generated methods
+		user := factory.User().
+			WithAdminRole().
+			FirstName("SuperAdmin"). // Override the admin first name
+			Build(p)
+
+		if user.FirstName != "SuperAdmin" {
+			t.Errorf("expected FirstName='SuperAdmin', got %q", user.FirstName)
+		}
+		if user.Email != "admin@example.com" {
+			t.Errorf("expected Email='admin@example.com', got %q", user.Email)
+		}
+	})
+}
+
+// TestCustomDefaults demonstrates that custom defaults from user_defaults.go are applied
+func TestCustomDefaults(t *testing.T) {
+	p := specta.New()
+
+	t.Run("email uses custom default", func(t *testing.T) {
+		user := factory.User().Build(p)
+
+		// Custom default should generate user1@test.example.com format
+		if !strings.Contains(user.Email, "@test.example.com") {
+			t.Errorf("expected email to contain @test.example.com, got %q", user.Email)
+		}
+	})
+
+	t.Run("active defaults to true", func(t *testing.T) {
+		user := factory.User().Build(p)
+
+		// Custom default sets Active to true
+		if !user.Active {
+			t.Error("expected Active=true by default (from custom default)")
+		}
+	})
+}
