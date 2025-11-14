@@ -7,29 +7,17 @@
 // Example usage:
 //
 //	// Build a single instance with custom fields
-//
-//
 //	result := Account().User(value).Build(specta.New())
-//
-//
 //
 //	// Build many instances with unique values
 //	results := Account().Many(5, specta.New())
 //
 //	// Build a matcher to verify specific fields
-//
-//
 //	matcher := AccountMatches().User(specta.DeepEqual(expectedValue))
-//
-//
 //	specta.AssertThat(t, actual, matcher.Matcher())
 //
 //	// Convert a recipe to a matcher for partial matching
-//
-//
 //	partialMatcher := Account().User(expected).AsEqualMatcher()
-//
-//
 //	specta.AssertThat(t, actual, partialMatcher)
 package factory
 

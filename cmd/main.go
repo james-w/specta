@@ -1130,41 +1130,41 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(commonFuncMap()).Fun
 // Example usage:
 //
 //	// Build a single instance with custom fields
-//	{{- if .HasConstructor}}
-//	{{- with index .ConstructorParams 0}}
+{{- if .HasConstructor}}
+{{- with index .ConstructorParams 0}}
 //	result := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}).Build(specta.New())
-//	{{- end}}
-//	{{- else}}
-//	{{- with index .Fields 0}}
+{{- end}}
+{{- else}}
+{{- with index .Fields 0}}
 //	result := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"example"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}}).Build(specta.New())
-//	{{- end}}
-//	{{- end}}
+{{- end}}
+{{- end}}
 //
 //	// Build many instances with unique values
 //	results := {{$.TypeName}}().Many(5, specta.New())
 //
 //	// Build a matcher to verify specific fields
-//	{{- if .HasConstructor}}
-//	{{- with index .ConstructorParams 0}}
+{{- if .HasConstructor}}
+{{- with index .ConstructorParams 0}}
 //	matcher := {{$.TypeName}}Matches().{{.Name}}(specta.DeepEqual({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}expectedValue{{end}}))
-//	{{- end}}
-//	{{- else}}
-//	{{- with index .Fields 0}}
+{{- end}}
+{{- else}}
+{{- with index .Fields 0}}
 //	matcher := {{$.TypeName}}Matches().{{.Name}}(specta.DeepEqual({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}expectedValue{{end}}))
-//	{{- end}}
-//	{{- end}}
+{{- end}}
+{{- end}}
 //	specta.AssertThat(t, actual, matcher.Matcher())
 //
 //	// Convert a recipe to a matcher for partial matching
-//	{{- if .HasConstructor}}
-//	{{- with index .ConstructorParams 0}}
+{{- if .HasConstructor}}
+{{- with index .ConstructorParams 0}}
 //	partialMatcher := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}99{{else}}expected{{end}}).AsEqualMatcher()
-//	{{- end}}
-//	{{- else}}
-//	{{- with index .Fields 0}}
+{{- end}}
+{{- else}}
+{{- with index .Fields 0}}
 //	partialMatcher := {{$.TypeName}}().{{.Name}}({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}99{{else}}expected{{end}}).AsEqualMatcher()
-//	{{- end}}
-//	{{- end}}
+{{- end}}
+{{- end}}
 //	specta.AssertThat(t, actual, partialMatcher)
 package factory
 
