@@ -37,6 +37,19 @@ func (t *T) Fatalf(format string, args ...any) {
 // This is a no-op for property testing but satisfies the TestingT interface.
 func (t *T) Helper() {}
 
+// Primitives returns a Primitives implementation backed by this property test's Source.
+// This is a convenience method for using existing factories in property tests.
+//
+// Example:
+//
+//	Property(t, func(t *T) {
+//	    user := UserRecipe{}.Build(t.Primitives())
+//	    // Test properties of user...
+//	})
+func (t *T) Primitives(opts ...PrimitivesOption) Primitives {
+	return NewPropertyPrimitives(t.Source, opts...)
+}
+
 // PropertyOption configures property testing behavior.
 type PropertyOption func(*propertyConfig)
 
