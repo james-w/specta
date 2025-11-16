@@ -19,6 +19,7 @@ type Primitives interface {
 	Float64() float64
 	String() string
 	StringWith(prefix string) string
+	Bytes() []byte
 	BytesN(n int) []byte
 	Time() time.Time
 	TimeAtOffset(d time.Duration) time.Time
@@ -76,6 +77,10 @@ func (g *Gen) Float64() float64 { n := g.Next(); return float64(n) + 0.123 }
 func (g *Gen) String() string   { return g.StringWith("str_") }
 func (g *Gen) StringWith(prefix string) string {
 	return fmt.Sprintf("%s%s%d", g.prefix, prefix, g.Next())
+}
+func (g *Gen) Bytes() []byte {
+	// Default to 16 bytes for deterministic generation
+	return g.BytesN(16)
 }
 func (g *Gen) BytesN(n int) []byte {
 	if n <= 0 {

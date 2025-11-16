@@ -1,25 +1,36 @@
 package specta_test
 
 import (
-	"strings"
+	"math"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/james-w/specta"
 )
 
-// TestPropertyPrimitives_Next tests the counter functionality
+// TestPropertyPrimitives_Next tests random value generation
 func TestPropertyPrimitives_Next(t *testing.T) {
-	t.Run("increments counter", func(t *testing.T) {
+	t.Run("generates random values", func(t *testing.T) {
 		source := specta.NewSource(12345)
 		p := specta.NewPropertyPrimitives(source)
 
+		// Next() should return random uint64 values
 		n1 := p.Next()
 		n2 := p.Next()
-		n3 := p.Next()
 
-		if n1 != 1 || n2 != 2 || n3 != 3 {
-			t.Errorf("expected sequential counters 1,2,3 got %d,%d,%d", n1, n2, n3)
+		// Values should be different (extremely unlikely to be equal)
+		if n1 == n2 {
+			t.Log("warning: got same value twice (extremely unlikely but possible)")
+		}
+	})
+
+	t.Run("deterministic with same seed", func(t *testing.T) {
+		p1 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+		p2 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+
+		if p1.Next() != p2.Next() {
+			t.Error("Next() should be deterministic with same seed")
 		}
 	})
 }
@@ -81,12 +92,27 @@ func TestPropertyPrimitives_Bool(t *testing.T) {
 
 // TestPropertyPrimitives_Int tests integer generation
 func TestPropertyPrimitives_Int(t *testing.T) {
-	t.Run("generates integers", func(t *testing.T) {
+	t.Run("generates integers including negatives", func(t *testing.T) {
 		source := specta.NewSource(12345)
 		p := specta.NewPropertyPrimitives(source)
 
-		value := p.Int()
-		_ = value // Just check it doesn't panic
+		// Should eventually generate both positive and negative
+		var hasPositive, hasNegative bool
+		for i := 0; i < 1000; i++ {
+			value := p.Int()
+			if value > 0 {
+				hasPositive = true
+			} else if value < 0 {
+				hasNegative = true
+			}
+		}
+
+		if !hasPositive {
+			t.Error("never generated positive int")
+		}
+		if !hasNegative {
+			t.Error("never generated negative int")
+		}
 	})
 
 	t.Run("IntN respects max", func(t *testing.T) {
@@ -116,56 +142,88 @@ func TestPropertyPrimitives_Int(t *testing.T) {
 
 // TestPropertyPrimitives_Float64 tests float generation
 func TestPropertyPrimitives_Float64(t *testing.T) {
-	t.Run("generates floats in range [0, 1)", func(t *testing.T) {
-		source := specta.NewSource(12345)
+	t.Run("generates floats from full range including special values", func(t *testing.T) {
+		source := specta.NewSource(42)
 		p := specta.NewPropertyPrimitives(source)
 
-		for i := 0; i < 100; i++ {
+		var hasNaN, hasInf, hasNegInf, hasPositive bool
+		for i := 0; i < 200; i++ {
 			value := p.Float64()
-			if value < 0.0 || value >= 1.0 {
-				t.Errorf("Float64() returned %f, expected [0.0, 1.0)", value)
+			if math.IsNaN(value) {
+				hasNaN = true
+			} else if math.IsInf(value, 1) {
+				hasInf = true
+			} else if math.IsInf(value, -1) {
+				hasNegInf = true
+			} else if value > 0 {
+				hasPositive = true
 			}
+		}
+
+		// With our strategy distribution, we should see special values
+		if !hasNaN {
+			t.Error("never generated NaN")
+		}
+		if !hasInf {
+			t.Error("never generated +Inf")
+		}
+		if !hasNegInf {
+			t.Error("never generated -Inf")
+		}
+		// Should also get normal values
+		if !hasPositive {
+			t.Error("never generated positive float")
 		}
 	})
 }
 
 // TestPropertyPrimitives_String tests string generation
 func TestPropertyPrimitives_String(t *testing.T) {
-	t.Run("generates strings with counter", func(t *testing.T) {
+	t.Run("generates strings from full byte space including invalid UTF-8", func(t *testing.T) {
 		source := specta.NewSource(12345)
 		p := specta.NewPropertyPrimitives(source)
 
-		s1 := p.String()
-		s2 := p.String()
+		var hasEmpty, hasShort, hasLong, hasInvalidUTF8 bool
+		// Need more iterations to hit empty string (prob = 1/101 per call)
+		for i := 0; i < 500; i++ {
+			s := p.String()
 
-		if s1 == s2 {
-			t.Error("expected different strings")
+			// Check variety of lengths
+			if len(s) == 0 {
+				hasEmpty = true
+			} else if len(s) < 10 {
+				hasShort = true
+			} else if len(s) > 50 {
+				hasLong = true
+			}
+
+			// Check if we get invalid UTF-8 (the whole point!)
+			if !utf8.ValidString(s) {
+				hasInvalidUTF8 = true
+			}
+
+			// Early exit if we've found everything
+			if hasEmpty && hasShort && hasLong && hasInvalidUTF8 {
+				break
+			}
 		}
 
-		if !strings.Contains(s1, "str_") {
-			t.Errorf("expected string to contain 'str_', got %s", s1)
+		if !hasEmpty {
+			t.Error("never generated empty string")
+		}
+		if !hasShort {
+			t.Error("never generated short string")
+		}
+		if !hasInvalidUTF8 {
+			t.Error("never generated invalid UTF-8 (should explore full byte space)")
 		}
 	})
 
-	t.Run("StringWith uses custom prefix", func(t *testing.T) {
-		source := specta.NewSource(12345)
-		p := specta.NewPropertyPrimitives(source)
-
-		s := p.StringWith("user")
-
-		if !strings.HasPrefix(s, "user_") {
-			t.Errorf("expected string to start with 'user_', got %s", s)
-		}
-	})
-
-	t.Run("respects WithPropertyPrefix option", func(t *testing.T) {
-		source := specta.NewSource(12345)
-		p := specta.NewPropertyPrimitives(source, specta.WithPropertyPrefix("test"))
-
-		s := p.String()
-
-		if !strings.HasPrefix(s, "test_") {
-			t.Errorf("expected string to start with 'test_', got %s", s)
+	t.Run("deterministic with same seed", func(t *testing.T) {
+		p1 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+		p2 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+		if p1.String() != p2.String() {
+			t.Error("String() should be deterministic with same seed")
 		}
 	})
 }
@@ -215,16 +273,30 @@ func TestPropertyPrimitives_BytesN(t *testing.T) {
 
 // TestPropertyPrimitives_Time tests time generation
 func TestPropertyPrimitives_Time(t *testing.T) {
-	t.Run("generates incrementing times", func(t *testing.T) {
-		source := specta.NewSource(12345)
+	t.Run("generates times from full range", func(t *testing.T) {
+		source := specta.NewSource(42)
 		p := specta.NewPropertyPrimitives(source)
 
-		t1 := p.Time()
-		t2 := p.Time()
-		t3 := p.Time()
+		var hasZero bool
+		for i := 0; i < 100; i++ {
+			tm := p.Time()
 
-		if !t2.After(t1) || !t3.After(t2) {
-			t.Error("expected incrementing times")
+			if tm.IsZero() {
+				hasZero = true
+			}
+		}
+
+		// With our strategy distribution, we should see edge cases
+		if !hasZero {
+			t.Error("never generated zero time")
+		}
+	})
+
+	t.Run("deterministic with same seed", func(t *testing.T) {
+		p1 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+		p2 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+		if !p1.Time().Equal(p2.Time()) {
+			t.Error("Time() should be deterministic with same seed")
 		}
 	})
 
@@ -249,19 +321,24 @@ func TestPropertyPrimitives_Time(t *testing.T) {
 
 // TestPropertyPrimitives_ID tests ID generation
 func TestPropertyPrimitives_ID(t *testing.T) {
-	t.Run("generates unique IDs", func(t *testing.T) {
+	t.Run("generates random IDs from full string space", func(t *testing.T) {
 		source := specta.NewSource(12345)
 		p := specta.NewPropertyPrimitives(source)
 
 		id1 := p.ID()
 		id2 := p.ID()
 
+		// Should generate different random IDs
 		if id1 == id2 {
 			t.Error("expected different IDs")
 		}
 
-		if !strings.HasPrefix(id1, "id_") {
-			t.Errorf("expected ID to start with 'id_', got %s", id1)
+		// ID() should be same as String() - full space exploration
+		// Should be deterministic with same seed
+		p1 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+		p2 := specta.NewPropertyPrimitives(specta.NewSource(12345))
+		if p1.ID() != p2.ID() {
+			t.Error("ID() should be deterministic with same seed")
 		}
 	})
 }

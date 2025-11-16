@@ -2,75 +2,62 @@ package specta
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 // PropertyPrimitives implements the Primitives interface using a Source for property testing.
-// Unlike the deterministic Gen implementation, this generates pseudo-random values based
-// on the Source's random byte stream, enabling property-based testing with shrinking.
+// Unlike the deterministic Gen implementation, this generates fully random values from the
+// complete type space, enabling property-based testing that finds bugs through exploration.
 //
 // Key differences from Gen:
-//   - Values are pseudo-random (from Source) rather than strictly sequential
-//   - Counter (Next) still increments for uniqueness but starts from random position
-//   - String prefixes work the same way
-//   - Time generation uses random offsets
-//   - UUIDs are random (via Source) rather than deterministic
+//   - All values explore the FULL type space (empty strings, negatives, NaN, etc.)
+//   - String() and ID() return any possible string (not just readable "str_1" format)
+//   - Int() includes negatives, not just positives
+//   - Float64() includes ±Inf, NaN, subnormals, not just [0, 1)
+//   - Time() includes zero time, distant past/future, not just near epoch
+//   - Next() returns random uint64 values (not sequential)
+//
+// This adversarial generation finds bugs from unexpected values (unicode in strings,
+// division by zero from zero/negative ints, NaN propagation, etc.).
+//
+// Use generators to constrain values: String().Prefix("user"), Int().Range(0, 100)
 type PropertyPrimitives struct {
 	source   *Source
-	counter  uint64
-	prefix   string
 	baseTime time.Time
-	timeStep time.Duration
 }
 
 // PrimitivesOption configures PropertyPrimitives behavior.
 type PrimitivesOption func(*PropertyPrimitives)
 
-// WithPropertyPrefix sets the string prefix for String() generation.
-func WithPropertyPrefix(prefix string) PrimitivesOption {
-	return func(p *PropertyPrimitives) {
-		p.prefix = prefix
-	}
-}
-
-// WithPropertyBaseTime sets the base time for Time() generation.
+// WithPropertyBaseTime sets the base time for TimeAtOffset() generation.
+// This does NOT affect Time() which explores the full time space.
 func WithPropertyBaseTime(baseTime time.Time) PrimitivesOption {
 	return func(p *PropertyPrimitives) {
 		p.baseTime = baseTime
 	}
 }
 
-// WithPropertyTimeStep sets the time increment step.
-func WithPropertyTimeStep(step time.Duration) PrimitivesOption {
-	return func(p *PropertyPrimitives) {
-		p.timeStep = step
-	}
-}
-
 // NewPropertyPrimitives creates a Primitives implementation backed by a Source.
-// This allows existing factories to work in property tests.
+// This generates values from the FULL type space for adversarial testing.
 //
 // Options:
-//   - WithPropertyPrefix: Set string prefix (default: "")
-//   - WithPropertyBaseTime: Set base time for Time() generation (default: Unix epoch)
-//   - WithPropertyTimeStep: Set time increment step (default: 1 second)
+//   - WithPropertyBaseTime: Set base time for TimeAtOffset() (default: Unix epoch)
 //
 // Example:
 //
 //	Property(t, func(t *T) {
-//	    p := NewPropertyPrimitives(t.Source)
-//	    user := UserFactory{p}.Build()
+//	    p := t.Primitives()  // Convenience method
+//	    user := UserRecipe{}.Build(p)
 //	    // Test properties of user...
+//	    // Will find bugs from empty strings, unicode, negatives, etc.
 //	})
 func NewPropertyPrimitives(source *Source, opts ...PrimitivesOption) Primitives {
 	p := &PropertyPrimitives{
 		source:   source,
-		counter:  0,
-		prefix:   "",
 		baseTime: time.Unix(0, 0).UTC(),
-		timeStep: time.Second,
 	}
 
 	// Apply options
@@ -81,11 +68,10 @@ func NewPropertyPrimitives(source *Source, opts ...PrimitivesOption) Primitives 
 	return p
 }
 
-// Next returns a sequentially incrementing counter.
-// The counter provides uniqueness within a test run, useful for IDs.
+// Next returns a random uint64 value from the Source.
+// Unlike Gen which returns sequential counters, this returns random values.
 func (p *PropertyPrimitives) Next() uint64 {
-	p.counter++
-	return p.counter
+	return p.source.DrawBits(64)
 }
 
 // Bool generates a random boolean value from the Source.
@@ -93,9 +79,13 @@ func (p *PropertyPrimitives) Bool() bool {
 	return p.source.DrawBits(1) == 1
 }
 
-// Int generates a random int from the Source.
+// Int generates a random int from the full range of int values.
+// This includes negative values, zero, and positive values.
 func (p *PropertyPrimitives) Int() int {
-	return int(p.source.DrawBits(63)) // Use 63 bits to avoid overflow
+	// Generate full 64-bit value then cast to int
+	// This will be 32-bit or 64-bit depending on platform
+	bits := p.source.DrawBits(64)
+	return int(int64(bits)) // Cast through int64 to get sign extension
 }
 
 // IntN generates a random int in range [0, max) from the Source.
@@ -107,9 +97,10 @@ func (p *PropertyPrimitives) IntN(max int) int {
 	return int(bits % uint64(max))
 }
 
-// Int64 generates a random int64 from the Source.
+// Int64 generates a random int64 from the full range including negative values.
+// This includes math.MinInt64, negative values, zero, positive values, and math.MaxInt64.
 func (p *PropertyPrimitives) Int64() int64 {
-	return int64(p.source.DrawBits(63)) // Use 63 bits to keep positive
+	return int64(p.source.DrawBits(64))
 }
 
 // Uint64 generates a random uint64 from the Source.
@@ -117,27 +108,63 @@ func (p *PropertyPrimitives) Uint64() uint64 {
 	return p.source.DrawBits(64)
 }
 
-// Float64 generates a random float64 in range [0.0, 1.0) from the Source.
+// Float64 generates a random float64 from the full range including special values.
+// This includes: negative values, -0.0, 0.0, positive values, ±Inf, NaN, subnormals.
 func (p *PropertyPrimitives) Float64() float64 {
-	// Generate a random uint64 and convert to float in [0, 1)
-	bits := p.source.DrawBits(53) // Use 53 bits for IEEE 754 double precision mantissa
-	return float64(bits) / float64(uint64(1)<<53)
-}
+	// Use different strategies to get variety including edge cases
+	strategy := p.IntN(20)
 
-// String generates a string with the configured prefix and an incrementing counter.
-// Format: "{prefix}_{counter}"
-func (p *PropertyPrimitives) String() string {
-	return p.StringWith(p.prefix)
-}
-
-// StringWith generates a string with the given prefix and an incrementing counter.
-// Format: "{prefix}_{counter}"
-func (p *PropertyPrimitives) StringWith(prefix string) string {
-	n := p.Next()
-	if prefix == "" {
-		return fmt.Sprintf("str_%d", n)
+	switch {
+	case strategy == 0: // NaN
+		return math.NaN()
+	case strategy == 1: // +Inf
+		return math.Inf(1)
+	case strategy == 2: // -Inf
+		return math.Inf(-1)
+	case strategy == 3: // 0.0
+		return 0.0
+	case strategy == 4: // -0.0
+		return math.Copysign(0.0, -1.0)
+	case strategy == 5: // MaxFloat64
+		return math.MaxFloat64
+	case strategy == 6: // -MaxFloat64
+		return -math.MaxFloat64
+	case strategy == 7: // SmallestNonzeroFloat64
+		return math.SmallestNonzeroFloat64
+	case strategy == 8: // -SmallestNonzeroFloat64
+		return -math.SmallestNonzeroFloat64
+	default:
+		// Random float from bit pattern (includes subnormals, all ranges)
+		bits := p.source.DrawBits(64)
+		return math.Float64frombits(bits)
 	}
-	return fmt.Sprintf("%s_%d", prefix, n)
+}
+
+// String generates a random string from the Source.
+// This explores the FULL space of possible Go strings, including invalid UTF-8.
+// Go strings are just []byte and don't require valid UTF-8 encoding.
+// To constrain strings, use generators like String().UTF8() or String().ASCII().
+func (p *PropertyPrimitives) String() string {
+	return string(p.Bytes())
+}
+
+// StringWith generates a random string with the given prefix.
+// Format: "{prefix}_{random_bytes}" where random_bytes is from full space.
+// This is a constraint - use it when you explicitly need a prefix.
+func (p *PropertyPrimitives) StringWith(prefix string) string {
+	suffix := p.String()
+	if prefix == "" {
+		return suffix
+	}
+	return fmt.Sprintf("%s_%s", prefix, suffix)
+}
+
+// Bytes generates a random byte slice from the Source.
+// Length is random from 0 to 100 bytes, exploring the full range.
+func (p *PropertyPrimitives) Bytes() []byte {
+	// Random length from 0 to 100 bytes
+	length := p.IntN(101)
+	return p.BytesN(length)
 }
 
 // BytesN generates n random bytes from the Source.
@@ -153,11 +180,28 @@ func (p *PropertyPrimitives) BytesN(n int) []byte {
 	return result
 }
 
-// Time generates a time by adding counter-based offsets to the base time.
-// Each call increments the offset by timeStep.
+// Time generates a random time from the full range of time.Time values.
+// This includes: zero time, distant past, distant future, and everything in between.
 func (p *PropertyPrimitives) Time() time.Time {
-	n := p.Next()
-	return p.baseTime.Add(time.Duration(n) * p.timeStep)
+	// Use different strategies to get variety including edge cases
+	strategy := p.IntN(10)
+
+	switch {
+	case strategy == 0: // Zero time
+		return time.Time{}
+	case strategy == 1: // Unix epoch
+		return time.Unix(0, 0).UTC()
+	case strategy == 2: // Distant past (year 1)
+		return time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)
+	case strategy == 3: // Distant future (year 9999)
+		return time.Date(9999, 12, 31, 23, 59, 59, 999999999, time.UTC)
+	default:
+		// Random time by generating random Unix timestamp
+		// Use full int64 range for seconds (-292 billion years to +292 billion years)
+		sec := int64(p.source.DrawBits(64))
+		nsec := int64(p.IntN(1000000000)) // 0 to 999,999,999 nanoseconds
+		return time.Unix(sec, nsec).UTC()
+	}
 }
 
 // TimeAtOffset generates a time at the specified offset from the base time.
@@ -165,15 +209,19 @@ func (p *PropertyPrimitives) TimeAtOffset(d time.Duration) time.Time {
 	return p.baseTime.Add(d)
 }
 
-// Duration generates a duration based on the counter and time step.
+// Duration generates a random duration from the full range of time.Duration values.
+// This includes: negative durations, zero, positive durations, math.MinInt64, math.MaxInt64.
 func (p *PropertyPrimitives) Duration() time.Duration {
-	n := p.Next()
-	return time.Duration(n) * p.timeStep
+	// time.Duration is an int64 of nanoseconds
+	// Generate full int64 range
+	return time.Duration(int64(p.source.DrawBits(64)))
 }
 
-// ID generates a string ID with "id_" prefix and counter.
+// ID generates a random string from the full string space.
+// This is identical to String() - property testing explores all possible strings.
+// To constrain IDs, use generators like String().Prefix("id_") or String().AlphaNum().
 func (p *PropertyPrimitives) ID() string {
-	return fmt.Sprintf("id_%d", p.Next())
+	return p.String()
 }
 
 // UUID generates a random UUID using bytes from the Source.

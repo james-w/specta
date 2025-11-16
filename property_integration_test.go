@@ -15,20 +15,18 @@ func TestPropertyIntegration_SimplePrimitives(t *testing.T) {
 		specta.Property(spy, func(t *specta.T) {
 			p := t.Primitives()
 
-			// Generate various primitives
-			id := p.ID()
-			str := p.String()
-			num := p.Int()
+			// Generate various primitives from full type space
+			id := p.ID()      // Can be empty, unicode, anything
+			str := p.String() // Can be empty, unicode, anything
+			_ = p.Int()       // Can be negative, zero, positive
 
-			// Properties should hold
-			if id == "" {
-				t.Errorf("ID should not be empty")
+			// Test a property that should ALWAYS hold
+			// String concatenation length property
+			combined := id + str
+			expectedLen := len(id) + len(str)
+			if len(combined) != expectedLen {
+				t.Errorf("concatenation length wrong: got %d, expected %d", len(combined), expectedLen)
 			}
-			if str == "" {
-				t.Errorf("String should not be empty")
-			}
-			// num can be any value, just check it was generated
-			_ = num
 		}, specta.MaxTests(50))
 
 		if len(spy.Errors) > 0 {
@@ -62,47 +60,90 @@ func TestPropertyIntegration_SimplePrimitives(t *testing.T) {
 	})
 }
 
-// TestPropertyIntegration_WithOptions tests that Primitives options work
-func TestPropertyIntegration_WithOptions(t *testing.T) {
-	t.Run("WithPropertyPrefix works", func(t *testing.T) {
-		spy := testlib.NewSpy()
+// TestPropertyIntegration_FullSpaceExploration tests that PropertyPrimitives explores full type space
+func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
+	t.Run("finds empty strings", func(t *testing.T) {
+		foundEmpty := false
 
-		specta.Property(spy, func(t *specta.T) {
-			p := t.Primitives(specta.WithPropertyPrefix("test"))
-			str := p.String()
+		// Run many iterations to find an empty string
+		// Probability of empty = 1/101 per call, so need enough attempts
+		// Run up to 100 seeds × 100 tests = 10,000 attempts max
+		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
+			specta.Property(t, func(t *specta.T) {
+				p := t.Primitives()
+				str := p.String()
+				if str == "" {
+					foundEmpty = true
+				}
+			}, specta.Seed(seed), specta.MaxTests(100))
+		}
 
-			if str[0:5] != "test_" {
-				t.Errorf("expected string to start with 'test_', got %s", str)
+		if !foundEmpty {
+			t.Error("PropertyPrimitives should eventually generate empty strings")
+		}
+	})
+
+	t.Run("finds negative integers", func(t *testing.T) {
+		foundNegative := false
+
+		specta.Property(t, func(t *specta.T) {
+			p := t.Primitives()
+			n := p.Int()
+			if n < 0 {
+				foundNegative = true
 			}
-		}, specta.MaxTests(10))
+		}, specta.MaxTests(100))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("property should pass: %v", spy.Errors)
+		if !foundNegative {
+			t.Error("PropertyPrimitives should generate negative integers")
 		}
 	})
 }
 
-// TestPropertyIntegration_UniqueValues tests that counter-based values are unique within an iteration
-func TestPropertyIntegration_UniqueValues(t *testing.T) {
-	t.Run("IDs are unique within a single property iteration", func(t *testing.T) {
+// TestPropertyIntegration_RandomValues tests that values are random
+func TestPropertyIntegration_RandomValues(t *testing.T) {
+	t.Run("IDs are random and likely unique", func(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
 			p := t.Primitives()
 
-			// Within a single iteration, IDs should be unique
-			seenIDs := make(map[string]bool)
-			for i := 0; i < 10; i++ {
-				id := p.ID()
-				if seenIDs[id] {
-					t.Errorf("duplicate ID generated in same iteration: %s", id)
-				}
-				seenIDs[id] = true
+			// Generate multiple IDs - they should be different (extremely unlikely to collide)
+			id1 := p.ID()
+			id2 := p.ID()
+
+			// With random hex strings, collision is extremely unlikely
+			// If they're equal, it's probably a bug
+			if id1 == id2 {
+				t.Errorf("got duplicate random IDs (extremely unlikely): %s", id1)
 			}
 		}, specta.MaxTests(50))
 
 		if len(spy.Errors) > 0 {
 			t.Errorf("property should pass: %v", spy.Errors)
+		}
+	})
+
+	t.Run("values are different across iterations", func(t *testing.T) {
+		var firstID string
+
+		// First iteration
+		specta.Property(t, func(t *specta.T) {
+			if firstID == "" {
+				firstID = t.Primitives().ID()
+			}
+		}, specta.MaxTests(1), specta.Seed(12345))
+
+		// Second iteration with different seed should produce different ID
+		var secondID string
+		specta.Property(t, func(t *specta.T) {
+			if secondID == "" {
+				secondID = t.Primitives().ID()
+			}
+		}, specta.MaxTests(1), specta.Seed(54321))
+
+		if firstID == secondID {
+			t.Error("expected different IDs from different seeds")
 		}
 	})
 }
