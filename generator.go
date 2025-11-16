@@ -27,25 +27,33 @@ func Int() *IntGenerator {
 	return &IntGenerator{}
 }
 
+// validate checks that the generator's constraints are consistent.
+// Panics if constraints are impossible to satisfy.
+func (g *IntGenerator) validate() {
+	if g.min != nil && g.max != nil && *g.min > *g.max {
+		panic(fmt.Sprintf("IntGenerator: Min(%d) > Max(%d)", *g.min, *g.max))
+	}
+}
+
 // Range constrains the generator to produce values between min and max (inclusive).
 func (g *IntGenerator) Range(min, max int64) *IntGenerator {
-	if min > max {
-		panic(fmt.Sprintf("IntGenerator.Range: min (%d) must be <= max (%d)", min, max))
-	}
 	g.min = &min
 	g.max = &max
+	g.validate()
 	return g
 }
 
 // Min constrains the generator to produce values >= min.
 func (g *IntGenerator) Min(min int64) *IntGenerator {
 	g.min = &min
+	g.validate()
 	return g
 }
 
 // Max constrains the generator to produce values <= max.
 func (g *IntGenerator) Max(max int64) *IntGenerator {
 	g.max = &max
+	g.validate()
 	return g
 }
 
@@ -53,6 +61,7 @@ func (g *IntGenerator) Max(max int64) *IntGenerator {
 func (g *IntGenerator) Positive() *IntGenerator {
 	one := int64(1)
 	g.min = &one
+	g.validate()
 	return g
 }
 
@@ -60,6 +69,7 @@ func (g *IntGenerator) Positive() *IntGenerator {
 func (g *IntGenerator) NonNegative() *IntGenerator {
 	zero := int64(0)
 	g.min = &zero
+	g.validate()
 	return g
 }
 
@@ -67,6 +77,7 @@ func (g *IntGenerator) NonNegative() *IntGenerator {
 func (g *IntGenerator) Negative() *IntGenerator {
 	negOne := int64(-1)
 	g.max = &negOne
+	g.validate()
 	return g
 }
 
@@ -113,21 +124,21 @@ func (g *IntGenerator) Draw(t *T, label string) int64 {
 
 // StringGenerator generates string values with optional constraints.
 type StringGenerator struct {
-	minLen   *int
-	maxLen   *int
-	prefix   string
-	suffix   string
-	charset  stringCharset
+	minLen  *int
+	maxLen  *int
+	prefix  string
+	suffix  string
+	charset stringCharset
 }
 
 type stringCharset int
 
 const (
-	charsetAny stringCharset = iota // Any bytes (including invalid UTF-8)
-	charsetASCII                     // ASCII characters (0x00-0x7F)
-	charsetPrintable                 // Printable ASCII (0x20-0x7E)
-	charsetAlphaNum                  // Alphanumeric (a-z, A-Z, 0-9)
-	charsetAlpha                     // Alphabetic (a-z, A-Z)
+	charsetAny       stringCharset = iota // Any bytes (including invalid UTF-8)
+	charsetASCII                          // ASCII characters (0x00-0x7F)
+	charsetPrintable                      // Printable ASCII (0x20-0x7E)
+	charsetAlphaNum                       // Alphanumeric (a-z, A-Z, 0-9)
+	charsetAlpha                          // Alphabetic (a-z, A-Z)
 )
 
 // String creates a new string generator.
@@ -138,12 +149,29 @@ func String() *StringGenerator {
 	}
 }
 
+// validate checks that the generator's constraints are consistent.
+// Panics if constraints are impossible to satisfy.
+func (g *StringGenerator) validate() {
+	// Check minLen <= maxLen
+	if g.minLen != nil && g.maxLen != nil && *g.minLen > *g.maxLen {
+		panic(fmt.Sprintf("StringGenerator: MinLen(%d) > MaxLen(%d)", *g.minLen, *g.maxLen))
+	}
+
+	// Check that prefix+suffix doesn't exceed maxLen
+	fixedLen := len(g.prefix) + len(g.suffix)
+	if g.maxLen != nil && fixedLen > *g.maxLen {
+		panic(fmt.Sprintf("StringGenerator: Prefix(%q) + Suffix(%q) = %d bytes > MaxLen(%d)",
+			g.prefix, g.suffix, fixedLen, *g.maxLen))
+	}
+}
+
 // MinLen constrains the generator to produce strings with at least minLen bytes.
 func (g *StringGenerator) MinLen(minLen int) *StringGenerator {
 	if minLen < 0 {
 		panic(fmt.Sprintf("StringGenerator.MinLen: minLen (%d) must be >= 0", minLen))
 	}
 	g.minLen = &minLen
+	g.validate()
 	return g
 }
 
@@ -153,6 +181,7 @@ func (g *StringGenerator) MaxLen(maxLen int) *StringGenerator {
 		panic(fmt.Sprintf("StringGenerator.MaxLen: maxLen (%d) must be >= 0", maxLen))
 	}
 	g.maxLen = &maxLen
+	g.validate()
 	return g
 }
 
@@ -163,6 +192,7 @@ func (g *StringGenerator) Len(len int) *StringGenerator {
 	}
 	g.minLen = &len
 	g.maxLen = &len
+	g.validate()
 	return g
 }
 
@@ -170,18 +200,21 @@ func (g *StringGenerator) Len(len int) *StringGenerator {
 func (g *StringGenerator) NonEmpty() *StringGenerator {
 	one := 1
 	g.minLen = &one
+	g.validate()
 	return g
 }
 
 // Prefix constrains the generator to produce strings starting with the given prefix.
 func (g *StringGenerator) Prefix(prefix string) *StringGenerator {
 	g.prefix = prefix
+	g.validate()
 	return g
 }
 
 // Suffix constrains the generator to produce strings ending with the given suffix.
 func (g *StringGenerator) Suffix(suffix string) *StringGenerator {
 	g.suffix = suffix
+	g.validate()
 	return g
 }
 
