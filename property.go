@@ -19,6 +19,10 @@ type T struct {
 // propertyFailure is a sentinel panic value used to stop property test iterations.
 type propertyFailure struct{}
 
+// skipTest is a sentinel panic value used to skip property test iterations.
+// This is used by Assume() and by generators when Filter() exhausts retry attempts.
+type skipTest struct{}
+
 // Errorf records an error but allows the property test to continue.
 // Multiple assertions can be checked before the property fails.
 func (t *T) Errorf(format string, args ...any) {
@@ -36,6 +40,23 @@ func (t *T) Fatalf(format string, args ...any) {
 // Helper marks the calling function as a test helper.
 // This is a no-op for property testing but satisfies the TestingT interface.
 func (t *T) Helper() {}
+
+// Assume skips the current property test iteration if the condition is false.
+// This is useful for filtering generated values that don't meet preconditions.
+// Property will track how many tests were skipped and warn if the skip rate is high.
+//
+// Example:
+//
+//	Property(t, func(t *T) {
+//	    n := Int().Range(1, 100).Draw(t, "n")
+//	    t.Assume(isPrime(n))  // Skip if not prime
+//	    // Test with prime numbers only
+//	})
+func (t *T) Assume(condition bool) {
+	if !condition {
+		panic(skipTest{})
+	}
+}
 
 // Primitives returns a Primitives implementation backed by this property test's Source.
 // This is a convenience method for using existing factories in property tests.
@@ -112,12 +133,21 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 	}
 
 	// Run property tests
+	var skipped int
+	var tested int
 	for i := 0; i < cfg.maxTests; i++ {
 		pt := &T{
 			Source: NewSource(cfg.seed + int64(i)),
 		}
 
-		failed := runCheck(check, pt)
+		failed, wasSkipped := runCheck(check, pt)
+
+		if wasSkipped {
+			skipped++
+			continue
+		}
+
+		tested++
 
 		if failed {
 			// Property failed - shrink it
@@ -125,24 +155,37 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 				shrinkT := &T{
 					Source: NewSourceFromData(data),
 				}
-				return runCheck(check, shrinkT)
+				failed, _ := runCheck(check, shrinkT)
+				return failed
 			}, cfg.maxShrinks)
 
 			// Report failure
-			reportFailure(t, shrunkData, check, i+1, cfg.maxTests, cfg.seed+int64(i))
+			reportFailure(t, shrunkData, check, i+1, cfg.maxTests, cfg.seed+int64(i), tested, skipped)
 			return
 		}
 	}
 
-	// All tests passed - TestingT doesn't have Logf, so we skip logging success
-	// Users can enable verbose mode if they want to see this
+	// All tests passed
+	// Warn if skip rate is high (>90%)
+	if tested > 0 {
+		skipRate := float64(skipped) / float64(skipped+tested) * 100
+		if skipRate > 90 {
+			t.Errorf("Warning: %.1f%% of property tests were skipped (%d/%d). Consider narrowing your generator or using Filter().",
+				skipRate, skipped, skipped+tested)
+		}
+	}
 }
 
-// runCheck executes the property check function and returns whether it failed.
-// It recovers from propertyFailure panics but re-panics on unexpected panics.
-func runCheck(check func(*T), pt *T) (failed bool) {
+// runCheck executes the property check function and returns whether it failed or was skipped.
+// It recovers from propertyFailure and skipTest panics but re-panics on unexpected panics.
+func runCheck(check func(*T), pt *T) (failed bool, skipped bool) {
 	defer func() {
 		if r := recover(); r != nil {
+			// Check if it's our expected skip sentinel
+			if _, ok := r.(skipTest); ok {
+				skipped = true
+				return
+			}
 			// Check if it's our expected failure sentinel
 			if _, ok := r.(propertyFailure); !ok {
 				// Unexpected panic - re-panic to propagate it
@@ -212,7 +255,7 @@ func shrink(original []byte, test func([]byte) bool, maxTries int) []byte {
 }
 
 // reportFailure creates a detailed error message and fails the test.
-func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxTests int, seed int64) {
+func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxTests int, seed int64, tested, skipped int) {
 	// Only call Helper() if t is a real *testing.T
 	if helper, ok := t.(interface{ Helper() }); ok {
 		helper.Helper()
@@ -230,6 +273,10 @@ func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxT
 	msg.WriteString("\n=== Property Test Failed ===\n")
 	msg.WriteString(fmt.Sprintf("Seed: %d\n", seed))
 	msg.WriteString(fmt.Sprintf("Attempts: %d/%d\n", attempts, maxTests))
+	if skipped > 0 {
+		msg.WriteString(fmt.Sprintf("Tested: %d, Skipped: %d (%.1f%% skip rate)\n",
+			tested, skipped, float64(skipped)/float64(tested+skipped)*100))
+	}
 
 	// Show generated values
 	if log := finalT.Source.Log(); log != "" {
