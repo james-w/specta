@@ -1,5 +1,100 @@
 # Property-Based Testing Ideas for Go Test Generation Framework
 
+## Progress Update (Current as of commit 5c150eb)
+
+### ✅ Completed Work
+
+**Stage 1: Core Foundation** - **COMPLETE**
+- ✅ Implemented `Source` interface with dual-mode support:
+  - `Gen` type for deterministic generation (friendly test values)
+  - `randomSource` type for property testing (random byte stream)
+  - Methods: `DrawBits(n int) uint64`, `WriteLog(msg string)`, `IsDeterministic() bool`
+- ✅ Implemented `Generator[T]` interface with signature: `Draw(s Source, label string) T`
+- ✅ Built shrinking algorithm (Hypothesis-style: zero blocks, reduce bytes, binary search on length)
+- ✅ Created 8 basic generators:
+  - `Int()` with `Range()` and `Filter()` constraints
+  - `String()` with `Length()`, `Charset()`, `Prefix()`, `ExampleHint()`, `Filter()` constraints
+  - `Bool()` (returns false in deterministic mode, random in property mode)
+  - `Float64()` (basic implementation)
+  - `Time()` (basic implementation)
+  - `Duration()` (basic implementation)
+  - `Bytes()` (basic implementation)
+  - `UUID()` (basic implementation)
+- ✅ Built `Property(t, check, opts...)` test runner with options:
+  - `MaxTests(n)` - number of iterations
+  - `Seed(seed)` - deterministic reproduction
+  - `MaxShrinks(n)` - shrinking budget
+- ✅ Deterministic reproduction working: failures show seed for reproduction
+- ✅ Shrinking working: failures shrink to minimal failing case
+
+**Stage 2: Primitives Migration** - **COMPLETE (different approach)**
+- ✅ **Removed Primitives interface entirely** instead of bridging
+  - Deleted `property_primitives.go` (241 lines)
+  - Deleted `property_primitives_test.go` (379 lines)
+  - Removed `T.Primitives()` method
+- ✅ Migrated all code to use `Source + Generators` directly
+- ✅ Updated code generator templates in `cmd/main.go`:
+  - Changed `Provider[V]` from `func(p Primitives) V` to `func(s Source) V`
+  - Changed `BuildWithSpec[T, S]` signature to use Source
+  - Updated all generated factory code to use generators
+  - Fixed variable shadowing issues in templates
+- ✅ Regenerated and verified all example and showcase projects
+- ✅ All tests passing (main package, example, showcase)
+- Net result: -441 lines of code, cleaner architecture
+
+**Stage 3: Essential Generators** - **PARTIALLY COMPLETE**
+- ✅ Core primitive generators implemented (8 types)
+- ✅ Dual-mode operation (deterministic friendly values vs random exploration)
+- ✅ Basic constraint support (Range, Length, Charset, Prefix, Filter)
+- ❌ Slice generator - **NOT DONE**
+- ❌ Map generator - **NOT DONE**
+- ❌ Advanced constraints (pattern matching, weighted booleans, etc.) - **NOT DONE**
+
+**Stage 5: Polish** - **PARTIALLY COMPLETE**
+- ✅ Error messages show:
+  - Seed for reproduction
+  - Generated values with labels
+  - Shrunk failing case
+  - Skip rate warnings
+  - Reproduction command
+- ✅ Integration with testing.T and custom TestingT interface
+- ✅ Property test T type with `Errorf`, `Fatalf`, `Helper`, `Assume(condition)`
+- ✅ Skip tracking and warnings for high skip rates
+- ❌ Performance optimization - not yet profiled
+- ❌ Comprehensive documentation - needs expansion
+
+### ❌ Not Started
+
+**Stage 4: Biasing System** - **NOT STARTED**
+- No BiasLevel implementation
+- No edge case biasing (0, ±1, boundaries, powers of 2)
+- No Unicode biasing (ASCII/Latin-1/Emoji/control chars)
+- No collection size biasing
+- Currently using uniform random generation in property mode
+
+**Stage 6: Advanced Features** - **NOT STARTED**
+- No corpus persistence
+- No regex-based string generation (direct construction)
+- No dependent value generation
+- No stateful/model-based testing
+- No custom generator composition helpers beyond Filter()
+
+### Key Architectural Decisions Made
+
+1. **No Primitives**: Removed the abstraction entirely rather than bridging it
+2. **Dual-mode generators**: Same Generator[T] works in both deterministic (example) and random (property) contexts
+3. **Draw() takes Source**: Unified interface allows generators to work anywhere
+4. **Filter() for constraints**: Simple retry-based filtering with configurable max attempts
+5. **Integrated shrinking**: Shrink byte stream, not generated values (Hypothesis approach)
+6. **Simple error messages**: Text-based output showing seed, values, and reproduction command
+
+### What Changed From Original Plan
+
+**Original Plan**: Bridge Primitives to Source so existing factories work unchanged
+**Actual Implementation**: Removed Primitives entirely, migrated everything to Source + Generators
+
+**Rationale**: Cleaner architecture with one way to do things rather than maintaining two parallel systems. Code generator can easily produce Source-based code, so migration was straightforward.
+
 ## Overview
 
 This document explores ideas for extending the existing Go test generation framework to support property-based testing with automatic shrinking. The goal is to create something that feels natural in Go while providing the power of property-based testing, inspired by Hypothesis's approach but adapted to Go's idioms.
@@ -307,20 +402,85 @@ The beauty of this approach: shrinking is automatic and preserves constraints be
 5. Should we provide a way to reproduce failures deterministically?
 6. What's the right default bias level?
 
-## Next Steps
+## Updated Next Steps (Post-Migration)
 
-1. Prototype the core `Source` and `Generator` interfaces
-2. Implement basic generators (Int, String, Slice)
-3. Test integration with existing `Primitives` interface
-4. Benchmark biased vs. uniform generation for bug finding
-5. Create examples showing migration from existing tests
-6. Get feedback on API ergonomics
+### Immediate Next Steps (High Priority)
+
+1. **Complete Stage 3: Essential Generators**
+   - Implement `Slice[T]()` generator with:
+     - Length constraints (MinLen, MaxLen)
+     - Element generator composition
+     - Unique element support
+     - Sorted/Unsorted variants
+   - Implement `Map[K,V]()` generator with:
+     - Size constraints
+     - Key/Value generator composition
+   - Add more constraints to existing generators:
+     - Float64: Precision, allow/disallow NaN/Inf, boundary constraints
+     - Time: Range constraints, business hours, timezone handling
+     - Duration: Range constraints, common durations (second, minute, hour)
+     - String: Pattern matching (email, URL, phone)
+
+2. **Performance Profiling and Optimization**
+   - Profile property test execution with 100+ iterations
+   - Target: <1ms per iteration for simple generators
+   - Optimize hot paths in Source.DrawBits() and shrinking
+   - Consider adding benchmark tests
+
+3. **Documentation Expansion**
+   - Add comprehensive README section on property testing
+   - Document each generator with examples
+   - Show migration guide from traditional tests to property tests
+   - Add common patterns and anti-patterns
+   - Document dual-mode behavior clearly
+
+### Medium Priority
+
+4. **Stage 4: Biasing System**
+   - Design and implement `BiasLevel` configuration
+   - Add integer biasing (0, ±1, boundaries, powers of 2)
+   - Add string biasing (empty, single char, special chars)
+   - Add Unicode biasing for strings (ASCII/Latin-1/Emoji/control/RTL)
+   - Add collection size biasing (empty, single element, small/medium/large)
+   - Benchmark: does biasing find seeded bugs faster?
+
+5. **Generator Composition Helpers**
+   - `OneOf(generators...)` - choose randomly from multiple generators
+   - `Weighted(weight int)` - for Bool() and choosing between alternatives
+   - `Maybe[T](gen Generator[T])` - generates Some(value) or None
+   - Chain combinators for common patterns
+
+### Lower Priority
+
+6. **Stage 6: Advanced Features** (defer until proven need)
+   - Corpus persistence (save interesting examples across runs)
+   - Regex-based string generation (direct construction from pattern)
+   - Dependent value generation (amount ≤ balance)
+   - Stateful/model-based testing
+   - Custom generator composition DSL
+
+7. **Quality of Life Improvements**
+   - Better visualization of shrinking progress
+   - Statistics on generated values (distribution, coverage)
+   - Parallel property test execution
+   - Custom Assume() messages
+   - Configurable shrinking strategies
+
+### Deferred/Optional
+
+- Integration with fuzzing (Go 1.18+ native fuzzing)
+- Hypothesis-style example database
+- Property test failure replay UI
+- Cross-property correlation detection
+- Mutation-based testing
 
 ## Conclusion
 
-The goal is to make property-based testing feel natural in Go while providing powerful features like automatic shrinking and intelligent biasing. By building on the existing `Primitives` interface and factory pattern, we can enable gradual adoption while providing immediate value for finding edge cases and bugs that traditional testing misses.
+The goal is to make property-based testing feel natural in Go while providing powerful features like automatic shrinking and intelligent biasing. By integrating generators directly with the Source interface and factory pattern, we've created a unified system that works seamlessly in both deterministic test scenarios (with friendly example values) and property-based testing scenarios (with full type-space exploration).
 
 The key is to embrace Go's imperative nature rather than forcing functional programming patterns, making the API feel like a natural extension of how Go developers already write tests.
+
+**Current Status:** The core foundation is complete and working. Property tests can be written today using the available generators (Int, String, Bool, Float64, Time, Duration, Bytes, UUID), and failures shrink to minimal reproductions with seed-based deterministic replay. The next major work items are completing collection generators (Slice, Map), adding biasing for better bug-finding, and expanding documentation with comprehensive examples.
 
 ---
 
