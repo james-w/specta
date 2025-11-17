@@ -3,6 +3,7 @@ package specta
 import (
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -33,6 +34,8 @@ type Gen struct {
 	baseTime time.Time
 	step     time.Duration
 	prefix   string
+	logging  bool
+	log      strings.Builder
 }
 
 type Option func(*Gen)
@@ -99,6 +102,31 @@ func (g *Gen) Duration() time.Duration                { return time.Duration(g.N
 func (g *Gen) ID() string                             { return fmt.Sprintf("%sid_%d", g.prefix, g.Next()) }
 
 func (g *Gen) UUID() uuid.UUID { return DeterministicUUIDFromInt(g.Next()) }
+
+// DrawBits implements Source interface.
+// Returns bits from the counter for deterministic, predictable generation.
+func (g *Gen) DrawBits(n int) uint64 {
+	if n <= 0 || n > 64 {
+		panic("DrawBits: n must be between 1 and 64")
+	}
+	value := g.Next()
+	mask := uint64((1 << n) - 1)
+	return value & mask
+}
+
+// WriteLog implements Source interface.
+// Appends to the log if logging is enabled.
+func (g *Gen) WriteLog(msg string) {
+	if g.logging {
+		g.log.WriteString(msg)
+	}
+}
+
+// IsDeterministic implements Source interface.
+// Returns true because Gen produces predictable, friendly values.
+func (g *Gen) IsDeterministic() bool {
+	return true
+}
 
 var ns = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 

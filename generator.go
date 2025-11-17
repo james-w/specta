@@ -3,6 +3,7 @@ package specta
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // Generator produces values of type Value from a Source.
@@ -73,11 +74,8 @@ func (g *IntGenerator) Negative() *IntGenerator {
 // Draw generates an int64 value from the source and records it in the log.
 // The label is used to identify this value in error messages.
 func (g *IntGenerator) Draw(t *T, label string) int64 {
-	// Draw 64 random bits
+	// Draw bits from source
 	bits := t.Source.DrawBits(64)
-
-	// Convert to int64
-	value := int64(bits)
 
 	// Determine effective min and max
 	min := int64(math.MinInt64)
@@ -89,19 +87,42 @@ func (g *IntGenerator) Draw(t *T, label string) int64 {
 		max = *g.max
 	}
 
-	// If we have any constraints, map the value into [min, max]
-	if g.min != nil || g.max != nil {
-		// Calculate range size
-		// Use big.Int for calculations to avoid overflow
-		rangeSize := uint64(max - min + 1)
-		if rangeSize == 0 {
-			// Special case: range wraps around (e.g., MinInt64 to MaxInt64)
-			// In this case, any value is valid
-			value = int64(bits)
-		} else {
-			// Map bits to [0, rangeSize) then add min
-			offset := bits % rangeSize
-			value = min + int64(offset)
+	var value int64
+
+	if t.Source.IsDeterministic() {
+		// Deterministic mode: use counter directly for small, predictable values
+		// This gives us 0, 1, 2, 3... which is friendly for debugging
+		value = int64(bits)
+
+		// Apply constraints
+		if g.min != nil || g.max != nil {
+			// Wrap value into [min, max] range
+			rangeSize := uint64(max - min + 1)
+			if rangeSize == 0 {
+				// Full range, value is already good
+				value = int64(bits)
+			} else {
+				// Map counter into constrained range
+				offset := uint64(value) % rangeSize
+				value = min + int64(offset)
+			}
+		}
+	} else {
+		// Random mode: full exploration of int64 space
+		value = int64(bits)
+
+		// Apply constraints
+		if g.min != nil || g.max != nil {
+			rangeSize := uint64(max - min + 1)
+			if rangeSize == 0 {
+				// Special case: range wraps around (e.g., MinInt64 to MaxInt64)
+				// In this case, any value is valid
+				value = int64(bits)
+			} else {
+				// Map bits to [0, rangeSize) then add min
+				offset := bits % rangeSize
+				value = min + int64(offset)
+			}
 		}
 	}
 
@@ -113,11 +134,12 @@ func (g *IntGenerator) Draw(t *T, label string) int64 {
 
 // StringGenerator generates string values with optional constraints.
 type StringGenerator struct {
-	minLen   *int
-	maxLen   *int
-	prefix   string
-	suffix   string
-	charset  stringCharset
+	minLen      *int
+	maxLen      *int
+	prefix      string
+	suffix      string
+	charset     stringCharset
+	exampleHint string
 }
 
 type stringCharset int
@@ -209,8 +231,51 @@ func (g *StringGenerator) Alpha() *StringGenerator {
 	return g
 }
 
+// ExampleHint provides a soft prefix hint for deterministic generation.
+// This is used when generating friendly example values with Gen.
+// If a hard Prefix() constraint is set, it takes precedence over the hint.
+func (g *StringGenerator) ExampleHint(hint string) *StringGenerator {
+	g.exampleHint = hint
+	return g
+}
+
 // Draw generates a string value from the source and records it in the log.
 func (g *StringGenerator) Draw(t *T, label string) string {
+	if t.Source.IsDeterministic() {
+		return g.drawDeterministic(t, label)
+	}
+	return g.drawRandom(t, label)
+}
+
+// drawDeterministic generates friendly, predictable strings like "user_1", "user_2"
+func (g *StringGenerator) drawDeterministic(t *T, label string) string {
+	// Get counter value
+	counter := t.Source.DrawBits(64)
+
+	// Determine effective prefix (hard constraint or soft hint)
+	effectivePrefix := g.prefix
+	if effectivePrefix == "" && g.exampleHint != "" {
+		effectivePrefix = g.exampleHint
+	}
+
+	// Generate content from counter respecting charset
+	content := g.formatCounter(counter, g.charset)
+
+	// Build with prefix + content + suffix
+	result := effectivePrefix + content
+	if g.suffix != "" {
+		result += g.suffix
+	}
+
+	// Enforce length constraints
+	result = g.enforceLength(result, g.charset)
+
+	t.Source.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
+	return result
+}
+
+// drawRandom generates adversarial strings exploring full type space
+func (g *StringGenerator) drawRandom(t *T, label string) string {
 	// Determine length
 	minLen := 0
 	if g.minLen != nil {
@@ -290,5 +355,71 @@ func (g *StringGenerator) generateByte(t *T) byte {
 
 	default:
 		return byte(t.Source.DrawBits(8))
+	}
+}
+
+// formatCounter formats a counter value as a string respecting charset constraints
+func (g *StringGenerator) formatCounter(counter uint64, charset stringCharset) string {
+	switch charset {
+	case charsetAlpha:
+		// For alpha, convert to base-26 using letters
+		if counter == 0 {
+			return "a"
+		}
+		result := ""
+		for counter > 0 {
+			result = string(rune('a'+(counter%26))) + result
+			counter /= 26
+		}
+		return result
+	case charsetAlphaNum, charsetPrintable, charsetASCII, charsetAny:
+		// For others, use decimal representation (digits are valid in all these)
+		return fmt.Sprintf("%d", counter)
+	default:
+		return fmt.Sprintf("%d", counter)
+	}
+}
+
+// enforceLength pads or truncates the string to meet length constraints
+func (g *StringGenerator) enforceLength(s string, charset stringCharset) string {
+	minLen := 0
+	if g.minLen != nil {
+		minLen = *g.minLen
+	}
+	maxLen := 100
+	if g.maxLen != nil {
+		maxLen = *g.maxLen
+	}
+
+	// Truncate if too long
+	if len(s) > maxLen {
+		// Try to preserve suffix if present
+		if g.suffix != "" && len(g.suffix) < maxLen {
+			// Truncate from the middle, keep suffix
+			prefixPart := s[:maxLen-len(g.suffix)]
+			return prefixPart + g.suffix
+		}
+		return s[:maxLen]
+	}
+
+	// Pad if too short
+	if len(s) < minLen {
+		padding := minLen - len(s)
+		padChar := g.getPadChar(charset)
+		return s + strings.Repeat(string(padChar), padding)
+	}
+
+	return s
+}
+
+// getPadChar returns an appropriate padding character for the charset
+func (g *StringGenerator) getPadChar(charset stringCharset) rune {
+	switch charset {
+	case charsetAlpha:
+		return 'a'
+	case charsetAlphaNum, charsetPrintable, charsetASCII:
+		return '0'
+	default:
+		return '0'
 	}
 }

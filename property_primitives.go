@@ -25,7 +25,7 @@ import (
 //
 // Use generators to constrain values: String().Prefix("user"), Int().Range(0, 100)
 type PropertyPrimitives struct {
-	source   *Source
+	source   Source
 	baseTime time.Time
 }
 
@@ -54,7 +54,7 @@ func WithPropertyBaseTime(baseTime time.Time) PrimitivesOption {
 //	    // Test properties of user...
 //	    // Will find bugs from empty strings, unicode, negatives, etc.
 //	})
-func NewPropertyPrimitives(source *Source, opts ...PrimitivesOption) Primitives {
+func NewPropertyPrimitives(source Source, opts ...PrimitivesOption) Primitives {
 	p := &PropertyPrimitives{
 		source:   source,
 		baseTime: time.Unix(0, 0).UTC(),

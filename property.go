@@ -13,7 +13,7 @@ import (
 type T struct {
 	failed bool
 	errors []string
-	Source *Source // Exported so tests can construct T instances
+	Source Source // Exported so tests can construct T instances
 }
 
 // propertyFailure is a sentinel panic value used to stop property test iterations.
@@ -121,7 +121,9 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 
 		if failed {
 			// Property failed - shrink it
-			shrunkData := shrink(pt.Source.Data(), func(data []byte) bool {
+			// We know pt.Source is a *randomSource since we created it with NewSource
+			rs := pt.Source.(*randomSource)
+			shrunkData := shrink(rs.Data(), func(data []byte) bool {
 				shrinkT := &T{
 					Source: NewSourceFromData(data),
 				}
@@ -222,7 +224,9 @@ func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxT
 	finalT := &T{
 		Source: NewSourceFromData(shrunkData),
 	}
-	finalT.Source.EnableLogging()
+	// We know finalT.Source is a *randomSource since we created it with NewSourceFromData
+	rs := finalT.Source.(*randomSource)
+	rs.EnableLogging()
 	runCheck(check, finalT)
 
 	// Build error message
@@ -232,7 +236,7 @@ func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxT
 	msg.WriteString(fmt.Sprintf("Attempts: %d/%d\n", attempts, maxTests))
 
 	// Show generated values
-	if log := finalT.Source.Log(); log != "" {
+	if log := rs.Log(); log != "" {
 		msg.WriteString("\nGenerated values:\n  ")
 		msg.WriteString(strings.TrimSpace(log))
 		msg.WriteString("\n")

@@ -106,11 +106,12 @@ func TestIntGenerator(t *testing.T) {
 	})
 
 	t.Run("logs when enabled", func(t *testing.T) {
-		pt := &specta.T{Source: specta.NewSource(12345)}
-		pt.Source.EnableLogging()
+		rs := specta.NewSource(12345)
+		pt := &specta.T{Source: rs}
+		rs.EnableLogging()
 
 		specta.Int().Draw(pt, "myvalue")
-		log := pt.Source.Log()
+		log := rs.Log()
 
 		if !strings.Contains(log, "myvalue") {
 			t.Errorf("expected log to contain label, got: %s", log)
