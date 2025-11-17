@@ -46,22 +46,22 @@ type OrderItemSpec struct {
 func NewOrderItemSpec() OrderItemSpec { return OrderItemSpec{} }
 
 // NewOrderItemFactory creates a new SpecFactory for OrderItem.
-func NewOrderItemFactory(p specta.Primitives) *specta.SpecFactory[showcase.OrderItem, OrderItemSpec] {
-	return specta.NewSpecFactory(p, NewOrderItemSpec, BuildOrderItem)
+func NewOrderItemFactory(s specta.Source) *specta.SpecFactory[showcase.OrderItem, OrderItemSpec] {
+	return specta.NewSpecFactory(s, NewOrderItemSpec, BuildOrderItem)
 }
 
 // Default field providers.
 var (
 	OrderItemDefaultProduct  = specta.FromSpec(BuildProduct, NewProductSpec)
-	OrderItemDefaultQuantity = func(p specta.Primitives) int { return p.Int() }
-	OrderItemDefaultPrice    = func(p specta.Primitives) float64 { return p.Float64() }
+	OrderItemDefaultQuantity = func(s specta.Source) int { return int(specta.Int().Draw(s, "Quantity")) }
+	OrderItemDefaultPrice    = func(s specta.Source) float64 { return specta.Float64().Draw(s, "Price") }
 )
 
 // BuildOrderItem constructs a OrderItem from a OrderItemSpec.
-func BuildOrderItem(p specta.Primitives, s OrderItemSpec) showcase.OrderItem {
-	product := s.Product.Get(p, OrderItemDefaultProduct)
-	quantity := s.Quantity.Get(p, OrderItemDefaultQuantity)
-	price := s.Price.Get(p, OrderItemDefaultPrice)
+func BuildOrderItem(s specta.Source, spec OrderItemSpec) showcase.OrderItem {
+	product := spec.Product.Get(s, OrderItemDefaultProduct)
+	quantity := spec.Quantity.Get(s, OrderItemDefaultQuantity)
+	price := spec.Price.Get(s, OrderItemDefaultPrice)
 	return showcase.OrderItem{
 		Product:  product,
 		Quantity: quantity,

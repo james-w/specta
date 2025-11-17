@@ -14,7 +14,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("generates full range by default", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			// Should generate any int64 value
 			_ = value
 		}, specta.MaxTests(100))
@@ -23,7 +23,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("respects Range constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(10, 20)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value < 10 || value > 20 {
 				t.Errorf("value %d outside range [10, 20]", value)
 			}
@@ -33,7 +33,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("respects Min constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Min(100)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value < 100 {
 				t.Errorf("value %d less than min 100", value)
 			}
@@ -43,7 +43,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("respects Max constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Max(50)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value > 50 {
 				t.Errorf("value %d greater than max 50", value)
 			}
@@ -53,7 +53,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("Positive generates values > 0", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Positive()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value <= 0 {
 				t.Errorf("value %d not positive", value)
 			}
@@ -63,7 +63,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("NonNegative generates values >= 0", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().NonNegative()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value < 0 {
 				t.Errorf("value %d is negative", value)
 			}
@@ -73,7 +73,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("Negative generates values < 0", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Negative()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value >= 0 {
 				t.Errorf("value %d not negative", value)
 			}
@@ -83,7 +83,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("chained constraints work", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Min(10).Max(100)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value < 10 || value > 100 {
 				t.Errorf("value %d outside range [10, 100]", value)
 			}
@@ -96,7 +96,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("generates any bytes by default", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			// Should be able to generate any string including invalid UTF-8
 			_ = value
 		}, specta.MaxTests(100))
@@ -105,7 +105,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("NonEmpty generates non-empty strings", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().NonEmpty()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if len(value) == 0 {
 				t.Errorf("generated empty string")
 			}
@@ -115,7 +115,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("MinLen respects minimum length", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MinLen(10)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if len(value) < 10 {
 				t.Errorf("string length %d less than min 10", len(value))
 			}
@@ -125,7 +125,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("MaxLen respects maximum length", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MaxLen(5)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if len(value) > 5 {
 				t.Errorf("string length %d greater than max 5", len(value))
 			}
@@ -135,7 +135,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Len generates exact length", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Len(10)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if len(value) != 10 {
 				t.Errorf("string length %d not equal to 10", len(value))
 			}
@@ -145,7 +145,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Prefix adds prefix", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Prefix("test_")
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if !strings.HasPrefix(value, "test_") {
 				t.Errorf("string %q doesn't have prefix 'test_'", value)
 			}
@@ -155,7 +155,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Suffix adds suffix", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Suffix("_end")
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if !strings.HasSuffix(value, "_end") {
 				t.Errorf("string %q doesn't have suffix '_end'", value)
 			}
@@ -165,7 +165,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("ASCII generates only ASCII", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().ASCII().MinLen(1)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			for i, b := range []byte(value) {
 				if b > 0x7F {
 					t.Errorf("byte at index %d (%d) is not ASCII", i, b)
@@ -177,7 +177,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Printable generates only printable ASCII", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Printable().MinLen(1)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			for i, r := range value {
 				if r < 0x20 || r > 0x7E {
 					t.Errorf("character at index %d (%c, %d) is not printable ASCII", i, r, r)
@@ -189,7 +189,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("AlphaNum generates only alphanumeric", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().AlphaNum().MinLen(1)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			for i, r := range value {
 				if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
 					t.Errorf("character at index %d (%c) is not alphanumeric", i, r)
@@ -201,7 +201,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Alpha generates only alphabetic", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Alpha().MinLen(1)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			for i, r := range value {
 				if !unicode.IsLetter(r) {
 					t.Errorf("character at index %d (%c) is not alphabetic", i, r)
@@ -213,7 +213,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("chained constraints work", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Prefix("user_").AlphaNum().MinLen(10).MaxLen(20)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 
 			if !strings.HasPrefix(value, "user_") {
 				t.Errorf("string %q doesn't have prefix 'user_'", value)
@@ -237,7 +237,7 @@ func TestStringGenerator(t *testing.T) {
 		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
 			specta.Property(t, func(t *specta.T) {
 				gen := specta.String()
-				value := gen.Draw(t, "test")
+				value := gen.Draw(t.Source, "test")
 				if len(value) == 0 {
 					foundEmpty = true
 				}
@@ -259,7 +259,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 		for seed := int64(0); seed < 100 && (!foundMin || !foundMax); seed++ {
 			specta.Property(t, func(t *specta.T) {
 				gen := specta.Int().Range(10, 20)
-				value := gen.Draw(t, "test")
+				value := gen.Draw(t.Source, "test")
 				if value == 10 {
 					foundMin = true
 				}
@@ -280,7 +280,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 	t.Run("handles single value range", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(42, 42)
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value != 42 {
 				t.Errorf("expected 42, got %d", value)
 			}
@@ -292,7 +292,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value < 0 {
 				foundNegative = true
 			}
@@ -308,7 +308,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int()
-			value := gen.Draw(t, "test")
+			value := gen.Draw(t.Source, "test")
 			if value < minSeen {
 				minSeen = value
 			}

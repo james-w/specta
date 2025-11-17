@@ -48,26 +48,26 @@ type AddressSpec struct {
 func NewAddressSpec() AddressSpec { return AddressSpec{} }
 
 // NewAddressFactory creates a new SpecFactory for Address.
-func NewAddressFactory(p specta.Primitives) *specta.SpecFactory[showcase.Address, AddressSpec] {
-	return specta.NewSpecFactory(p, NewAddressSpec, BuildAddress)
+func NewAddressFactory(s specta.Source) *specta.SpecFactory[showcase.Address, AddressSpec] {
+	return specta.NewSpecFactory(s, NewAddressSpec, BuildAddress)
 }
 
 // Default field providers.
 var (
-	AddressDefaultStreet  = func(p specta.Primitives) string { return p.StringWith("street_") }
-	AddressDefaultCity    = func(p specta.Primitives) string { return p.StringWith("city_") }
-	AddressDefaultState   = func(p specta.Primitives) string { return p.StringWith("state_") }
-	AddressDefaultZipCode = func(p specta.Primitives) string { return p.StringWith("zipcode_") }
-	AddressDefaultCountry = func(p specta.Primitives) string { return p.StringWith("country_") }
+	AddressDefaultStreet  = func(s specta.Source) string { return specta.String().ExampleHint("street_").Draw(s, "Street") }
+	AddressDefaultCity    = func(s specta.Source) string { return specta.String().ExampleHint("city_").Draw(s, "City") }
+	AddressDefaultState   = func(s specta.Source) string { return specta.String().ExampleHint("state_").Draw(s, "State") }
+	AddressDefaultZipCode = func(s specta.Source) string { return specta.String().ExampleHint("zipcode_").Draw(s, "ZipCode") }
+	AddressDefaultCountry = func(s specta.Source) string { return specta.String().ExampleHint("country_").Draw(s, "Country") }
 )
 
 // BuildAddress constructs a Address from a AddressSpec.
-func BuildAddress(p specta.Primitives, s AddressSpec) showcase.Address {
-	street := s.Street.Get(p, AddressDefaultStreet)
-	city := s.City.Get(p, AddressDefaultCity)
-	state := s.State.Get(p, AddressDefaultState)
-	zipCode := s.ZipCode.Get(p, AddressDefaultZipCode)
-	country := s.Country.Get(p, AddressDefaultCountry)
+func BuildAddress(s specta.Source, spec AddressSpec) showcase.Address {
+	street := spec.Street.Get(s, AddressDefaultStreet)
+	city := spec.City.Get(s, AddressDefaultCity)
+	state := spec.State.Get(s, AddressDefaultState)
+	zipCode := spec.ZipCode.Get(s, AddressDefaultZipCode)
+	country := spec.Country.Get(s, AddressDefaultCountry)
 	return showcase.Address{
 		Street:  street,
 		City:    city,

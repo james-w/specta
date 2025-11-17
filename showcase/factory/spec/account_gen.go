@@ -45,20 +45,20 @@ type AccountSpec struct {
 func NewAccountSpec() AccountSpec { return AccountSpec{} }
 
 // NewAccountFactory creates a new SpecFactory for Account.
-func NewAccountFactory(p specta.Primitives) *specta.SpecFactory[showcase.Account, AccountSpec] {
-	return specta.NewSpecFactory(p, NewAccountSpec, BuildAccount)
+func NewAccountFactory(s specta.Source) *specta.SpecFactory[showcase.Account, AccountSpec] {
+	return specta.NewSpecFactory(s, NewAccountSpec, BuildAccount)
 }
 
 // Default parameter providers.
 var (
 	AccountDefaultUser   = specta.FromSpec(BuildUser, NewUserSpec)
-	AccountDefaultStatus = func(p specta.Primitives) string { return p.StringWith("status_") }
+	AccountDefaultStatus = func(s specta.Source) string { return specta.String().ExampleHint("status_").Draw(s, "Status") }
 )
 
 // BuildAccount constructs a Account from a AccountSpec.
-func BuildAccount(p specta.Primitives, s AccountSpec) showcase.Account {
-	user := s.User.Get(p, AccountDefaultUser)
-	status := s.Status.Get(p, AccountDefaultStatus)
+func BuildAccount(s specta.Source, spec AccountSpec) showcase.Account {
+	user := spec.User.Get(s, AccountDefaultUser)
+	status := spec.Status.Get(s, AccountDefaultStatus)
 	return showcase.NewAccount(user, status)
 }
 

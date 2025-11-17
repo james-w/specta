@@ -76,7 +76,7 @@ func TestIntGenerator(t *testing.T) {
 	t.Run("generates values", func(t *testing.T) {
 		pt := &specta.T{Source: specta.NewSource(12345)}
 
-		value := specta.Int().Draw(pt, "x")
+		value := specta.Int().Draw(pt.Source, "x")
 
 		// Should generate some value (could be any int64)
 		_ = value
@@ -86,7 +86,7 @@ func TestIntGenerator(t *testing.T) {
 		pt := &specta.T{Source: specta.NewSource(12345)}
 
 		for i := 0; i < 100; i++ {
-			value := specta.Int().Range(0, 10).Draw(pt, "x")
+			value := specta.Int().Range(0, 10).Draw(pt.Source, "x")
 			if value < 0 || value > 10 {
 				t.Errorf("value %d out of range [0, 10]", value)
 			}
@@ -97,8 +97,8 @@ func TestIntGenerator(t *testing.T) {
 		pt1 := &specta.T{Source: specta.NewSource(12345)}
 		pt2 := &specta.T{Source: specta.NewSource(12345)}
 
-		v1 := specta.Int().Draw(pt1, "x")
-		v2 := specta.Int().Draw(pt2, "x")
+		v1 := specta.Int().Draw(pt1.Source, "x")
+		v2 := specta.Int().Draw(pt2.Source, "x")
 
 		if v1 != v2 {
 			t.Errorf("expected same values, got %d and %d", v1, v2)
@@ -110,7 +110,7 @@ func TestIntGenerator(t *testing.T) {
 		pt := &specta.T{Source: rs}
 		rs.EnableLogging()
 
-		specta.Int().Draw(pt, "myvalue")
+		specta.Int().Draw(pt.Source, "myvalue")
 		log := rs.Log()
 
 		if !strings.Contains(log, "myvalue") {
@@ -125,7 +125,7 @@ func TestIntGenerator(t *testing.T) {
 		pt := &specta.T{Source: specta.NewSource(12345)}
 
 		for i := 0; i < 10; i++ {
-			value := specta.Int().Range(42, 42).Draw(pt, "x")
+			value := specta.Int().Range(42, 42).Draw(pt.Source, "x")
 			if value != 42 {
 				t.Errorf("expected 42, got %d", value)
 			}
@@ -139,7 +139,7 @@ func TestPropertyBasics(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x := specta.Int().Draw(t, "x")
+			x := specta.Int().Draw(t.Source, "x")
 			// Property: x + 0 == x (always true)
 			specta.AssertThat(t, x+0, specta.Equal(x))
 		}, specta.MaxTests(10))
@@ -153,7 +153,7 @@ func TestPropertyBasics(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x := specta.Int().Draw(t, "x")
+			x := specta.Int().Draw(t.Source, "x")
 			// Property: x >= 0 (will fail on negative values)
 			if x < 0 {
 				t.Fatalf("expected non-negative, got %d", x)
@@ -171,7 +171,7 @@ func TestPropertyBasics(t *testing.T) {
 		// First run: find a failing seed
 		spy1 := testlib.NewSpy()
 		specta.Property(spy1, func(t *specta.T) {
-			x := specta.Int().Draw(t, "x")
+			x := specta.Int().Draw(t.Source, "x")
 			if x < 0 {
 				// Capture the seed from the error message
 				t.Fatalf("negative: %d", x)
@@ -188,7 +188,7 @@ func TestPropertyBasics(t *testing.T) {
 		// Second run: reproduce with same seed
 		spy2 := testlib.NewSpy()
 		specta.Property(spy2, func(t *specta.T) {
-			x := specta.Int().Draw(t, "x")
+			x := specta.Int().Draw(t.Source, "x")
 			if x < 0 {
 				t.Fatalf("negative: %d", x)
 			}
@@ -203,7 +203,7 @@ func TestPropertyBasics(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x := specta.Int().Range(0, 100).Draw(t, "x")
+			x := specta.Int().Range(0, 100).Draw(t.Source, "x")
 			// Property: value should be in range
 			if x < 0 || x > 100 {
 				t.Fatalf("value %d out of range", x)
@@ -222,7 +222,7 @@ func TestPropertyShrinking(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x := specta.Int().Range(-1000, 1000).Draw(t, "x")
+			x := specta.Int().Range(-1000, 1000).Draw(t.Source, "x")
 			// Fail on negative values
 			if x < 0 {
 				t.Fatalf("negative: %d", x)
@@ -249,8 +249,8 @@ func TestPropertyWithMatchers(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x := specta.Int().Range(0, 100).Draw(t, "x")
-			y := specta.Int().Range(0, 100).Draw(t, "y")
+			x := specta.Int().Range(0, 100).Draw(t.Source, "x")
+			y := specta.Int().Range(0, 100).Draw(t.Source, "y")
 			// Commutative property of addition
 			specta.AssertThat(t, x+y, specta.Equal(y+x))
 		}, specta.MaxTests(50))
@@ -264,7 +264,7 @@ func TestPropertyWithMatchers(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x := specta.Int().Range(0, 100).Draw(t, "x")
+			x := specta.Int().Range(0, 100).Draw(t.Source, "x")
 			// Property: non-negative values are >= 0
 			specta.AssertThat(t, x, specta.GreaterThanOrEqual(int64(0)))
 		}, specta.MaxTests(50))

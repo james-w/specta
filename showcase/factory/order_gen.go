@@ -125,13 +125,13 @@ func (r OrderRecipe) Provider() specta.Provider[showcase.Order] {
 }
 
 // Build creates a single Order instance.
-func (r OrderRecipe) Build(p specta.Primitives) showcase.Order {
-	return spec.NewOrderFactory(p).Make(r.opts...)
+func (r OrderRecipe) Build(s specta.Source) showcase.Order {
+	return spec.NewOrderFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Order instances with unique generated values.
-func (r OrderRecipe) Many(n int, p specta.Primitives) []showcase.Order {
-	return spec.NewOrderFactory(p).Many(n, r.opts...)
+func (r OrderRecipe) Many(n int, s specta.Source) []showcase.Order {
+	return spec.NewOrderFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -145,7 +145,7 @@ func (r OrderRecipe) AsEqualMatcher() specta.Matcher[showcase.Order] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 

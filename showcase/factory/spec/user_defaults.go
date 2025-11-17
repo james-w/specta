@@ -11,12 +11,13 @@ import (
 
 func init() {
 	// Override email default to use a more realistic test pattern
-	UserDefaultEmail = func(p specta.Primitives) string {
-		return fmt.Sprintf("user%d@test.example.com", p.Next())
+	UserDefaultEmail = func(s specta.Source) string {
+		counter := s.DrawBits(32)
+		return fmt.Sprintf("user%d@test.example.com", counter)
 	}
 
 	// Override Active default to always be true (active by default)
-	UserDefaultActive = func(p specta.Primitives) bool {
+	UserDefaultActive = func(s specta.Source) bool {
 		return true
 	}
 }

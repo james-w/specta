@@ -44,8 +44,8 @@ type ParentSpec struct {
 func NewParentSpec() ParentSpec { return ParentSpec{} }
 
 // NewParentFactory creates a new SpecFactory for Parent.
-func NewParentFactory(p specta.Primitives) *specta.SpecFactory[example.Parent, ParentSpec] {
-	return specta.NewSpecFactory(p, NewParentSpec, BuildParent)
+func NewParentFactory(s specta.Source) *specta.SpecFactory[example.Parent, ParentSpec] {
+	return specta.NewSpecFactory(s, NewParentSpec, BuildParent)
 }
 
 // Default field providers.
@@ -54,8 +54,8 @@ var (
 )
 
 // BuildParent constructs a Parent from a ParentSpec.
-func BuildParent(p specta.Primitives, s ParentSpec) example.Parent {
-	child := s.Child.Get(p, ParentDefaultChild)
+func BuildParent(s specta.Source, spec ParentSpec) example.Parent {
+	child := spec.Child.Get(s, ParentDefaultChild)
 	return example.Parent{
 		Child: child,
 	}

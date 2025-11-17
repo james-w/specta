@@ -122,13 +122,13 @@ func (r CommentRecipe) Provider() specta.Provider[showcase.Comment] {
 }
 
 // Build creates a single Comment instance.
-func (r CommentRecipe) Build(p specta.Primitives) showcase.Comment {
-	return spec.NewCommentFactory(p).Make(r.opts...)
+func (r CommentRecipe) Build(s specta.Source) showcase.Comment {
+	return spec.NewCommentFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Comment instances with unique generated values.
-func (r CommentRecipe) Many(n int, p specta.Primitives) []showcase.Comment {
-	return spec.NewCommentFactory(p).Many(n, r.opts...)
+func (r CommentRecipe) Many(n int, s specta.Source) []showcase.Comment {
+	return spec.NewCommentFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -142,7 +142,7 @@ func (r CommentRecipe) AsEqualMatcher() specta.Matcher[showcase.Comment] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 

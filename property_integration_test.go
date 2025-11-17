@@ -7,18 +7,16 @@ import (
 	"github.com/james-w/specta/testlib"
 )
 
-// TestPropertyIntegration_SimplePrimitives tests that PropertyPrimitives works with basic types
-func TestPropertyIntegration_SimplePrimitives(t *testing.T) {
-	t.Run("can use Primitives in property test", func(t *testing.T) {
+// TestPropertyIntegration_SimpleGenerators tests that Generators work with basic types
+func TestPropertyIntegration_SimpleGenerators(t *testing.T) {
+	t.Run("can use Generators in property test", func(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			p := t.Primitives()
-
-			// Generate various primitives from full type space
-			id := p.ID()      // Can be empty, unicode, anything
-			str := p.String() // Can be empty, unicode, anything
-			_ = p.Int()       // Can be negative, zero, positive
+			// Generate various values from full type space
+			id := specta.String().Draw(t.Source, "id")    // Can be empty, unicode, anything
+			str := specta.String().Draw(t.Source, "str")  // Can be empty, unicode, anything
+			_ = specta.Int().Draw(t.Source, "int")        // Can be negative, zero, positive
 
 			// Test a property that should ALWAYS hold
 			// String concatenation length property
@@ -34,18 +32,16 @@ func TestPropertyIntegration_SimplePrimitives(t *testing.T) {
 		}
 	})
 
-	t.Run("Primitives are deterministic with same seed", func(t *testing.T) {
+	t.Run("Generators are deterministic with same seed", func(t *testing.T) {
 		// Run property test twice with same seed
 		var ids1, ids2 []string
 
 		specta.Property(t, func(t *specta.T) {
-			p := t.Primitives()
-			ids1 = append(ids1, p.ID())
+			ids1 = append(ids1, specta.String().Draw(t.Source, "id"))
 		}, specta.Seed(12345), specta.MaxTests(5))
 
 		specta.Property(t, func(t *specta.T) {
-			p := t.Primitives()
-			ids2 = append(ids2, p.ID())
+			ids2 = append(ids2, specta.String().Draw(t.Source, "id"))
 		}, specta.Seed(12345), specta.MaxTests(5))
 
 		if len(ids1) != len(ids2) {
@@ -60,7 +56,7 @@ func TestPropertyIntegration_SimplePrimitives(t *testing.T) {
 	})
 }
 
-// TestPropertyIntegration_FullSpaceExploration tests that PropertyPrimitives explores full type space
+// TestPropertyIntegration_FullSpaceExploration tests that Generators explores full type space
 func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 	t.Run("finds empty strings", func(t *testing.T) {
 		foundEmpty := false
@@ -70,8 +66,8 @@ func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 		// Run up to 100 seeds × 100 tests = 10,000 attempts max
 		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
 			specta.Property(t, func(t *specta.T) {
-				p := t.Primitives()
-				str := p.String()
+				
+				str := specta.String().Draw(t.Source, "str")
 				if str == "" {
 					foundEmpty = true
 				}
@@ -79,7 +75,7 @@ func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 		}
 
 		if !foundEmpty {
-			t.Error("PropertyPrimitives should eventually generate empty strings")
+			t.Error("Generators should eventually generate empty strings")
 		}
 	})
 
@@ -87,15 +83,15 @@ func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 		foundNegative := false
 
 		specta.Property(t, func(t *specta.T) {
-			p := t.Primitives()
-			n := p.Int()
+			
+			n := specta.Int().Draw(t.Source, "int")
 			if n < 0 {
 				foundNegative = true
 			}
 		}, specta.MaxTests(100))
 
 		if !foundNegative {
-			t.Error("PropertyPrimitives should generate negative integers")
+			t.Error("Generators should generate negative integers")
 		}
 	})
 }
@@ -106,11 +102,11 @@ func TestPropertyIntegration_RandomValues(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			p := t.Primitives()
+			
 
 			// Generate multiple IDs - they should be different (extremely unlikely to collide)
-			id1 := p.ID()
-			id2 := p.ID()
+			id1 := specta.String().Draw(t.Source, "id")
+			id2 := specta.String().Draw(t.Source, "id")
 
 			// With random hex strings, collision is extremely unlikely
 			// If they're equal, it's probably a bug
@@ -130,7 +126,7 @@ func TestPropertyIntegration_RandomValues(t *testing.T) {
 		// First iteration
 		specta.Property(t, func(t *specta.T) {
 			if firstID == "" {
-				firstID = t.Primitives().ID()
+				firstID = specta.String().Draw(t.Source, "id")
 			}
 		}, specta.MaxTests(1), specta.Seed(12345))
 
@@ -138,7 +134,7 @@ func TestPropertyIntegration_RandomValues(t *testing.T) {
 		var secondID string
 		specta.Property(t, func(t *specta.T) {
 			if secondID == "" {
-				secondID = t.Primitives().ID()
+				secondID = specta.String().Draw(t.Source, "id")
 			}
 		}, specta.MaxTests(1), specta.Seed(54321))
 
@@ -154,11 +150,11 @@ func TestPropertyIntegration_PropertyExample(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			p := t.Primitives()
+			
 
 			// Generate random integers using Primitives
-			a := p.IntN(1000)
-			b := p.IntN(1000)
+			a := specta.Int().Range(0, 1000-1).Draw(t.Source, "int")
+			b := specta.Int().Range(0, 1000-1).Draw(t.Source, "int")
 
 			// Property: addition is commutative
 			specta.AssertThat(t, a+b, specta.Equal(b+a))
@@ -173,10 +169,10 @@ func TestPropertyIntegration_PropertyExample(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			p := t.Primitives()
+			
 
-			s1 := p.StringWith("prefix")
-			s2 := p.StringWith("prefix")
+			s1 := specta.String().Prefix("prefix").Draw(t.Source, "str")
+			s2 := specta.String().Prefix("prefix").Draw(t.Source, "str")
 
 			// Property: concatenation length equals sum of lengths
 			combined := s1 + s2

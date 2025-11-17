@@ -49,28 +49,28 @@ type OrganizationSpec struct {
 func NewOrganizationSpec() OrganizationSpec { return OrganizationSpec{} }
 
 // NewOrganizationFactory creates a new SpecFactory for Organization.
-func NewOrganizationFactory(p specta.Primitives) *specta.SpecFactory[showcase.Organization, OrganizationSpec] {
-	return specta.NewSpecFactory(p, NewOrganizationSpec, BuildOrganization)
+func NewOrganizationFactory(s specta.Source) *specta.SpecFactory[showcase.Organization, OrganizationSpec] {
+	return specta.NewSpecFactory(s, NewOrganizationSpec, BuildOrganization)
 }
 
 // Default field providers.
 var (
-	OrganizationDefaultID       = func(p specta.Primitives) string { return p.ID() }
-	OrganizationDefaultName     = func(p specta.Primitives) string { return p.StringWith("name_") }
+	OrganizationDefaultID       = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
+	OrganizationDefaultName     = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
 	OrganizationDefaultCEO      = specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec))
-	OrganizationDefaultTeams    = func(p specta.Primitives) []showcase.Team { var zero []showcase.Team; return zero }
-	OrganizationDefaultMembers  = func(p specta.Primitives) []showcase.Member { var zero []showcase.Member; return zero }
-	OrganizationDefaultMetadata = func(p specta.Primitives) map[string]string { var zero map[string]string; return zero }
+	OrganizationDefaultTeams    = func(s specta.Source) []showcase.Team { var zero []showcase.Team; return zero }
+	OrganizationDefaultMembers  = func(s specta.Source) []showcase.Member { var zero []showcase.Member; return zero }
+	OrganizationDefaultMetadata = func(specta.Source) map[string]string { var zero map[string]string; return zero }
 )
 
 // BuildOrganization constructs a Organization from a OrganizationSpec.
-func BuildOrganization(p specta.Primitives, s OrganizationSpec) showcase.Organization {
-	iD := s.ID.Get(p, OrganizationDefaultID)
-	name := s.Name.Get(p, OrganizationDefaultName)
-	cEO := s.CEO.Get(p, OrganizationDefaultCEO)
-	teams := s.Teams.Get(p, OrganizationDefaultTeams)
-	members := s.Members.Get(p, OrganizationDefaultMembers)
-	metadata := s.Metadata.Get(p, OrganizationDefaultMetadata)
+func BuildOrganization(s specta.Source, spec OrganizationSpec) showcase.Organization {
+	iD := spec.ID.Get(s, OrganizationDefaultID)
+	name := spec.Name.Get(s, OrganizationDefaultName)
+	cEO := spec.CEO.Get(s, OrganizationDefaultCEO)
+	teams := spec.Teams.Get(s, OrganizationDefaultTeams)
+	members := spec.Members.Get(s, OrganizationDefaultMembers)
+	metadata := spec.Metadata.Get(s, OrganizationDefaultMetadata)
 	return showcase.Organization{
 		ID:       iD,
 		Name:     name,

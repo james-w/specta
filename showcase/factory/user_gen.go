@@ -132,13 +132,13 @@ func (r UserRecipe) Provider() specta.Provider[showcase.User] {
 }
 
 // Build creates a single User instance.
-func (r UserRecipe) Build(p specta.Primitives) showcase.User {
-	return spec.NewUserFactory(p).Make(r.opts...)
+func (r UserRecipe) Build(s specta.Source) showcase.User {
+	return spec.NewUserFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple User instances with unique generated values.
-func (r UserRecipe) Many(n int, p specta.Primitives) []showcase.User {
-	return spec.NewUserFactory(p).Many(n, r.opts...)
+func (r UserRecipe) Many(n int, s specta.Source) []showcase.User {
+	return spec.NewUserFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -152,7 +152,7 @@ func (r UserRecipe) AsEqualMatcher() specta.Matcher[showcase.User] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 

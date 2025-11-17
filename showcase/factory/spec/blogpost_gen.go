@@ -53,32 +53,32 @@ type BlogPostSpec struct {
 func NewBlogPostSpec() BlogPostSpec { return BlogPostSpec{} }
 
 // NewBlogPostFactory creates a new SpecFactory for BlogPost.
-func NewBlogPostFactory(p specta.Primitives) *specta.SpecFactory[showcase.BlogPost, BlogPostSpec] {
-	return specta.NewSpecFactory(p, NewBlogPostSpec, BuildBlogPost)
+func NewBlogPostFactory(s specta.Source) *specta.SpecFactory[showcase.BlogPost, BlogPostSpec] {
+	return specta.NewSpecFactory(s, NewBlogPostSpec, BuildBlogPost)
 }
 
 // Default field providers.
 var (
-	BlogPostDefaultID          = func(p specta.Primitives) string { return p.ID() }
-	BlogPostDefaultTitle       = func(p specta.Primitives) string { return p.StringWith("title_") }
-	BlogPostDefaultContent     = func(p specta.Primitives) string { return p.StringWith("content_") }
+	BlogPostDefaultID          = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
+	BlogPostDefaultTitle       = func(s specta.Source) string { return specta.String().ExampleHint("title_").Draw(s, "Title") }
+	BlogPostDefaultContent     = func(s specta.Source) string { return specta.String().ExampleHint("content_").Draw(s, "Content") }
 	BlogPostDefaultAuthor      = specta.FromSpec(BuildUser, NewUserSpec)
-	BlogPostDefaultPublished   = func(p specta.Primitives) bool { return p.Bool() }
-	BlogPostDefaultPublishedAt = func(p specta.Primitives) time.Time { return p.Time() }
-	BlogPostDefaultCreatedAt   = func(p specta.Primitives) time.Time { return p.Time() }
-	BlogPostDefaultUpdatedAt   = func(p specta.Primitives) time.Time { return p.Time() }
+	BlogPostDefaultPublished   = func(s specta.Source) bool { return specta.Bool().Draw(s, "Published") }
+	BlogPostDefaultPublishedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "PublishedAt") }
+	BlogPostDefaultCreatedAt   = func(s specta.Source) time.Time { return specta.Time().Draw(s, "CreatedAt") }
+	BlogPostDefaultUpdatedAt   = func(s specta.Source) time.Time { return specta.Time().Draw(s, "UpdatedAt") }
 )
 
 // BuildBlogPost constructs a BlogPost from a BlogPostSpec.
-func BuildBlogPost(p specta.Primitives, s BlogPostSpec) showcase.BlogPost {
-	iD := s.ID.Get(p, BlogPostDefaultID)
-	title := s.Title.Get(p, BlogPostDefaultTitle)
-	content := s.Content.Get(p, BlogPostDefaultContent)
-	author := s.Author.Get(p, BlogPostDefaultAuthor)
-	published := s.Published.Get(p, BlogPostDefaultPublished)
-	publishedAt := s.PublishedAt.Get(p, BlogPostDefaultPublishedAt)
-	createdAt := s.CreatedAt.Get(p, BlogPostDefaultCreatedAt)
-	updatedAt := s.UpdatedAt.Get(p, BlogPostDefaultUpdatedAt)
+func BuildBlogPost(s specta.Source, spec BlogPostSpec) showcase.BlogPost {
+	iD := spec.ID.Get(s, BlogPostDefaultID)
+	title := spec.Title.Get(s, BlogPostDefaultTitle)
+	content := spec.Content.Get(s, BlogPostDefaultContent)
+	author := spec.Author.Get(s, BlogPostDefaultAuthor)
+	published := spec.Published.Get(s, BlogPostDefaultPublished)
+	publishedAt := spec.PublishedAt.Get(s, BlogPostDefaultPublishedAt)
+	createdAt := spec.CreatedAt.Get(s, BlogPostDefaultCreatedAt)
+	updatedAt := spec.UpdatedAt.Get(s, BlogPostDefaultUpdatedAt)
 	return showcase.BlogPost{
 		ID:          iD,
 		Title:       title,

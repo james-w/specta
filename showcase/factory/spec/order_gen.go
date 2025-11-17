@@ -52,30 +52,30 @@ type OrderSpec struct {
 func NewOrderSpec() OrderSpec { return OrderSpec{} }
 
 // NewOrderFactory creates a new SpecFactory for Order.
-func NewOrderFactory(p specta.Primitives) *specta.SpecFactory[showcase.Order, OrderSpec] {
-	return specta.NewSpecFactory(p, NewOrderSpec, BuildOrder)
+func NewOrderFactory(s specta.Source) *specta.SpecFactory[showcase.Order, OrderSpec] {
+	return specta.NewSpecFactory(s, NewOrderSpec, BuildOrder)
 }
 
 // Default field providers.
 var (
-	OrderDefaultID        = func(p specta.Primitives) string { return p.ID() }
+	OrderDefaultID        = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
 	OrderDefaultUser      = specta.FromSpec(BuildUser, NewUserSpec)
-	OrderDefaultItems     = func(p specta.Primitives) []showcase.OrderItem { var zero []showcase.OrderItem; return zero }
-	OrderDefaultTotal     = func(p specta.Primitives) float64 { return p.Float64() }
-	OrderDefaultStatus    = func(p specta.Primitives) string { return p.StringWith("status_") }
-	OrderDefaultCreatedAt = func(p specta.Primitives) time.Time { return p.Time() }
-	OrderDefaultUpdatedAt = func(p specta.Primitives) time.Time { return p.Time() }
+	OrderDefaultItems     = func(s specta.Source) []showcase.OrderItem { var zero []showcase.OrderItem; return zero }
+	OrderDefaultTotal     = func(s specta.Source) float64 { return specta.Float64().Draw(s, "Total") }
+	OrderDefaultStatus    = func(s specta.Source) string { return specta.String().ExampleHint("status_").Draw(s, "Status") }
+	OrderDefaultCreatedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "CreatedAt") }
+	OrderDefaultUpdatedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "UpdatedAt") }
 )
 
 // BuildOrder constructs a Order from a OrderSpec.
-func BuildOrder(p specta.Primitives, s OrderSpec) showcase.Order {
-	iD := s.ID.Get(p, OrderDefaultID)
-	user := s.User.Get(p, OrderDefaultUser)
-	items := s.Items.Get(p, OrderDefaultItems)
-	total := s.Total.Get(p, OrderDefaultTotal)
-	status := s.Status.Get(p, OrderDefaultStatus)
-	createdAt := s.CreatedAt.Get(p, OrderDefaultCreatedAt)
-	updatedAt := s.UpdatedAt.Get(p, OrderDefaultUpdatedAt)
+func BuildOrder(s specta.Source, spec OrderSpec) showcase.Order {
+	iD := spec.ID.Get(s, OrderDefaultID)
+	user := spec.User.Get(s, OrderDefaultUser)
+	items := spec.Items.Get(s, OrderDefaultItems)
+	total := spec.Total.Get(s, OrderDefaultTotal)
+	status := spec.Status.Get(s, OrderDefaultStatus)
+	createdAt := spec.CreatedAt.Get(s, OrderDefaultCreatedAt)
+	updatedAt := spec.UpdatedAt.Get(s, OrderDefaultUpdatedAt)
 	return showcase.Order{
 		ID:        iD,
 		User:      user,

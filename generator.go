@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // Generator produces values of type Value from a Source.
@@ -12,7 +15,7 @@ import (
 type Generator[Value any] interface {
 	// Draw generates a value from the source and logs it with the given label.
 	// The label is used to identify this value in error messages and logs.
-	Draw(t *T, label string) Value
+	Draw(s Source, label string) Value
 }
 
 // IntGenerator generates int64 values with optional range constraints.
@@ -73,9 +76,9 @@ func (g *IntGenerator) Negative() *IntGenerator {
 
 // Draw generates an int64 value from the source and records it in the log.
 // The label is used to identify this value in error messages.
-func (g *IntGenerator) Draw(t *T, label string) int64 {
+func (g *IntGenerator) Draw(s Source, label string) int64 {
 	// Draw bits from source
-	bits := t.Source.DrawBits(64)
+	bits := s.DrawBits(64)
 
 	// Determine effective min and max
 	min := int64(math.MinInt64)
@@ -89,7 +92,7 @@ func (g *IntGenerator) Draw(t *T, label string) int64 {
 
 	var value int64
 
-	if t.Source.IsDeterministic() {
+	if s.IsDeterministic() {
 		// Deterministic mode: use counter directly for small, predictable values
 		// This gives us 0, 1, 2, 3... which is friendly for debugging
 		value = int64(bits)
@@ -127,7 +130,7 @@ func (g *IntGenerator) Draw(t *T, label string) int64 {
 	}
 
 	// Log the generated value
-	t.Source.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
+	s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
 
 	return value
 }
@@ -240,17 +243,17 @@ func (g *StringGenerator) ExampleHint(hint string) *StringGenerator {
 }
 
 // Draw generates a string value from the source and records it in the log.
-func (g *StringGenerator) Draw(t *T, label string) string {
-	if t.Source.IsDeterministic() {
-		return g.drawDeterministic(t, label)
+func (g *StringGenerator) Draw(s Source, label string) string {
+	if s.IsDeterministic() {
+		return g.drawDeterministic(s, label)
 	}
-	return g.drawRandom(t, label)
+	return g.drawRandom(s, label)
 }
 
 // drawDeterministic generates friendly, predictable strings like "user_1", "user_2"
-func (g *StringGenerator) drawDeterministic(t *T, label string) string {
+func (g *StringGenerator) drawDeterministic(s Source, label string) string {
 	// Get counter value
-	counter := t.Source.DrawBits(64)
+	counter := s.DrawBits(64)
 
 	// Determine effective prefix (hard constraint or soft hint)
 	effectivePrefix := g.prefix
@@ -270,12 +273,12 @@ func (g *StringGenerator) drawDeterministic(t *T, label string) string {
 	// Enforce length constraints
 	result = g.enforceLength(result, g.charset)
 
-	t.Source.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
+	s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
 	return result
 }
 
 // drawRandom generates adversarial strings exploring full type space
-func (g *StringGenerator) drawRandom(t *T, label string) string {
+func (g *StringGenerator) drawRandom(s Source, label string) string {
 	// Determine length
 	minLen := 0
 	if g.minLen != nil {
@@ -300,7 +303,7 @@ func (g *StringGenerator) drawRandom(t *T, label string) string {
 	if randomMaxLen < 0 {
 		// Prefix+suffix already exceeds maxLen, just use prefix+suffix
 		result := g.prefix + g.suffix
-		t.Source.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
+		s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
 		return result
 	}
 
@@ -310,7 +313,7 @@ func (g *StringGenerator) drawRandom(t *T, label string) string {
 		randomLen = randomMinLen
 	} else {
 		lengthRange := randomMaxLen - randomMinLen + 1
-		randomLen = randomMinLen + int(t.Source.DrawBits(32)%uint64(lengthRange))
+		randomLen = randomMinLen + int(s.DrawBits(32)%uint64(lengthRange))
 	}
 
 	// Generate random bytes based on charset
@@ -318,43 +321,43 @@ func (g *StringGenerator) drawRandom(t *T, label string) string {
 	if randomLen > 0 {
 		randomBytes = make([]byte, randomLen)
 		for i := 0; i < randomLen; i++ {
-			randomBytes[i] = g.generateByte(t)
+			randomBytes[i] = g.generateByte(s)
 		}
 	}
 
 	result := g.prefix + string(randomBytes) + g.suffix
-	t.Source.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
+	s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
 	return result
 }
 
-func (g *StringGenerator) generateByte(t *T) byte {
+func (g *StringGenerator) generateByte(s Source) byte {
 	switch g.charset {
 	case charsetAny:
 		// Any byte value
-		return byte(t.Source.DrawBits(8))
+		return byte(s.DrawBits(8))
 
 	case charsetASCII:
 		// ASCII: 0x00-0x7F
-		return byte(t.Source.DrawBits(7))
+		return byte(s.DrawBits(7))
 
 	case charsetPrintable:
 		// Printable ASCII: 0x20 (' ') to 0x7E ('~')
-		return byte(0x20 + t.Source.DrawBits(7)%(0x7F-0x20))
+		return byte(0x20 + s.DrawBits(7)%(0x7F-0x20))
 
 	case charsetAlphaNum:
 		// Alphanumeric: a-z, A-Z, 0-9 (62 characters)
 		const alphaNum = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-		idx := t.Source.DrawBits(6) % 62
+		idx := s.DrawBits(6) % 62
 		return alphaNum[idx]
 
 	case charsetAlpha:
 		// Alphabetic: a-z, A-Z (52 characters)
 		const alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-		idx := t.Source.DrawBits(6) % 52
+		idx := s.DrawBits(6) % 52
 		return alpha[idx]
 
 	default:
-		return byte(t.Source.DrawBits(8))
+		return byte(s.DrawBits(8))
 	}
 }
 
@@ -422,4 +425,180 @@ func (g *StringGenerator) getPadChar(charset stringCharset) rune {
 	default:
 		return '0'
 	}
+}
+
+// BoolGenerator generates boolean values.
+type BoolGenerator struct{}
+
+// Bool creates a new boolean generator.
+func Bool() *BoolGenerator {
+	return &BoolGenerator{}
+}
+
+// Draw generates a boolean value from the source.
+func (g *BoolGenerator) Draw(s Source, label string) bool {
+	var value bool
+	if s.IsDeterministic() {
+		// Deterministic mode: always return false (simple, predictable)
+		value = false
+	} else {
+		// Random mode: draw a random bit
+		value = s.DrawBits(1) == 1
+	}
+	s.WriteLog(fmt.Sprintf("Bool(%s)=%v ", label, value))
+	return value
+}
+
+// Float64Generator generates float64 values.
+type Float64Generator struct{}
+
+// Float64 creates a new float64 generator.
+func Float64() *Float64Generator {
+	return &Float64Generator{}
+}
+
+// Draw generates a float64 value from the source.
+func (g *Float64Generator) Draw(s Source, label string) float64 {
+	if s.IsDeterministic() {
+		// Deterministic: small sequential values
+		counter := s.DrawBits(32)
+		value := float64(counter) + 0.5
+		s.WriteLog(fmt.Sprintf("Float64(%s)=%v ", label, value))
+		return value
+	}
+	// Random: full float64 space including special values
+	bits := s.DrawBits(64)
+	value := math.Float64frombits(bits)
+	s.WriteLog(fmt.Sprintf("Float64(%s)=%v ", label, value))
+	return value
+}
+
+// TimeGenerator generates time.Time values.
+type TimeGenerator struct {
+	baseTime time.Time
+}
+
+// Time creates a new time generator.
+// Default base time is Unix epoch.
+func Time() *TimeGenerator {
+	return &TimeGenerator{
+		baseTime: time.Unix(0, 0).UTC(),
+	}
+}
+
+// BaseTime sets the base time for generation.
+func (g *TimeGenerator) BaseTime(t time.Time) *TimeGenerator {
+	g.baseTime = t
+	return g
+}
+
+// Draw generates a time.Time value from the source.
+func (g *TimeGenerator) Draw(s Source, label string) time.Time {
+	if s.IsDeterministic() {
+		// Deterministic: sequential times from base
+		offset := s.DrawBits(32)
+		value := g.baseTime.Add(time.Duration(offset) * time.Second)
+		s.WriteLog(fmt.Sprintf("Time(%s)=%v ", label, value.Format(time.RFC3339)))
+		return value
+	}
+	// Random: full time range
+	bits := s.DrawBits(64)
+	value := time.Unix(int64(bits), 0).UTC()
+	s.WriteLog(fmt.Sprintf("Time(%s)=%v ", label, value.Format(time.RFC3339)))
+	return value
+}
+
+// DurationGenerator generates time.Duration values.
+type DurationGenerator struct{}
+
+// Duration creates a new duration generator.
+func Duration() *DurationGenerator {
+	return &DurationGenerator{}
+}
+
+// Draw generates a time.Duration value from the source.
+func (g *DurationGenerator) Draw(s Source, label string) time.Duration {
+	if s.IsDeterministic() {
+		// Deterministic: sequential durations
+		counter := s.DrawBits(32)
+		value := time.Duration(counter) * time.Second
+		s.WriteLog(fmt.Sprintf("Duration(%s)=%v ", label, value))
+		return value
+	}
+	// Random: full duration range
+	bits := s.DrawBits(64)
+	value := time.Duration(int64(bits))
+	s.WriteLog(fmt.Sprintf("Duration(%s)=%v ", label, value))
+	return value
+}
+
+// BytesGenerator generates byte slices.
+type BytesGenerator struct {
+	length *int
+}
+
+// Bytes creates a new bytes generator.
+// Default generates 16 bytes for deterministic mode, 0-100 for random.
+func Bytes() *BytesGenerator {
+	return &BytesGenerator{}
+}
+
+// Len sets the exact length of the byte slice.
+func (g *BytesGenerator) Len(n int) *BytesGenerator {
+	g.length = &n
+	return g
+}
+
+// Draw generates a byte slice from the source.
+func (g *BytesGenerator) Draw(s Source, label string) []byte {
+	var length int
+	if g.length != nil {
+		length = *g.length
+	} else if s.IsDeterministic() {
+		length = 16 // Default deterministic length
+	} else {
+		length = int(s.DrawBits(7)) // 0-127 bytes
+	}
+
+	if length == 0 {
+		s.WriteLog(fmt.Sprintf("Bytes(%s)=[] ", label))
+		return []byte{}
+	}
+
+	result := make([]byte, length)
+	for i := 0; i < length; i++ {
+		result[i] = byte(s.DrawBits(8))
+	}
+	s.WriteLog(fmt.Sprintf("Bytes(%s)=[%d bytes] ", label, length))
+	return result
+}
+
+// UUIDGenerator generates UUID values.
+type UUIDGenerator struct{}
+
+// UUID creates a new UUID generator.
+func UUID() *UUIDGenerator {
+	return &UUIDGenerator{}
+}
+
+// Draw generates a UUID from the source.
+func (g *UUIDGenerator) Draw(s Source, label string) uuid.UUID {
+	if s.IsDeterministic() {
+		// Deterministic: SHA1-based UUID from counter
+		counter := s.DrawBits(64)
+		value := DeterministicUUIDFromInt(counter)
+		s.WriteLog(fmt.Sprintf("UUID(%s)=%v ", label, value))
+		return value
+	}
+	// Random: random bytes as UUID
+	var data [16]byte
+	for i := 0; i < 16; i++ {
+		data[i] = byte(s.DrawBits(8))
+	}
+	// Set version 4 and variant bits
+	data[6] = (data[6] & 0x0f) | 0x40 // Version 4
+	data[8] = (data[8] & 0x3f) | 0x80 // Variant is 10
+	value := uuid.Must(uuid.FromBytes(data[:]))
+	s.WriteLog(fmt.Sprintf("UUID(%s)=%v ", label, value))
+	return value
 }

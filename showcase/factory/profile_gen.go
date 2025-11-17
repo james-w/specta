@@ -109,13 +109,13 @@ func (r ProfileRecipe) Provider() specta.Provider[showcase.Profile] {
 }
 
 // Build creates a single Profile instance.
-func (r ProfileRecipe) Build(p specta.Primitives) showcase.Profile {
-	return spec.NewProfileFactory(p).Make(r.opts...)
+func (r ProfileRecipe) Build(s specta.Source) showcase.Profile {
+	return spec.NewProfileFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Profile instances with unique generated values.
-func (r ProfileRecipe) Many(n int, p specta.Primitives) []showcase.Profile {
-	return spec.NewProfileFactory(p).Many(n, r.opts...)
+func (r ProfileRecipe) Many(n int, s specta.Source) []showcase.Profile {
+	return spec.NewProfileFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -129,7 +129,7 @@ func (r ProfileRecipe) AsEqualMatcher() specta.Matcher[showcase.Profile] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 

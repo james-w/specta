@@ -48,26 +48,28 @@ type ProfileSpec struct {
 func NewProfileSpec() ProfileSpec { return ProfileSpec{} }
 
 // NewProfileFactory creates a new SpecFactory for Profile.
-func NewProfileFactory(p specta.Primitives) *specta.SpecFactory[showcase.Profile, ProfileSpec] {
-	return specta.NewSpecFactory(p, NewProfileSpec, BuildProfile)
+func NewProfileFactory(s specta.Source) *specta.SpecFactory[showcase.Profile, ProfileSpec] {
+	return specta.NewSpecFactory(s, NewProfileSpec, BuildProfile)
 }
 
 // Default field providers.
 var (
-	ProfileDefaultID          = func(p specta.Primitives) string { return p.ID() }
-	ProfileDefaultName        = func(p specta.Primitives) string { return p.StringWith("name_") }
-	ProfileDefaultDescription = func(p specta.Primitives) string { return p.StringWith("description_") }
-	ProfileDefaultManager     = specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec))
-	ProfileDefaultIsPublic    = func(p specta.Primitives) bool { return p.Bool() }
+	ProfileDefaultID          = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
+	ProfileDefaultName        = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
+	ProfileDefaultDescription = func(s specta.Source) string {
+		return specta.String().ExampleHint("description_").Draw(s, "Description")
+	}
+	ProfileDefaultManager  = specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec))
+	ProfileDefaultIsPublic = func(s specta.Source) bool { return specta.Bool().Draw(s, "IsPublic") }
 )
 
 // BuildProfile constructs a Profile from a ProfileSpec.
-func BuildProfile(p specta.Primitives, s ProfileSpec) showcase.Profile {
-	iD := s.ID.Get(p, ProfileDefaultID)
-	name := s.Name.Get(p, ProfileDefaultName)
-	description := s.Description.Get(p, ProfileDefaultDescription)
-	manager := s.Manager.Get(p, ProfileDefaultManager)
-	isPublic := s.IsPublic.Get(p, ProfileDefaultIsPublic)
+func BuildProfile(s specta.Source, spec ProfileSpec) showcase.Profile {
+	iD := spec.ID.Get(s, ProfileDefaultID)
+	name := spec.Name.Get(s, ProfileDefaultName)
+	description := spec.Description.Get(s, ProfileDefaultDescription)
+	manager := spec.Manager.Get(s, ProfileDefaultManager)
+	isPublic := spec.IsPublic.Get(s, ProfileDefaultIsPublic)
 	return showcase.Profile{
 		ID:          iD,
 		Name:        name,

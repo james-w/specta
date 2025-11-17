@@ -86,13 +86,13 @@ func (r AccountRecipe) Provider() specta.Provider[showcase.Account] {
 }
 
 // Build creates a single Account instance.
-func (r AccountRecipe) Build(p specta.Primitives) showcase.Account {
-	return spec.NewAccountFactory(p).Make(r.opts...)
+func (r AccountRecipe) Build(s specta.Source) showcase.Account {
+	return spec.NewAccountFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Account instances with unique generated values.
-func (r AccountRecipe) Many(n int, p specta.Primitives) []showcase.Account {
-	return spec.NewAccountFactory(p).Many(n, r.opts...)
+func (r AccountRecipe) Many(n int, s specta.Source) []showcase.Account {
+	return spec.NewAccountFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.

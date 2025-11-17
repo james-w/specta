@@ -51,28 +51,30 @@ type ProductSpec struct {
 func NewProductSpec() ProductSpec { return ProductSpec{} }
 
 // NewProductFactory creates a new SpecFactory for Product.
-func NewProductFactory(p specta.Primitives) *specta.SpecFactory[showcase.Product, ProductSpec] {
-	return specta.NewSpecFactory(p, NewProductSpec, BuildProduct)
+func NewProductFactory(s specta.Source) *specta.SpecFactory[showcase.Product, ProductSpec] {
+	return specta.NewSpecFactory(s, NewProductSpec, BuildProduct)
 }
 
 // Default field providers.
 var (
-	ProductDefaultID          = func(p specta.Primitives) string { return p.ID() }
-	ProductDefaultName        = func(p specta.Primitives) string { return p.StringWith("name_") }
-	ProductDefaultDescription = func(p specta.Primitives) string { return p.StringWith("description_") }
-	ProductDefaultPrice       = func(p specta.Primitives) float64 { return p.Float64() }
-	ProductDefaultInStock     = func(p specta.Primitives) bool { return p.Bool() }
-	ProductDefaultCreatedAt   = func(p specta.Primitives) time.Time { return p.Time() }
+	ProductDefaultID          = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
+	ProductDefaultName        = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
+	ProductDefaultDescription = func(s specta.Source) string {
+		return specta.String().ExampleHint("description_").Draw(s, "Description")
+	}
+	ProductDefaultPrice     = func(s specta.Source) float64 { return specta.Float64().Draw(s, "Price") }
+	ProductDefaultInStock   = func(s specta.Source) bool { return specta.Bool().Draw(s, "InStock") }
+	ProductDefaultCreatedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "CreatedAt") }
 )
 
 // BuildProduct constructs a Product from a ProductSpec.
-func BuildProduct(p specta.Primitives, s ProductSpec) showcase.Product {
-	iD := s.ID.Get(p, ProductDefaultID)
-	name := s.Name.Get(p, ProductDefaultName)
-	description := s.Description.Get(p, ProductDefaultDescription)
-	price := s.Price.Get(p, ProductDefaultPrice)
-	inStock := s.InStock.Get(p, ProductDefaultInStock)
-	createdAt := s.CreatedAt.Get(p, ProductDefaultCreatedAt)
+func BuildProduct(s specta.Source, spec ProductSpec) showcase.Product {
+	iD := spec.ID.Get(s, ProductDefaultID)
+	name := spec.Name.Get(s, ProductDefaultName)
+	description := spec.Description.Get(s, ProductDefaultDescription)
+	price := spec.Price.Get(s, ProductDefaultPrice)
+	inStock := spec.InStock.Get(s, ProductDefaultInStock)
+	createdAt := spec.CreatedAt.Get(s, ProductDefaultCreatedAt)
 	return showcase.Product{
 		ID:          iD,
 		Name:        name,

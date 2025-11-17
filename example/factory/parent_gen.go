@@ -80,13 +80,13 @@ func (r ParentRecipe) Provider() specta.Provider[example.Parent] {
 }
 
 // Build creates a single Parent instance.
-func (r ParentRecipe) Build(p specta.Primitives) example.Parent {
-	return spec.NewParentFactory(p).Make(r.opts...)
+func (r ParentRecipe) Build(s specta.Source) example.Parent {
+	return spec.NewParentFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Parent instances with unique generated values.
-func (r ParentRecipe) Many(n int, p specta.Primitives) []example.Parent {
-	return spec.NewParentFactory(p).Many(n, r.opts...)
+func (r ParentRecipe) Many(n int, s specta.Source) []example.Parent {
+	return spec.NewParentFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -100,7 +100,7 @@ func (r ParentRecipe) AsEqualMatcher() specta.Matcher[example.Parent] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
