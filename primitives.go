@@ -54,7 +54,11 @@ func New(opts ...Option) *Gen {
 }
 
 func (g *Gen) Next() uint64 { return g.ctr.Add(1) }
-func (g *Gen) Bool() bool   { return false }
+
+// Bool always returns false for deterministic, minimal test data generation.
+// This is intentional - Gen is for factories, not property testing.
+// For random booleans, use PropertyPrimitives.
+func (g *Gen) Bool() bool { return false }
 func (g *Gen) Int() int {
 	n := g.Next()
 	if n > uint64(math.MaxInt) {

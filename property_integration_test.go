@@ -14,9 +14,9 @@ func TestPropertyIntegration_SimpleGenerators(t *testing.T) {
 
 		specta.Property(spy, func(t *specta.T) {
 			// Generate various values from full type space
-			id := specta.String().Draw(t.Source, "id")    // Can be empty, unicode, anything
-			str := specta.String().Draw(t.Source, "str")  // Can be empty, unicode, anything
-			_ = specta.Int().Draw(t.Source, "int")        // Can be negative, zero, positive
+			id := specta.String().Draw(t.Source, "id")   // Can be empty, unicode, anything
+			str := specta.String().Draw(t.Source, "str") // Can be empty, unicode, anything
+			_ = specta.Int().Draw(t.Source, "int")       // Can be negative, zero, positive
 
 			// Test a property that should ALWAYS hold
 			// String concatenation length property
@@ -66,7 +66,7 @@ func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 		// Run up to 100 seeds × 100 tests = 10,000 attempts max
 		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
 			specta.Property(t, func(t *specta.T) {
-				
+
 				str := specta.String().Draw(t.Source, "str")
 				if str == "" {
 					foundEmpty = true
@@ -83,7 +83,7 @@ func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 		foundNegative := false
 
 		specta.Property(t, func(t *specta.T) {
-			
+
 			n := specta.Int().Draw(t.Source, "int")
 			if n < 0 {
 				foundNegative = true
@@ -102,7 +102,6 @@ func TestPropertyIntegration_RandomValues(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			
 
 			// Generate multiple IDs - they should be different (extremely unlikely to collide)
 			id1 := specta.String().Draw(t.Source, "id")
@@ -150,7 +149,6 @@ func TestPropertyIntegration_PropertyExample(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			
 
 			// Generate random integers using Primitives
 			a := specta.Int().Range(0, 1000-1).Draw(t.Source, "int")
@@ -169,7 +167,6 @@ func TestPropertyIntegration_PropertyExample(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			
 
 			s1 := specta.String().Prefix("prefix").Draw(t.Source, "str")
 			s2 := specta.String().Prefix("prefix").Draw(t.Source, "str")

@@ -20,8 +20,10 @@ type Generator[Value any] interface {
 
 // IntGenerator generates int64 values with optional range constraints.
 type IntGenerator struct {
-	min *int64
-	max *int64
+	min               *int64
+	max               *int64
+	filterFn          func(int64) bool
+	maxFilterAttempts int
 }
 
 // Int creates a new integer generator.
@@ -31,25 +33,33 @@ func Int() *IntGenerator {
 	return &IntGenerator{}
 }
 
+// validate checks that the generator's constraints are consistent.
+// Panics if constraints are impossible to satisfy.
+func (g *IntGenerator) validate() {
+	if g.min != nil && g.max != nil && *g.min > *g.max {
+		panic(fmt.Sprintf("IntGenerator: Min(%d) > Max(%d)", *g.min, *g.max))
+	}
+}
+
 // Range constrains the generator to produce values between min and max (inclusive).
 func (g *IntGenerator) Range(min, max int64) *IntGenerator {
-	if min > max {
-		panic(fmt.Sprintf("IntGenerator.Range: min (%d) must be <= max (%d)", min, max))
-	}
 	g.min = &min
 	g.max = &max
+	g.validate()
 	return g
 }
 
 // Min constrains the generator to produce values >= min.
 func (g *IntGenerator) Min(min int64) *IntGenerator {
 	g.min = &min
+	g.validate()
 	return g
 }
 
 // Max constrains the generator to produce values <= max.
 func (g *IntGenerator) Max(max int64) *IntGenerator {
 	g.max = &max
+	g.validate()
 	return g
 }
 
@@ -57,6 +67,7 @@ func (g *IntGenerator) Max(max int64) *IntGenerator {
 func (g *IntGenerator) Positive() *IntGenerator {
 	one := int64(1)
 	g.min = &one
+	g.validate()
 	return g
 }
 
@@ -64,6 +75,7 @@ func (g *IntGenerator) Positive() *IntGenerator {
 func (g *IntGenerator) NonNegative() *IntGenerator {
 	zero := int64(0)
 	g.min = &zero
+	g.validate()
 	return g
 }
 
@@ -71,6 +83,25 @@ func (g *IntGenerator) NonNegative() *IntGenerator {
 func (g *IntGenerator) Negative() *IntGenerator {
 	negOne := int64(-1)
 	g.max = &negOne
+	g.validate()
+	return g
+}
+
+// Filter constrains the generator to only produce values that satisfy the predicate.
+// The generator will retry up to 100 times (by default) to find a matching value.
+// If no matching value is found after max attempts, the test iteration is skipped (via t.Assume).
+//
+// Use Filter for predicates that pass frequently (>50% of values).
+// For rare conditions, use t.Assume() instead to skip test iterations directly.
+//
+// Example:
+//
+//	primes := Int().Range(1, 100).Filter(isPrime)
+func (g *IntGenerator) Filter(fn func(int64) bool) *IntGenerator {
+	g.filterFn = fn
+	if g.maxFilterAttempts == 0 {
+		g.maxFilterAttempts = 100
+	}
 	return g
 }
 
@@ -110,49 +141,70 @@ func (g *IntGenerator) Draw(s Source, label string) int64 {
 				value = min + int64(offset)
 			}
 		}
-	} else {
-		// Random mode: full exploration of int64 space
-		value = int64(bits)
 
-		// Apply constraints
-		if g.min != nil || g.max != nil {
-			rangeSize := uint64(max - min + 1)
-			if rangeSize == 0 {
-				// Special case: range wraps around (e.g., MinInt64 to MaxInt64)
-				// In this case, any value is valid
-				value = int64(bits)
-			} else {
-				// Map bits to [0, rangeSize) then add min
-				offset := bits % rangeSize
-				value = min + int64(offset)
+		// Log and return the value
+		s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
+		return value
+	} else {
+		maxAttempts := 1
+		if g.filterFn != nil {
+			maxAttempts = g.maxFilterAttempts
+		}
+
+		for attempt := 0; attempt < maxAttempts; attempt++ {
+			// Random mode: full exploration of int64 space
+			value = int64(bits)
+
+			// Apply constraints
+			if g.min != nil || g.max != nil {
+				rangeSize := uint64(max - min + 1)
+				if rangeSize == 0 {
+					// Special case: range wraps around (e.g., MinInt64 to MaxInt64)
+					// In this case, any value is valid
+					value = int64(bits)
+				} else {
+					// Map bits to [0, rangeSize) then add min
+					offset := bits % rangeSize
+					value = min + int64(offset)
+				}
 			}
+
+			// Check filter predicate if present
+			if g.filterFn != nil && !g.filterFn(value) {
+				continue // Try again
+			}
+
+			// Log the generated value
+			s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
+
+			return value
 		}
 	}
 
-	// Log the generated value
-	s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
-
-	return value
+	// Filter exhausted max attempts - skip this test iteration
+	panic(skipTest{})
 }
 
 // StringGenerator generates string values with optional constraints.
 type StringGenerator struct {
-	minLen      *int
-	maxLen      *int
-	prefix      string
-	suffix      string
-	charset     stringCharset
-	exampleHint string
+	minLen            *int
+	maxLen            *int
+	prefix            string
+	suffix            string
+	charset           stringCharset
+	exampleHint       string
+	filterFn          func(string) bool
+	maxFilterAttempts int
 }
 
 type stringCharset int
 
 const (
-	charsetAny stringCharset = iota // Any bytes (including invalid UTF-8)
-	charsetASCII                     // ASCII characters (0x00-0x7F)
-	charsetPrintable                 // Printable ASCII (0x20-0x7E)
-	charsetAlphaNum                  // Alphanumeric (a-z, A-Z, 0-9)
-	charsetAlpha                     // Alphabetic (a-z, A-Z)
+	charsetAny       stringCharset = iota // Any bytes (including invalid UTF-8)
+	charsetASCII                          // ASCII characters (0x00-0x7F)
+	charsetPrintable                      // Printable ASCII (0x20-0x7E)
+	charsetAlphaNum                       // Alphanumeric (a-z, A-Z, 0-9)
+	charsetAlpha                          // Alphabetic (a-z, A-Z)
 )
 
 // String creates a new string generator.
@@ -163,12 +215,29 @@ func String() *StringGenerator {
 	}
 }
 
+// validate checks that the generator's constraints are consistent.
+// Panics if constraints are impossible to satisfy.
+func (g *StringGenerator) validate() {
+	// Check minLen <= maxLen
+	if g.minLen != nil && g.maxLen != nil && *g.minLen > *g.maxLen {
+		panic(fmt.Sprintf("StringGenerator: MinLen(%d) > MaxLen(%d)", *g.minLen, *g.maxLen))
+	}
+
+	// Check that prefix+suffix doesn't exceed maxLen
+	fixedLen := len(g.prefix) + len(g.suffix)
+	if g.maxLen != nil && fixedLen > *g.maxLen {
+		panic(fmt.Sprintf("StringGenerator: Prefix(%q) + Suffix(%q) = %d bytes > MaxLen(%d)",
+			g.prefix, g.suffix, fixedLen, *g.maxLen))
+	}
+}
+
 // MinLen constrains the generator to produce strings with at least minLen bytes.
 func (g *StringGenerator) MinLen(minLen int) *StringGenerator {
 	if minLen < 0 {
 		panic(fmt.Sprintf("StringGenerator.MinLen: minLen (%d) must be >= 0", minLen))
 	}
 	g.minLen = &minLen
+	g.validate()
 	return g
 }
 
@@ -178,6 +247,7 @@ func (g *StringGenerator) MaxLen(maxLen int) *StringGenerator {
 		panic(fmt.Sprintf("StringGenerator.MaxLen: maxLen (%d) must be >= 0", maxLen))
 	}
 	g.maxLen = &maxLen
+	g.validate()
 	return g
 }
 
@@ -188,6 +258,7 @@ func (g *StringGenerator) Len(len int) *StringGenerator {
 	}
 	g.minLen = &len
 	g.maxLen = &len
+	g.validate()
 	return g
 }
 
@@ -195,18 +266,21 @@ func (g *StringGenerator) Len(len int) *StringGenerator {
 func (g *StringGenerator) NonEmpty() *StringGenerator {
 	one := 1
 	g.minLen = &one
+	g.validate()
 	return g
 }
 
 // Prefix constrains the generator to produce strings starting with the given prefix.
 func (g *StringGenerator) Prefix(prefix string) *StringGenerator {
 	g.prefix = prefix
+	g.validate()
 	return g
 }
 
 // Suffix constrains the generator to produce strings ending with the given suffix.
 func (g *StringGenerator) Suffix(suffix string) *StringGenerator {
 	g.suffix = suffix
+	g.validate()
 	return g
 }
 
@@ -239,6 +313,26 @@ func (g *StringGenerator) Alpha() *StringGenerator {
 // If a hard Prefix() constraint is set, it takes precedence over the hint.
 func (g *StringGenerator) ExampleHint(hint string) *StringGenerator {
 	g.exampleHint = hint
+	return g
+}
+
+// Filter constrains the generator to only produce strings that satisfy the predicate.
+// The generator will retry up to 100 times (by default) to find a matching value.
+// If no matching value is found after max attempts, the test iteration is skipped (via t.Assume).
+//
+// Use Filter for predicates that pass frequently (>50% of values).
+// For rare conditions, use t.Assume() instead to skip test iterations directly.
+//
+// Example:
+//
+//	validEmails := String().AlphaNum().Filter(func(s string) bool {
+//	    return strings.Contains(s, "@") && len(s) > 5
+//	})
+func (g *StringGenerator) Filter(fn func(string) bool) *StringGenerator {
+	g.filterFn = fn
+	if g.maxFilterAttempts == 0 {
+		g.maxFilterAttempts = 100
+	}
 	return g
 }
 
@@ -289,45 +383,64 @@ func (g *StringGenerator) drawRandom(s Source, label string) string {
 		maxLen = *g.maxLen
 	}
 
-	// Account for prefix/suffix in length calculation
-	prefixLen := len(g.prefix)
-	suffixLen := len(g.suffix)
-	fixedLen := prefixLen + suffixLen
-
-	// Adjust min/max for the random part
-	randomMinLen := minLen - fixedLen
-	if randomMinLen < 0 {
-		randomMinLen = 0
+	maxAttempts := 1
+	if g.filterFn != nil {
+		maxAttempts = g.maxFilterAttempts
 	}
-	randomMaxLen := maxLen - fixedLen
-	if randomMaxLen < 0 {
-		// Prefix+suffix already exceeds maxLen, just use prefix+suffix
-		result := g.prefix + g.suffix
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		// Account for prefix/suffix in length calculation
+		prefixLen := len(g.prefix)
+		suffixLen := len(g.suffix)
+		fixedLen := prefixLen + suffixLen
+
+		// Adjust min/max for the random part
+		randomMinLen := minLen - fixedLen
+		if randomMinLen < 0 {
+			randomMinLen = 0
+		}
+		randomMaxLen := maxLen - fixedLen
+		if randomMaxLen < 0 {
+			// Prefix+suffix already exceeds maxLen, just use prefix+suffix
+			result := g.prefix + g.suffix
+			if g.filterFn == nil || g.filterFn(result) {
+				s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
+				return result
+			}
+			continue // Try again with filter
+		}
+
+		// Generate random length for the middle part
+		var randomLen int
+		if randomMaxLen == randomMinLen {
+			randomLen = randomMinLen
+		} else {
+			lengthRange := randomMaxLen - randomMinLen + 1
+			randomLen = randomMinLen + int(s.DrawBits(32)%uint64(lengthRange))
+		}
+
+		// Generate random bytes based on charset
+		var randomBytes []byte
+		if randomLen > 0 {
+			randomBytes = make([]byte, randomLen)
+			for i := 0; i < randomLen; i++ {
+				randomBytes[i] = g.generateByte(s)
+			}
+		}
+
+		result := g.prefix + string(randomBytes) + g.suffix
+
+		// Check filter predicate if present
+		if g.filterFn != nil && !g.filterFn(result) {
+			continue // Try again
+		}
+
 		s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
 		return result
 	}
 
-	// Generate random length for the middle part
-	var randomLen int
-	if randomMaxLen == randomMinLen {
-		randomLen = randomMinLen
-	} else {
-		lengthRange := randomMaxLen - randomMinLen + 1
-		randomLen = randomMinLen + int(s.DrawBits(32)%uint64(lengthRange))
-	}
-
-	// Generate random bytes based on charset
-	var randomBytes []byte
-	if randomLen > 0 {
-		randomBytes = make([]byte, randomLen)
-		for i := 0; i < randomLen; i++ {
-			randomBytes[i] = g.generateByte(s)
-		}
-	}
-
-	result := g.prefix + string(randomBytes) + g.suffix
-	s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
-	return result
+	// Filter exhausted max attempts - skip this test iteration
+	panic(skipTest{})
 }
 
 func (g *StringGenerator) generateByte(s Source) byte {
