@@ -110,9 +110,11 @@ func (p *PropertyPrimitives) Uint64() uint64 {
 
 // Float64 generates a random float64 from the full range including special values.
 // This includes: negative values, -0.0, 0.0, positive values, ±Inf, NaN, subnormals.
+// Edge cases (NaN, ±Inf, etc.) appear ~9% of the time, similar to Hypothesis.
 func (p *PropertyPrimitives) Float64() float64 {
 	// Use different strategies to get variety including edge cases
-	strategy := p.IntN(20)
+	// 9 edge cases out of 100 total = ~9% edge case frequency
+	strategy := p.IntN(100)
 
 	switch {
 	case strategy == 0: // NaN
@@ -182,9 +184,11 @@ func (p *PropertyPrimitives) BytesN(n int) []byte {
 
 // Time generates a random time from the full range of time.Time values.
 // This includes: zero time, distant past, distant future, and everything in between.
+// Edge cases (zero time, epoch, year 1, year 9999) appear ~8% of the time.
 func (p *PropertyPrimitives) Time() time.Time {
 	// Use different strategies to get variety including edge cases
-	strategy := p.IntN(10)
+	// 4 edge cases out of 50 total = ~8% edge case frequency
+	strategy := p.IntN(50)
 
 	switch {
 	case strategy == 0: // Zero time
