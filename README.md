@@ -19,6 +19,16 @@ Testing isn't just about asserting values—it's about building maintainable tes
 go get github.com/james-w/specta
 ```
 
+## Documentation
+
+**[Full documentation available at: https://james-w.github.io/specta/](https://james-w.github.io/specta/)**
+
+The documentation includes:
+- Comprehensive guides for matchers, factories, and property-based testing
+- Code generation setup and usage
+- Real-world examples and patterns
+- Complete API reference
+
 ## Quick Start
 
 ```go

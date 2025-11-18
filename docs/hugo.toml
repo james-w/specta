@@ -1,0 +1,25 @@
+baseURL = 'https://james-w.github.io/specta/'
+languageCode = 'en-us'
+title = 'specta - Composable Testing for Go'
+theme = 'hugo-book'
+
+[params]
+  BookRepo = 'https://github.com/james-w/specta'
+  BookEditPath = 'edit/main'
+  BookToC = true
+  BookSearch = true
+  BookSection = 'docs'
+  BookComments = false
+
+[module]
+  [[module.imports]]
+    path = 'github.com/alex-shpak/hugo-book'
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.tableOfContents]
+    endLevel = 3
+    ordered = false
+    startLevel = 2
