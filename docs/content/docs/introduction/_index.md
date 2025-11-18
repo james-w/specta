@@ -49,14 +49,14 @@ func TestUser(t *testing.T) {
 
     // Compose matchers for readable assertions
     AssertThat(t, user.Name, Equal("Alice"))
-    AssertThat(t, user.Email, ContainString("example.com"))
+    AssertThat(t, user.Email, Contains("example.com"))
     AssertThat(t, user.Age, GreaterThan(18))
 
     // Combine matchers with AllOf
     AssertThat(t, user.Email, AllOf(
-        HavePrefix("alice"),
-        HaveSuffix(".com"),
-        ContainString("@"),
+        HasPrefix("alice"),
+        HasSuffix(".com"),
+        Contains("@"),
     ))
 }
 ```
@@ -69,8 +69,8 @@ Matchers are reusable predicates that test values and provide detailed failure m
 
 ```go
 AssertThat(t, value, Equal(expected))
-AssertThat(t, list, ContainAll("a", "b", "c"))
-AssertThat(t, name, Not(BeEmpty()))
+AssertThat(t, list, ContainsAllElements("a", "b", "c"))
+AssertThat(t, name, Not(Equal("")))
 ```
 
 ### Composition
@@ -79,8 +79,8 @@ Build complex matchers from simple ones:
 
 ```go
 validEmail := AllOf(
-    ContainString("@"),
-    MatchRegex(`^[a-z]+@[a-z]+\.[a-z]+$`),
+    Contains("@"),
+    MatchesRegex(`^[a-z]+@[a-z]+\.[a-z]+$`),
 )
 
 AssertThat(t, user.Email, validEmail)
@@ -94,7 +94,7 @@ Only assert what matters for each test:
 // Only care about the name and email, other fields can have any value
 AssertThat(t, user, MatchUser().
     WithName(Equal("Alice")).
-    WithEmail(ContainString("example.com")))
+    WithEmail(Contains("example.com")))
 ```
 
 ## Next Steps

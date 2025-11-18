@@ -89,35 +89,6 @@ import (
 	. "github.com/james-w/specta"
 )
 
-// Aliases for doc-friendly names (docs use different names than actual API)
-var (
-	ContainString = Contains
-	HavePrefix    = HasPrefix
-	HaveSuffix    = HasSuffix
-	MatchRegex    = MatchesRegex
-)
-
-// Generic wrapper functions
-func ContainAll[T comparable](items ...T) Matcher[[]T] {
-	return ContainsAllElements(items...)
-}
-
-func ContainAny[T comparable](items ...T) Matcher[[]T] {
-	return ContainsAnyElement(items...)
-}
-
-func Contain[T comparable](item T) Matcher[[]T] {
-	return ContainsElement(item)
-}
-
-func BeEmpty[T any]() Matcher[[]T] {
-	return IsEmpty[T]()
-}
-
-func HaveLength[T any](size int) Matcher[[]T] {
-	return HasSize[T](size)
-}
-
 // Common types used in examples
 type User struct {
 	ID        string
@@ -153,13 +124,13 @@ func (m *UserMatcher) Matches(u User) MatchResult {
 	if m.nameMatcher != nil {
 		result := m.nameMatcher.Matches(u.Name)
 		if !result.Matched {
-			return MatchResult{Matched: false, Description: "name did not match"}
+			return MatchResult{Matched: false, Message: "name did not match"}
 		}
 	}
 	if m.emailMatcher != nil {
 		result := m.emailMatcher.Matches(u.Email)
 		if !result.Matched {
-			return MatchResult{Matched: false, Description: "email did not match"}
+			return MatchResult{Matched: false, Message: "email did not match"}
 		}
 	}
 	return MatchResult{Matched: true}
