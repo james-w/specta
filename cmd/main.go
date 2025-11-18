@@ -1666,10 +1666,33 @@ func defaultProvider(pkg string, f field) string {
 	// Handle slices separately
 	if strings.HasPrefix(typ, "[]") {
 		elemType := strings.TrimPrefix(typ, "[]")
+
 		if isPrimitiveType(elemType) {
-			return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
+			// For primitive element types, generate slices with elements
+			var elemGen string
+			switch elemType {
+			case "string":
+				elemGen = "specta.String()"
+			case "int":
+				elemGen = "specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, \"\")) })"
+			case "int64":
+				elemGen = "specta.GeneratorFromProvider(func(s specta.Source) int64 { return specta.Int().Draw(s, \"\") })"
+			case "uint64":
+				elemGen = "specta.GeneratorFromProvider(func(s specta.Source) uint64 { return uint64(specta.Int().NonNegative().Draw(s, \"\")) })"
+			case "bool":
+				elemGen = "specta.Bool()"
+			case "float64":
+				elemGen = "specta.Float64()"
+			default:
+				// Unknown primitive - fall back to zero value
+				return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
+			}
+			// Use Slice generator with reasonable default max length
+			return fmt.Sprintf("func(s specta.Source) %s { return specta.Slice(%s).MaxLen(5).Draw(s, %q) }", typ, elemGen, name)
 		}
-		// Custom type slice - type is already qualified from collectFields
+
+		// For custom type slices, default to empty to avoid circular dependencies
+		// Users can explicitly set slice contents using WithFieldFromProvider if needed
 		return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
 	}
 

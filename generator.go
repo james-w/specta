@@ -18,6 +18,22 @@ type Generator[Value any] interface {
 	Draw(s Source, label string) Value
 }
 
+// providerGenerator adapts a Provider[T] to a Generator[T].
+type providerGenerator[T any] struct {
+	provider Provider[T]
+}
+
+// GeneratorFromProvider converts a Provider[T] into a Generator[T].
+// This is useful for using existing providers with generators that expect Generator[T].
+func GeneratorFromProvider[T any](p Provider[T]) Generator[T] {
+	return &providerGenerator[T]{provider: p}
+}
+
+// Draw implements Generator[T] by calling the Provider.
+func (g *providerGenerator[T]) Draw(s Source, label string) T {
+	return g.provider(s)
+}
+
 // IntGenerator generates int64 values with optional range constraints.
 type IntGenerator struct {
 	min               *int64
@@ -714,4 +730,157 @@ func (g *UUIDGenerator) Draw(s Source, label string) uuid.UUID {
 	value := uuid.Must(uuid.FromBytes(data[:]))
 	s.WriteLog(fmt.Sprintf("UUID(%s)=%v ", label, value))
 	return value
+}
+
+// SliceGenerator generates slices of values using an element generator.
+type SliceGenerator[T any] struct {
+	elementGen        Generator[T]
+	minLen            *int
+	maxLen            *int
+	filterFn          func([]T) bool
+	maxFilterAttempts int
+}
+
+// Slice creates a new slice generator using the given element generator.
+// By default it generates slices with 0-100 elements.
+// Use MinLen/MaxLen/Len to constrain the size.
+//
+// Example:
+//
+//	// Generate slices of integers between 1-10
+//	ints := Slice(Int().Range(1, 10)).MinLen(5).MaxLen(20)
+func Slice[T any](elementGen Generator[T]) *SliceGenerator[T] {
+	return &SliceGenerator[T]{
+		elementGen: elementGen,
+	}
+}
+
+// validate checks that the generator's constraints are consistent.
+func (g *SliceGenerator[T]) validate() {
+	if g.minLen != nil && g.maxLen != nil && *g.minLen > *g.maxLen {
+		panic(fmt.Sprintf("SliceGenerator: MinLen(%d) > MaxLen(%d)", *g.minLen, *g.maxLen))
+	}
+}
+
+// MinLen constrains the generator to produce slices with at least minLen elements.
+func (g *SliceGenerator[T]) MinLen(minLen int) *SliceGenerator[T] {
+	if minLen < 0 {
+		panic(fmt.Sprintf("SliceGenerator.MinLen: minLen (%d) must be >= 0", minLen))
+	}
+	g.minLen = &minLen
+	g.validate()
+	return g
+}
+
+// MaxLen constrains the generator to produce slices with at most maxLen elements.
+func (g *SliceGenerator[T]) MaxLen(maxLen int) *SliceGenerator[T] {
+	if maxLen < 0 {
+		panic(fmt.Sprintf("SliceGenerator.MaxLen: maxLen (%d) must be >= 0", maxLen))
+	}
+	g.maxLen = &maxLen
+	g.validate()
+	return g
+}
+
+// Len constrains the generator to produce slices with exactly len elements.
+func (g *SliceGenerator[T]) Len(len int) *SliceGenerator[T] {
+	if len < 0 {
+		panic(fmt.Sprintf("SliceGenerator.Len: len (%d) must be >= 0", len))
+	}
+	g.minLen = &len
+	g.maxLen = &len
+	g.validate()
+	return g
+}
+
+// NonEmpty constrains the generator to produce non-empty slices.
+func (g *SliceGenerator[T]) NonEmpty() *SliceGenerator[T] {
+	one := 1
+	g.minLen = &one
+	g.validate()
+	return g
+}
+
+// Filter constrains the generator to only produce slices that satisfy the predicate.
+// The generator will retry up to 100 times (by default) to find a matching value.
+// If no matching value is found after max attempts, the test iteration is skipped.
+//
+// Use Filter for predicates that pass frequently (>50% of values).
+// For rare conditions, use t.Assume() instead to skip test iterations directly.
+//
+// Example:
+//
+//	uniqueInts := Slice(Int()).Filter(func(s []int) bool {
+//	    seen := make(map[int]bool)
+//	    for _, v := range s {
+//	        if seen[v] { return false }
+//	        seen[v] = true
+//	    }
+//	    return true
+//	})
+func (g *SliceGenerator[T]) Filter(fn func([]T) bool) *SliceGenerator[T] {
+	g.filterFn = fn
+	if g.maxFilterAttempts == 0 {
+		g.maxFilterAttempts = 100
+	}
+	return g
+}
+
+// Draw generates a slice from the source.
+func (g *SliceGenerator[T]) Draw(s Source, label string) []T {
+	// Determine length bounds
+	minLen := 0
+	maxLen := 100 // Default max length
+	if g.minLen != nil {
+		minLen = *g.minLen
+	}
+	if g.maxLen != nil {
+		maxLen = *g.maxLen
+	}
+
+	maxAttempts := 1
+	if g.filterFn != nil {
+		maxAttempts = g.maxFilterAttempts
+	}
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		// Generate a length
+		var length int
+		if s.IsDeterministic() {
+			// Deterministic mode: use counter for predictable lengths
+			// Start with minLen and increment
+			counter := s.DrawBits(64)
+			if minLen == maxLen {
+				length = minLen
+			} else {
+				rangeSize := maxLen - minLen + 1
+				length = minLen + int(counter%uint64(rangeSize))
+			}
+		} else {
+			// Random mode: random length in range
+			if minLen == maxLen {
+				length = minLen
+			} else {
+				lengthRange := maxLen - minLen + 1
+				length = minLen + int(s.DrawBits(32)%uint64(lengthRange))
+			}
+		}
+
+		// Generate elements
+		result := make([]T, length)
+		for i := 0; i < length; i++ {
+			result[i] = g.elementGen.Draw(s, fmt.Sprintf("%s[%d]", label, i))
+		}
+
+		// Check filter predicate if present
+		if g.filterFn != nil && !g.filterFn(result) {
+			continue // Try again
+		}
+
+		s.WriteLog(fmt.Sprintf("Slice(%s)=[%d elements] ", label, length))
+		return result
+	}
+
+	// Filter exhausted max attempts - skip this test iteration
+	panic(skipTest{})
 }

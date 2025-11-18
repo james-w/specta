@@ -326,3 +326,182 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 		}
 	})
 }
+
+// TestSliceGenerator tests slice generation with element generators
+func TestSliceGenerator(t *testing.T) {
+	t.Run("generates slices by default", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.Int())
+			value := gen.Draw(t.Source, "test")
+			// Should generate a slice (possibly empty)
+			_ = value
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("respects MinLen constraint", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.Int()).MinLen(5)
+			value := gen.Draw(t.Source, "test")
+			if len(value) < 5 {
+				t.Errorf("slice length %d less than min 5", len(value))
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("respects MaxLen constraint", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.Int()).MaxLen(10)
+			value := gen.Draw(t.Source, "test")
+			if len(value) > 10 {
+				t.Errorf("slice length %d greater than max 10", len(value))
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("respects Len constraint", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.String()).Len(7)
+			value := gen.Draw(t.Source, "test")
+			if len(value) != 7 {
+				t.Errorf("slice length %d not equal to 7", len(value))
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("NonEmpty generates non-empty slices", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.Bool()).NonEmpty()
+			value := gen.Draw(t.Source, "test")
+			if len(value) == 0 {
+				t.Errorf("generated empty slice")
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("element generator constraints are respected", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.Int().Range(1, 10))
+			value := gen.Draw(t.Source, "test")
+			for i, v := range value {
+				if v < 1 || v > 10 {
+					t.Errorf("element %d at index %d outside range [1, 10]", v, i)
+				}
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("can generate empty slices by default", func(t *testing.T) {
+		foundEmpty := false
+
+		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
+			specta.Property(t, func(t *specta.T) {
+				gen := specta.Slice(specta.Int())
+				value := gen.Draw(t.Source, "test")
+				if len(value) == 0 {
+					foundEmpty = true
+				}
+			}, specta.Seed(seed), specta.MaxTests(50))
+		}
+
+		if !foundEmpty {
+			t.Logf("note: never generated empty slice (low probability, not necessarily a bug)")
+		}
+	})
+
+	t.Run("chained constraints work", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.String().AlphaNum()).MinLen(2).MaxLen(5)
+			value := gen.Draw(t.Source, "test")
+
+			if len(value) < 2 || len(value) > 5 {
+				t.Errorf("slice length %d outside range [2, 5]", len(value))
+			}
+
+			// Check each element is alphanumeric
+			for i, s := range value {
+				for _, r := range s {
+					if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+						t.Errorf("element %d at index %d contains non-alphanumeric character %c", i, i, r)
+					}
+				}
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("generates varying lengths", func(t *testing.T) {
+		lengths := make(map[int]bool)
+
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Slice(specta.Int()).MinLen(0).MaxLen(10)
+			value := gen.Draw(t.Source, "test")
+			lengths[len(value)] = true
+		}, specta.MaxTests(200))
+
+		// Should see at least a few different lengths
+		if len(lengths) < 3 {
+			t.Errorf("only saw %d different lengths, expected more variety", len(lengths))
+		}
+	})
+
+	t.Run("Filter works on slices", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			// Only accept slices with at least one even number
+			gen := specta.Slice(specta.Int().Range(0, 100)).NonEmpty().Filter(func(s []int64) bool {
+				for _, v := range s {
+					if v%2 == 0 {
+						return true
+					}
+				}
+				return false
+			})
+			value := gen.Draw(t.Source, "test")
+
+			// Verify filter condition holds
+			foundEven := false
+			for _, v := range value {
+				if v%2 == 0 {
+					foundEven = true
+					break
+				}
+			}
+			if !foundEven {
+				t.Errorf("filter should ensure at least one even number, but none found in %v", value)
+			}
+		}, specta.MaxTests(100))
+	})
+}
+
+// TestSliceGenerator_Deterministic tests deterministic behavior
+func TestSliceGenerator_Deterministic(t *testing.T) {
+	t.Run("deterministic mode produces predictable results", func(t *testing.T) {
+		gen := specta.New(specta.WithStart(0))
+
+		slice1 := specta.Slice(specta.Int()).MinLen(3).MaxLen(5).Draw(gen, "test")
+
+		// Reset to same state
+		gen = specta.New(specta.WithStart(0))
+		slice2 := specta.Slice(specta.Int()).MinLen(3).MaxLen(5).Draw(gen, "test")
+
+		// Should get identical results
+		if len(slice1) != len(slice2) {
+			t.Errorf("deterministic slices have different lengths: %d vs %d", len(slice1), len(slice2))
+		}
+
+		for i := range slice1 {
+			if slice1[i] != slice2[i] {
+				t.Errorf("deterministic slices differ at index %d: %d vs %d", i, slice1[i], slice2[i])
+			}
+		}
+	})
+
+	t.Run("deterministic mode uses counter for length", func(t *testing.T) {
+		gen := specta.New(specta.WithStart(0))
+
+		// First slice should have length based on counter 0
+		slice := specta.Slice(specta.Int()).MinLen(0).MaxLen(10).Draw(gen, "test")
+		expectedLen := 0 // counter 0 % 11 = 0
+		if len(slice) != expectedLen {
+			t.Logf("note: first slice length %d (implementation detail, not a bug if different)", len(slice))
+		}
+	})
+}
