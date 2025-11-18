@@ -10,6 +10,50 @@ import (
 	"testing"
 )
 
+// findDocFiles finds all documentation markdown files
+func findDocFiles() ([]string, error) {
+	pattern := "content/docs/**/_index.md"
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	// Also check single-level directories
+	singleLevel, err := filepath.Glob("content/docs/*/_index.md")
+	if err != nil {
+		return nil, err
+	}
+
+	// Combine and deduplicate
+	seen := make(map[string]bool)
+	var result []string
+	for _, m := range append(matches, singleLevel...) {
+		if !seen[m] {
+			seen[m] = true
+			result = append(result, m)
+		}
+	}
+
+	return result, nil
+}
+
+// testNameFromPath converts a file path to a test name
+// e.g., "content/docs/core-matchers/_index.md" -> "CoreMatchers"
+func testNameFromPath(path string) string {
+	// Remove content/docs/ prefix and _index.md suffix
+	name := strings.TrimPrefix(path, "content/docs/")
+	name = strings.TrimSuffix(name, "/_index.md")
+
+	// Convert kebab-case to PascalCase
+	parts := strings.Split(name, "-")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, "")
+}
+
 // extractGoCodeBlocks extracts all ```go code blocks from a markdown file
 func extractGoCodeBlocks(content string) []string {
 	// Match ```go ... ``` blocks
@@ -154,25 +198,40 @@ var (
 `
 }
 
-func TestIntroductionExamples(t *testing.T) {
-	content, err := os.ReadFile("content/docs/introduction/_index.md")
+func TestDocumentationExamples(t *testing.T) {
+	docFiles, err := findDocFiles()
 	if err != nil {
-		t.Fatalf("failed to read introduction: %v", err)
+		t.Fatalf("failed to find doc files: %v", err)
+	}
+
+	if len(docFiles) == 0 {
+		t.Skip("no documentation files found")
+	}
+
+	for _, docPath := range docFiles {
+		docPath := docPath // capture
+		testName := testNameFromPath(docPath)
+		t.Run(testName, func(t *testing.T) {
+			testDocFile(t, docPath)
+		})
+	}
+}
+
+func testDocFile(t *testing.T, filePath string) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", filePath, err)
 	}
 
 	blocks := extractGoCodeBlocks(string(content))
 	if len(blocks) == 0 {
-		t.Skip("no code blocks found in introduction")
+		t.Skipf("no code blocks found in %s", filePath)
 	}
 
-	t.Logf("Found %d Go code blocks in introduction", len(blocks))
+	t.Logf("Found %d Go code blocks in %s", len(blocks), filePath)
 
 	// Create a temporary directory for test files
-	tmpDir, err := os.MkdirTemp("", "doctest-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Initialize a test module
 	modFile := filepath.Join(tmpDir, "go.mod")
@@ -209,8 +268,8 @@ replace github.com/james-w/specta => ` + spectaPath + `
 		block := block // capture
 		i := i
 
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			t.Logf("Testing code block %d:\n%s", i, block)
+		t.Run(fmt.Sprintf("block_%d", i), func(t *testing.T) {
+			t.Logf("Testing %s block %d:\n%s", filePath, i, block)
 
 			// Wrap the code block
 			wrapped := wrapCodeBlock(block, i)
@@ -227,10 +286,10 @@ replace github.com/james-w/specta => ` + spectaPath + `
 			output, err := cmd.CombinedOutput()
 
 			if err != nil {
-				t.Errorf("Code block %d failed to run:\n%s\n\nGenerated code:\n%s\n\nError:\n%s",
-					i, block, wrapped, string(output))
+				t.Errorf("FAILED: %s block %d\n\nOriginal code:\n%s\n\nGenerated code:\n%s\n\nError:\n%s",
+					filePath, i, block, wrapped, string(output))
 			} else {
-				t.Logf("Code block %d ran successfully:\n%s", i, string(output))
+				t.Logf("PASSED: %s block %d", filePath, i)
 			}
 		})
 	}
