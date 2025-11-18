@@ -31,11 +31,11 @@ func TestUserCRUD(t *testing.T) {
 
         created := db.CreateUser(input)
 
-        AssertThat(t, created, factory.MatchUser().
-            WithID(Not(BeEmpty())).
-            WithName(Equal("Alice")).
-            WithEmail(Equal("alice@example.com")).
-            WithCreatedAt(Not(BeZero())))
+        specta.AssertThat(t, created, factory.MatchUser().
+            WithID(specta.Not(BeEmpty())).
+            WithName(specta.Equal("Alice")).
+            WithEmail(specta.Equal("alice@example.com")).
+            WithCreatedAt(specta.Not(BeZero())))
     })
 
     t.Run("Read", func(t *testing.T) {
@@ -44,10 +44,10 @@ func TestUserCRUD(t *testing.T) {
 
         found, err := db.GetUser(user.ID)
 
-        AssertThat(t, err, BeNil())
-        AssertThat(t, found, factory.MatchUser().
-            WithID(Equal(user.ID)).
-            WithName(Equal(user.Name)))
+        specta.AssertThat(t, err, BeNil())
+        specta.AssertThat(t, found, factory.MatchUser().
+            WithID(specta.Equal(user.ID)).
+            WithName(specta.Equal(user.Name)))
     })
 
     t.Run("Update", func(t *testing.T) {
@@ -60,10 +60,10 @@ func TestUserCRUD(t *testing.T) {
 
         updated := db.UpdateUser(created.ID, updates)
 
-        AssertThat(t, updated, factory.MatchUser().
-            WithID(Equal(created.ID)).
-            WithName(Equal("Updated Name")).
-            WithUpdatedAt(GreaterThan(created.UpdatedAt)))
+        specta.AssertThat(t, updated, factory.MatchUser().
+            WithID(specta.Equal(created.ID)).
+            WithName(specta.Equal("Updated Name")).
+            WithUpdatedAt(specta.GreaterThan(created.UpdatedAt)))
     })
 
     t.Run("Delete", func(t *testing.T) {
@@ -71,10 +71,10 @@ func TestUserCRUD(t *testing.T) {
         created := db.CreateUser(user)
 
         err := db.DeleteUser(created.ID)
-        AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, BeNil())
 
         _, err = db.GetUser(created.ID)
-        AssertThat(t, err, Not(BeNil()))
+        specta.AssertThat(t, err, specta.Not(BeNil()))
     })
 }
 ```
@@ -105,14 +105,14 @@ func TestUserAPI(t *testing.T) {
         resp := httptest.NewRecorder()
         server.ServeHTTP(resp, req)
 
-        AssertThat(t, resp.Code, Equal(http.StatusOK))
+        specta.AssertThat(t, resp.Code, specta.Equal(http.StatusOK))
 
         var result User
         json.NewDecoder(resp.Body).Decode(&result)
 
-        AssertThat(t, result, factory.MatchUser().
-            WithID(Equal(user.ID)).
-            WithName(Equal(user.Name)))
+        specta.AssertThat(t, result, factory.MatchUser().
+            WithID(specta.Equal(user.ID)).
+            WithName(specta.Equal(user.Name)))
     })
 
     t.Run("POST /users", func(t *testing.T) {
@@ -126,15 +126,15 @@ func TestUserAPI(t *testing.T) {
         resp := httptest.NewRecorder()
         server.ServeHTTP(resp, req)
 
-        AssertThat(t, resp.Code, Equal(http.StatusCreated))
+        specta.AssertThat(t, resp.Code, specta.Equal(http.StatusCreated))
 
         var created User
         json.NewDecoder(resp.Body).Decode(&created)
 
-        AssertThat(t, created, factory.MatchUser().
-            WithID(Not(BeEmpty())).
-            WithName(Equal("Alice")).
-            WithEmail(Equal("alice@example.com")))
+        specta.AssertThat(t, created, factory.MatchUser().
+            WithID(specta.Not(BeEmpty())).
+            WithName(specta.Equal("Alice")).
+            WithEmail(specta.Equal("alice@example.com")))
     })
 
     t.Run("PUT /users/:id", func(t *testing.T) {
@@ -147,14 +147,14 @@ func TestUserAPI(t *testing.T) {
         resp := httptest.NewRecorder()
         server.ServeHTTP(resp, req)
 
-        AssertThat(t, resp.Code, Equal(http.StatusOK))
+        specta.AssertThat(t, resp.Code, specta.Equal(http.StatusOK))
 
         var updated User
         json.NewDecoder(resp.Body).Decode(&updated)
 
-        AssertThat(t, updated, factory.MatchUser().
-            WithID(Equal(created.ID)).
-            WithName(Equal("Updated")))
+        specta.AssertThat(t, updated, factory.MatchUser().
+            WithID(specta.Equal(created.ID)).
+            WithName(specta.Equal("Updated")))
     })
 }
 ```
@@ -197,13 +197,13 @@ func TestOrderProcessing(t *testing.T) {
 
     result := ProcessOrder(order)
 
-    AssertThat(t, result, factory.MatchOrder().
-        WithStatus(Equal("processed")).
-        WithTotal(Equal(6997)). // 1999*2 + 2999*1
+    specta.AssertThat(t, result, factory.MatchOrder().
+        WithStatus(specta.Equal("processed")).
+        WithTotal(specta.Equal(6997)). // 1999*2 + 2999*1
         WithUser(factory.MatchUser().
-            WithName(Equal("Alice"))).
+            WithName(specta.Equal("Alice"))).
         WithShippingAddress(factory.MatchAddress().
-            WithCity(Equal("Seattle"))))
+            WithCity(specta.Equal("Seattle"))))
 }
 ```
 
@@ -217,7 +217,7 @@ func TestUserValidation(t *testing.T) {
         name      string
         user      User
         wantError bool
-        errMatch  Matcher[string]
+        errMatch  specta.Matcher[string]
     }{
         {
             name: "valid user",
@@ -267,10 +267,10 @@ func TestUserValidation(t *testing.T) {
             err := ValidateUser(tt.user)
 
             if tt.wantError {
-                AssertThat(t, err, NotBeNil())
-                AssertThat(t, err.Error(), tt.errMatch)
+                specta.AssertThat(t, err, NotBeNil())
+                specta.AssertThat(t, err.Error(), tt.errMatch)
             } else {
-                AssertThat(t, err, BeNil())
+                specta.AssertThat(t, err, BeNil())
             }
         })
     }
@@ -292,15 +292,15 @@ func TestUserSerializationRoundTrip(t *testing.T) {
 
         // Serialize
         data, err := json.Marshal(original)
-        AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, BeNil())
 
         // Deserialize
         var decoded Order
         err = json.Unmarshal(data, &decoded)
-        AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, BeNil())
 
         // Property: round-trip preserves data
-        AssertThat(t, decoded, DeepEqual(original))
+        specta.AssertThat(t, decoded, Deepspecta.Equal(original))
     }
 }
 
@@ -326,42 +326,42 @@ import . "github.com/james-w/specta"
 
 // Email matchers
 var (
-    ValidEmail = AllOf(
+    ValidEmail = specta.AllOf(
         ContainString("@"),
         MatchRegex(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`),
     )
 
-    CompanyEmail = AllOf(
+    CompanyEmail = specta.AllOf(
         ValidEmail,
         HaveSuffix("@mycompany.com"),
     )
 
-    PersonalEmail = AllOf(
+    PersonalEmail = specta.AllOf(
         ValidEmail,
-        Not(HaveSuffix("@mycompany.com")),
+        specta.Not(HaveSuffix("@mycompany.com")),
     )
 )
 
 // User matchers
 var (
     ActiveUser = factory.MatchUser().
-        WithStatus(Equal("active"))
+        WithStatus(specta.Equal("active"))
 
     AdminUser = factory.MatchUser().
-        WithRole(Equal("admin")).
+        WithRole(specta.Equal("admin")).
         WithPermissions(ContainAll("read", "write", "delete"))
 
     ValidUser = factory.MatchUser().
         WithEmail(ValidEmail).
-        WithAge(AllOf(GreaterThan(0), LessThan(150)))
+        WithAge(specta.AllOf(specta.GreaterThan(0), specta.LessThan(150)))
 )
 
 // Usage in tests
 func TestUser(t *testing.T) {
     user := CreateUser("alice@mycompany.com")
 
-    AssertThat(t, user.Email, CompanyEmail)
-    AssertThat(t, user, ValidUser)
+    specta.AssertThat(t, user.Email, CompanyEmail)
+    specta.AssertThat(t, user, ValidUser)
 }
 ```
 
@@ -407,11 +407,11 @@ func TestUserStatusTransitions(t *testing.T) {
             result, err := TransitionUser(user, tt.transition)
 
             if tt.shouldError {
-                AssertThat(t, err, NotBeNil())
+                specta.AssertThat(t, err, NotBeNil())
             } else {
-                AssertThat(t, err, BeNil())
-                AssertThat(t, result, factory.MatchUser().
-                    WithStatus(Equal(tt.expected)))
+                specta.AssertThat(t, err, BeNil())
+                specta.AssertThat(t, result, factory.MatchUser().
+                    WithStatus(specta.Equal(tt.expected)))
             }
         })
     }
@@ -459,10 +459,10 @@ func TestNewWay(t *testing.T) {
 
     result := ProcessUser(user)
 
-    AssertThat(t, result, factory.MatchUser().
-        WithID(Equal(user.ID)).
-        WithName(Equal("Alice")).
-        WithStatus(Equal("processed")))
+    specta.AssertThat(t, result, factory.MatchUser().
+        WithID(specta.Equal(user.ID)).
+        WithName(specta.Equal("Alice")).
+        WithStatus(specta.Equal("processed")))
 }
 ```
 

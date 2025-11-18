@@ -11,11 +11,11 @@ Deep dives into advanced patterns and techniques.
 
 While code generation handles most cases, sometimes you need a custom matcher.
 
-### Implementing Matcher[T]
+### Implementing specta.Matcher[T]
 
 ```go
-type Matcher[T any] interface {
-    Match(value T) MatchResult
+type specta.Matcher[T any] interface {
+    Match(value T) specta.MatchResult
 }
 
 type MatchResult struct {
@@ -35,9 +35,9 @@ func ContainsAny(substrings ...string) *containsAnyMatcher {
     return &containsAnyMatcher{substrings: substrings}
 }
 
-func (m *containsAnyMatcher) Match(value string) MatchResult {
+func (m *containsAnyMatcher) Match(value string) specta.MatchResult {
     for _, substr := range m.substrings {
-        if strings.Contains(value, substr) {
+        if strings.specta.Contains(value, substr) {
             return MatchResult{
                 Matched: true,
                 Message: fmt.Sprintf("string contains '%s'", substr),
@@ -58,7 +58,7 @@ func (m *containsAnyMatcher) Match(value string) MatchResult {
 Usage:
 
 ```go
-AssertThat(t, message, ContainsAny("error", "warning", "failure"))
+specta.AssertThat(t, message, ContainsAny("error", "warning", "failure"))
 ```
 
 ### Example: Complex Struct Matcher
@@ -70,14 +70,14 @@ func BeValidUser() *validUserMatcher {
     return &validUserMatcher{}
 }
 
-func (m *validUserMatcher) Match(user User) MatchResult {
+func (m *validUserMatcher) Match(user User) specta.MatchResult {
     var failures []string
 
     if user.ID == "" {
         failures = append(failures, "ID is empty")
     }
 
-    if !strings.Contains(user.Email, "@") {
+    if !strings.specta.Contains(user.Email, "@") {
         failures = append(failures, "Email is invalid")
     }
 
@@ -103,7 +103,7 @@ func (m *validUserMatcher) Match(user User) MatchResult {
 Usage:
 
 ```go
-AssertThat(t, user, BeValidUser())
+specta.AssertThat(t, user, BeValidUser())
 ```
 
 ## Testing Patterns
@@ -115,7 +115,7 @@ func TestValidation(t *testing.T) {
     tests := []struct {
         name    string
         input   string
-        matcher Matcher[string]
+        matcher specta.Matcher[string]
     }{
         {
             name:    "valid email",
@@ -130,13 +130,13 @@ func TestValidation(t *testing.T) {
         {
             name:    "not empty",
             input:   "hello",
-            matcher: Not(BeEmpty()),
+            matcher: specta.Not(BeEmpty()),
         },
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            AssertThat(t, tt.input, tt.matcher)
+            specta.AssertThat(t, tt.input, tt.matcher)
         })
     }
 }
@@ -149,22 +149,22 @@ Define matchers as package-level variables:
 ```go
 var (
     // Email matchers
-    ValidEmail = AllOf(
+    ValidEmail = specta.AllOf(
         ContainString("@"),
         MatchRegex(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`),
     )
 
-    CompanyEmail = AllOf(
+    CompanyEmail = specta.AllOf(
         ValidEmail,
         HaveSuffix("@company.com"),
     )
 
     // User matchers
     ActiveUser = MatchUser().
-        WithStatus(Equal("active"))
+        WithStatus(specta.Equal("active"))
 
     AdminUser = MatchUser().
-        WithRole(Equal("admin")).
+        WithRole(specta.Equal("admin")).
         WithPermissions(ContainAll("read", "write", "delete"))
 )
 ```
@@ -175,8 +175,8 @@ Usage:
 func TestUserCreation(t *testing.T) {
     user := CreateUser("alice@company.com")
 
-    AssertThat(t, user.Email, CompanyEmail)
-    AssertThat(t, user, ActiveUser)
+    specta.AssertThat(t, user.Email, CompanyEmail)
+    specta.AssertThat(t, user, ActiveUser)
 }
 ```
 
@@ -187,19 +187,19 @@ func TestErrorConditions(t *testing.T) {
     tests := []struct {
         name    string
         input   User
-        wantErr Matcher[error]
+        wantErr specta.Matcher[error]
     }{
         {
             name:    "missing email",
             input:   User{Name: "Alice"},
-            wantErr: Not(BeNil()),
+            wantErr: specta.Not(BeNil()),
         },
         {
             name:    "invalid age",
             input:   User{Name: "Alice", Email: "alice@example.com", Age: -1},
-            wantErr: AllOf(
-                Not(BeNil()),
-                ErrorContains("age"),
+            wantErr: specta.AllOf(
+                specta.Not(BeNil()),
+                Errorspecta.Contains("age"),
             ),
         },
         {
@@ -212,7 +212,7 @@ func TestErrorConditions(t *testing.T) {
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             err := ValidateUser(tt.input)
-            AssertThat(t, err, tt.wantErr)
+            specta.AssertThat(t, err, tt.wantErr)
         })
     }
 }
@@ -226,10 +226,10 @@ Matchers are lightweight, but deeply nested compositions can add overhead:
 
 ```go
 // Fine for most tests
-matcher := AllOf(
-    Equal(x),
-    GreaterThan(y),
-    LessThan(z),
+matcher := specta.AllOf(
+    specta.Equal(x),
+    specta.GreaterThan(y),
+    specta.LessThan(z),
 )
 
 // Consider simplifying if performance-critical
@@ -281,7 +281,7 @@ func TestSomething(t *testing.T) {
     }
 
     // specta matchers
-    AssertThat(t, value, Equal(expected))
+    specta.AssertThat(t, value, specta.Equal(expected))
 
     // Mix and match as needed
 }
@@ -295,13 +295,13 @@ func TestUserWorkflow(t *testing.T) {
 
     t.Run("creation", func(t *testing.T) {
         user := factory.NewUser(p).Build()
-        AssertThat(t, user.ID, Not(BeEmpty()))
+        specta.AssertThat(t, user.ID, specta.Not(BeEmpty()))
     })
 
     t.Run("validation", func(t *testing.T) {
         user := factory.NewUser(p).Build()
         err := ValidateUser(user)
-        AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, BeNil())
     })
 }
 ```
@@ -329,7 +329,7 @@ Generated code is type-checked before writing:
 
 ```go
 // Generator ensures this compiles:
-func (m *UserMatcher) WithName(matcher Matcher[string]) *UserMatcher {
+func (m *UserMatcher) WithName(matcher specta.Matcher[string]) *UserMatcher {
     // ...
 }
 ```

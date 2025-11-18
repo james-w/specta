@@ -26,10 +26,10 @@ func TestUserCreation(t *testing.T) {
     result := CreateUser(input)
 
     // Match: assert only what we care about
-    AssertThat(t, result, factory.MatchUser().
-        WithName(Equal("Alice")).
-        WithEmail(Equal("alice@example.com")).
-        WithID(Not(BeEmpty())))
+    specta.AssertThat(t, result, factory.MatchUser().
+        WithName(specta.Equal("Alice")).
+        WithEmail(specta.Equal("alice@example.com")).
+        WithID(specta.Not(BeEmpty())))
 }
 ```
 
@@ -74,8 +74,8 @@ func TestNameNormalization(t *testing.T) {
         WithName("  ALICE  ").
         Build())
 
-    AssertThat(t, user, factory.MatchUser().
-        WithName(Equal("Alice")))
+    specta.AssertThat(t, user, factory.MatchUser().
+        WithName(specta.Equal("Alice")))
 }
 
 // Test 2: Only care about email domain validation
@@ -86,7 +86,7 @@ func TestEmailDomain(t *testing.T) {
         WithEmail("alice@company.com").
         Build())
 
-    AssertThat(t, user, factory.MatchUser().
+    specta.AssertThat(t, user, factory.MatchUser().
         WithEmail(HaveSuffix("@company.com")))
 }
 ```
@@ -110,11 +110,11 @@ func TestCreateUser(t *testing.T) {
     created := db.CreateUser(userData)
 
     // Assert: Validate result
-    AssertThat(t, created, factory.MatchUser().
-        WithID(Not(BeEmpty())).              // DB generated
-        WithName(Equal("Alice")).
-        WithEmail(Equal("alice@example.com")).
-        WithCreatedAt(Not(BeZero())))        // DB timestamp
+    specta.AssertThat(t, created, factory.MatchUser().
+        WithID(specta.Not(BeEmpty())).              // DB generated
+        WithName(specta.Equal("Alice")).
+        WithEmail(specta.Equal("alice@example.com")).
+        WithCreatedAt(specta.Not(BeZero())))        // DB timestamp
 }
 
 func TestUpdateUser(t *testing.T) {
@@ -132,10 +132,10 @@ func TestUpdateUser(t *testing.T) {
     updated := db.UpdateUser(user.ID, updates)
 
     // Assert only what changed
-    AssertThat(t, updated, factory.MatchUser().
-        WithID(Equal(user.ID)).              // Same ID
-        WithName(Equal("New Name")).         // Updated
-        WithCreatedAt(Equal(user.CreatedAt))) // Unchanged
+    specta.AssertThat(t, updated, factory.MatchUser().
+        WithID(specta.Equal(user.ID)).              // Same ID
+        WithName(specta.Equal("New Name")).         // Updated
+        WithCreatedAt(specta.Equal(user.CreatedAt))) // Unchanged
 }
 ```
 
@@ -160,10 +160,10 @@ func TestGetUserAPI(t *testing.T) {
     json.Unmarshal(resp.Body, &result)
 
     // Validate response
-    AssertThat(t, result, factory.MatchUser().
-        WithID(Equal(user.ID)).
-        WithName(Equal("Alice")).
-        WithEmail(Equal("alice@example.com")))
+    specta.AssertThat(t, result, factory.MatchUser().
+        WithID(specta.Equal(user.ID)).
+        WithName(specta.Equal("Alice")).
+        WithEmail(specta.Equal("alice@example.com")))
 }
 ```
 
@@ -183,17 +183,17 @@ func TestUserRepository(t *testing.T) {
             name: "creates user with generated ID",
             user: factory.NewUser(p).WithName("Alice").Build(),
             check: func(t *testing.T, result User) {
-                AssertThat(t, result, factory.MatchUser().
-                    WithID(Not(BeEmpty())).
-                    WithName(Equal("Alice")))
+                specta.AssertThat(t, result, factory.MatchUser().
+                    WithID(specta.Not(BeEmpty())).
+                    WithName(specta.Equal("Alice")))
             },
         },
         {
             name: "normalizes email",
             user: factory.NewUser(p).WithEmail("ALICE@EXAMPLE.COM").Build(),
             check: func(t *testing.T, result User) {
-                AssertThat(t, result, factory.MatchUser().
-                    WithEmail(Equal("alice@example.com")))
+                specta.AssertThat(t, result, factory.MatchUser().
+                    WithEmail(specta.Equal("alice@example.com")))
             },
         },
     }
@@ -227,11 +227,11 @@ func TestOrderWithItems(t *testing.T) {
 
     result := ProcessOrder(order)
 
-    AssertThat(t, result, factory.MatchOrder().
-        WithStatus(Equal("processed")).
-        WithTotal(Equal(3000)).
+    specta.AssertThat(t, result, factory.MatchOrder().
+        WithStatus(specta.Equal("processed")).
+        WithTotal(specta.Equal(3000)).
         WithUser(factory.MatchUser().
-            WithName(Equal("Alice"))))
+            WithName(specta.Equal("Alice"))))
 }
 ```
 
@@ -273,9 +273,9 @@ func TestValidation(t *testing.T) {
         t.Run(tt.name, func(t *testing.T) {
             err := ValidateUser(tt.user)
             if tt.wantError {
-                AssertThat(t, err, NotBeNil())
+                specta.AssertThat(t, err, NotBeNil())
             } else {
-                AssertThat(t, err, BeNil())
+                specta.AssertThat(t, err, BeNil())
             }
         })
     }

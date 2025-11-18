@@ -13,9 +13,9 @@ Property-based testing (PBT) tests your code with many generated inputs, verifyi
 
 ```go
 func TestAdd(t *testing.T) {
-    AssertThat(t, Add(2, 3), Equal(5))
-    AssertThat(t, Add(0, 0), Equal(0))
-    AssertThat(t, Add(-1, 1), Equal(0))
+    specta.AssertThat(t, Add(2, 3), specta.Equal(5))
+    specta.AssertThat(t, Add(0, 0), specta.Equal(0))
+    specta.AssertThat(t, Add(-1, 1), specta.Equal(0))
 }
 ```
 
@@ -30,10 +30,10 @@ func TestAddProperties(t *testing.T) {
         b := p.Next()
 
         // Property: addition is commutative
-        AssertThat(t, Add(a, b), Equal(Add(b, a)))
+        specta.AssertThat(t, Add(a, b), specta.Equal(Add(b, a)))
 
         // Property: adding zero is identity
-        AssertThat(t, Add(a, 0), Equal(a))
+        specta.AssertThat(t, Add(a, 0), specta.Equal(a))
     }
 }
 ```
@@ -73,10 +73,10 @@ func TestUserSerialization(t *testing.T) {
         var decoded User
         json.Unmarshal(json, &decoded)
 
-        AssertThat(t, decoded, factory.MatchUser().
-            WithID(Equal(user.ID)).
-            WithName(Equal(user.Name)).
-            WithEmail(Equal(user.Email)))
+        specta.AssertThat(t, decoded, factory.MatchUser().
+            WithID(specta.Equal(user.ID)).
+            WithName(specta.Equal(user.Name)).
+            WithEmail(specta.Equal(user.Email)))
     }
 }
 ```
@@ -99,7 +99,7 @@ func TestEmailValidation(t *testing.T) {
             Build()
 
         err := ValidateUser(user)
-        AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, BeNil())
     }
 }
 ```
@@ -125,15 +125,15 @@ func TestJSONRoundTrip(t *testing.T) {
 
         // Encode
         data, err := json.Marshal(original)
-        AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, BeNil())
 
         // Decode
         var decoded Order
         err = json.Unmarshal(data, &decoded)
-        AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, BeNil())
 
         // Property: decoded == original
-        AssertThat(t, decoded, DeepEqual(original))
+        specta.AssertThat(t, decoded, Deepspecta.Equal(original))
     }
 }
 ```
@@ -153,7 +153,7 @@ func TestNormalizationIdempotent(t *testing.T) {
         normalized2 := NormalizeUser(normalized1)
 
         // Property: normalizing twice = normalizing once
-        AssertThat(t, normalized2, DeepEqual(normalized1))
+        specta.AssertThat(t, normalized2, Deepspecta.Equal(normalized1))
     }
 }
 ```
@@ -183,7 +183,7 @@ func TestOrderTotalInvariant(t *testing.T) {
         calculated := CalculateOrderTotal(order)
 
         // Invariant: total = sum of item prices
-        AssertThat(t, calculated, Equal(expectedTotal))
+        specta.AssertThat(t, calculated, specta.Equal(expectedTotal))
     }
 }
 ```
@@ -204,7 +204,7 @@ func TestMergeCommutative(t *testing.T) {
         merged1 := MergeUsers(user1, user2)
         merged2 := MergeUsers(user2, user1)
 
-        AssertThat(t, merged1, DeepEqual(merged2))
+        specta.AssertThat(t, merged1, Deepspecta.Equal(merged2))
     }
 }
 ```
@@ -238,10 +238,10 @@ func TestUserStateMachine(t *testing.T) {
             }
 
             // Invariant: status is always valid
-            AssertThat(t, user.Status, AnyOf(
-                Equal("pending"),
-                Equal("active"),
-                Equal("suspended"),
+            specta.AssertThat(t, user.Status, specta.AnyOf(
+                specta.Equal("pending"),
+                specta.Equal("active"),
+                specta.Equal("suspended"),
             ))
         }
     }
@@ -303,13 +303,13 @@ func TestAgeValidation(t *testing.T) {
         err := ValidateUser(user)
 
         if age < 18 {
-            AssertThat(t, err, NotBeNil())
-            AssertThat(t, err.Error(), ContainString("age"))
+            specta.AssertThat(t, err, NotBeNil())
+            specta.AssertThat(t, err.Error(), ContainString("age"))
         } else if age > 120 {
-            AssertThat(t, err, NotBeNil())
-            AssertThat(t, err.Error(), ContainString("age"))
+            specta.AssertThat(t, err, NotBeNil())
+            specta.AssertThat(t, err.Error(), ContainString("age"))
         } else {
-            AssertThat(t, err, BeNil())
+            specta.AssertThat(t, err, BeNil())
         }
     }
 }
@@ -335,10 +335,10 @@ func TestCacheInvariant(t *testing.T) {
         retrieved, found := cache.Get(key)
 
         // Properties
-        AssertThat(t, found, Equal(true))
-        AssertThat(t, retrieved, factory.MatchUser().
-            WithID(Equal(value.ID)).
-            WithName(Equal(value.Name)))
+        specta.AssertThat(t, found, specta.Equal(true))
+        specta.AssertThat(t, retrieved, factory.MatchUser().
+            WithID(specta.Equal(value.ID)).
+            WithName(specta.Equal(value.Name)))
     }
 }
 ```
