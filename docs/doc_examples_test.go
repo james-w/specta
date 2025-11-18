@@ -26,36 +26,43 @@ func extractGoCodeBlocks(content string) []string {
 
 // wrapCodeBlock wraps a code snippet in a minimal test file
 func wrapCodeBlock(code string, index int) string {
-	// Check if code already has package declaration
-	hasPackage := strings.Contains(code, "package ")
+	// Strip any existing package declaration - we'll use doctest
+	packageRe := regexp.MustCompile(`(?m)^package\s+\w+\s*$`)
+	code = packageRe.ReplaceAllString(code, "")
+
+	// Check what the code contains
 	hasImport := strings.Contains(code, "import")
 	hasFunc := strings.Contains(code, "func Test") || strings.Contains(code, "func Example")
 
 	var sb strings.Builder
 
-	if !hasPackage {
-		sb.WriteString("package doctest\n\n")
+	// Always use doctest package to match fixtures
+	sb.WriteString("package doctest\n\n")
+
+	// Strip existing import if present (we'll add our own)
+	if hasImport {
+		importRe := regexp.MustCompile(`(?s)import\s*\([^)]+\)`)
+		code = importRe.ReplaceAllString(code, "")
+		importRe2 := regexp.MustCompile(`(?m)^import\s+"[^"]+"\s*$`)
+		code = importRe2.ReplaceAllString(code, "")
 	}
 
-	if !hasImport && (strings.Contains(code, "specta.") || strings.Contains(code, "AssertThat")) {
-		sb.WriteString(`import (
+	// Add standard imports
+	sb.WriteString(`import (
 	"testing"
 	. "github.com/james-w/specta"
 )
 
 `)
-	}
 
 	// If it's not already a function, wrap it in a test
 	if !hasFunc {
-		sb.WriteString("func TestDocExample")
-		sb.WriteString(strings.Trim(strings.Title(strings.ReplaceAll(filepath.Base(""), "-", " ")), " "))
-		sb.WriteString("_")
-		sb.WriteString(string(rune(index)))
+		sb.WriteString("func TestDocExample_")
+		sb.WriteString(string(rune('A' + index)))
 		sb.WriteString("(t *testing.T) {\n")
 
 		// Indent the code
-		lines := strings.Split(code, "\n")
+		lines := strings.Split(strings.TrimSpace(code), "\n")
 		for _, line := range lines {
 			if line != "" {
 				sb.WriteString("\t")
@@ -66,10 +73,113 @@ func wrapCodeBlock(code string, index int) string {
 
 		sb.WriteString("}\n")
 	} else {
-		sb.WriteString(code)
+		sb.WriteString(strings.TrimSpace(code))
+		sb.WriteString("\n")
 	}
 
 	return sb.String()
+}
+
+// getFixturesCode returns common fixtures needed for doc examples
+func getFixturesCode() string {
+	return `package doctest
+
+import (
+	"time"
+	. "github.com/james-w/specta"
+)
+
+// Aliases for doc-friendly names (docs use different names than actual API)
+var (
+	ContainString = Contains
+	HavePrefix    = HasPrefix
+	HaveSuffix    = HasSuffix
+	MatchRegex    = MatchesRegex
+)
+
+// Generic wrapper functions
+func ContainAll[T comparable](items ...T) Matcher[[]T] {
+	return ContainsAllElements(items...)
+}
+
+func ContainAny[T comparable](items ...T) Matcher[[]T] {
+	return ContainsAnyElement(items...)
+}
+
+func Contain[T comparable](item T) Matcher[[]T] {
+	return ContainsElement(item)
+}
+
+func BeEmpty[T any]() Matcher[[]T] {
+	return IsEmpty[T]()
+}
+
+func HaveLength[T any](size int) Matcher[[]T] {
+	return HasSize[T](size)
+}
+
+// Common types used in examples
+type User struct {
+	ID        string
+	Name      string
+	Email     string
+	Age       int
+	Active    bool
+	CreatedAt time.Time
+}
+
+// Mock matcher builder for User
+type UserMatcher struct {
+	nameMatcher  Matcher[string]
+	emailMatcher Matcher[string]
+}
+
+func MatchUser() *UserMatcher {
+	return &UserMatcher{}
+}
+
+func (m *UserMatcher) WithName(matcher Matcher[string]) *UserMatcher {
+	m.nameMatcher = matcher
+	return m
+}
+
+func (m *UserMatcher) WithEmail(matcher Matcher[string]) *UserMatcher {
+	m.emailMatcher = matcher
+	return m
+}
+
+// Implement Matcher[User] interface
+func (m *UserMatcher) Matches(u User) MatchResult {
+	if m.nameMatcher != nil {
+		result := m.nameMatcher.Matches(u.Name)
+		if !result.Matched {
+			return MatchResult{Matched: false, Description: "name did not match"}
+		}
+	}
+	if m.emailMatcher != nil {
+		result := m.emailMatcher.Matches(u.Email)
+		if !result.Matched {
+			return MatchResult{Matched: false, Description: "email did not match"}
+		}
+	}
+	return MatchResult{Matched: true}
+}
+
+// Common test variables
+var (
+	value    = "test"
+	expected = "test"
+	list     = []string{"a", "b", "c"}
+	name     = "Alice"
+	user     = User{
+		ID:     "user-123",
+		Name:   "Alice",
+		Email:  "alice@example.com",
+		Age:    30,
+		Active: true,
+	}
+)
+`
 }
 
 func TestIntroductionExamples(t *testing.T) {
@@ -116,6 +226,12 @@ replace github.com/james-w/specta => ` + spectaPath + `
 		t.Fatalf("failed to write go.work: %v", err)
 	}
 
+	// Write fixtures file
+	fixturesFile := filepath.Join(tmpDir, "fixtures.go")
+	if err := os.WriteFile(fixturesFile, []byte(getFixturesCode()), 0644); err != nil {
+		t.Fatalf("failed to write fixtures: %v", err)
+	}
+
 	// Test each code block
 	for i, block := range blocks {
 		block := block // capture
@@ -133,16 +249,16 @@ replace github.com/james-w/specta => ` + spectaPath + `
 				t.Fatalf("failed to write test file: %v", err)
 			}
 
-			// Try to compile it
-			cmd := exec.Command("go", "build", "./...")
+			// Run the tests (not just compile)
+			cmd := exec.Command("go", "test", "-v", "./...")
 			cmd.Dir = tmpDir
 			output, err := cmd.CombinedOutput()
 
 			if err != nil {
-				t.Errorf("Code block %d failed to compile:\n%s\n\nGenerated code:\n%s\n\nError:\n%s",
+				t.Errorf("Code block %d failed to run:\n%s\n\nGenerated code:\n%s\n\nError:\n%s",
 					i, block, wrapped, string(output))
 			} else {
-				t.Logf("Code block %d compiled successfully", i)
+				t.Logf("Code block %d ran successfully:\n%s", i, string(output))
 			}
 		})
 	}
