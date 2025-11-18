@@ -32,9 +32,9 @@ if user.Name != "Alice" || user.Email != "alice@example.com" {
 }
 
 // Write composable, expressive matchers:
-AssertThat(t, user, MatchUser().
-    WithName(Equal("Alice")).
-    WithEmail(Contains("example.com")))
+specta.AssertThat(t, user, MatchUser().
+    WithName(specta.Equal("Alice")).
+    WithEmail(specta.Contains("example.com")))
 ```
 
 [Get Started →](/docs/introduction/)

@@ -1,6 +1,7 @@
 package docs_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,7 +51,7 @@ func wrapCodeBlock(code string, index int) string {
 	// Add standard imports
 	sb.WriteString(`import (
 	"testing"
-	. "github.com/james-w/specta"
+	"github.com/james-w/specta"
 )
 
 `)
@@ -58,7 +59,7 @@ func wrapCodeBlock(code string, index int) string {
 	// If it's not already a function, wrap it in a test
 	if !hasFunc {
 		sb.WriteString("func TestDocExample_")
-		sb.WriteString(string(rune('A' + index)))
+		sb.WriteString(fmt.Sprintf("%d", index))
 		sb.WriteString("(t *testing.T) {\n")
 
 		// Indent the code
@@ -86,7 +87,7 @@ func getFixturesCode() string {
 
 import (
 	"time"
-	. "github.com/james-w/specta"
+	"github.com/james-w/specta"
 )
 
 // Common types used in examples
@@ -101,39 +102,39 @@ type User struct {
 
 // Mock matcher builder for User
 type UserMatcher struct {
-	nameMatcher  Matcher[string]
-	emailMatcher Matcher[string]
+	nameMatcher  specta.Matcher[string]
+	emailMatcher specta.Matcher[string]
 }
 
 func MatchUser() *UserMatcher {
 	return &UserMatcher{}
 }
 
-func (m *UserMatcher) WithName(matcher Matcher[string]) *UserMatcher {
+func (m *UserMatcher) WithName(matcher specta.Matcher[string]) *UserMatcher {
 	m.nameMatcher = matcher
 	return m
 }
 
-func (m *UserMatcher) WithEmail(matcher Matcher[string]) *UserMatcher {
+func (m *UserMatcher) WithEmail(matcher specta.Matcher[string]) *UserMatcher {
 	m.emailMatcher = matcher
 	return m
 }
 
-// Implement Matcher[User] interface
-func (m *UserMatcher) Matches(u User) MatchResult {
+// Implement specta.Matcher[User] interface
+func (m *UserMatcher) Matches(u User) specta.MatchResult {
 	if m.nameMatcher != nil {
 		result := m.nameMatcher.Matches(u.Name)
 		if !result.Matched {
-			return MatchResult{Matched: false, Message: "name did not match"}
+			return specta.MatchResult{Matched: false, Message: "name did not match"}
 		}
 	}
 	if m.emailMatcher != nil {
 		result := m.emailMatcher.Matches(u.Email)
 		if !result.Matched {
-			return MatchResult{Matched: false, Message: "email did not match"}
+			return specta.MatchResult{Matched: false, Message: "email did not match"}
 		}
 	}
-	return MatchResult{Matched: true}
+	return specta.MatchResult{Matched: true}
 }
 
 // Common test variables
@@ -208,7 +209,7 @@ replace github.com/james-w/specta => ` + spectaPath + `
 		block := block // capture
 		i := i
 
-		t.Run(string(rune('A'+i)), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			t.Logf("Testing code block %d:\n%s", i, block)
 
 			// Wrap the code block

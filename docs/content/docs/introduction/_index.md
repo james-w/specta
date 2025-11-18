@@ -36,7 +36,7 @@ package mypackage_test
 
 import (
     "testing"
-    . "github.com/james-w/specta"
+    "github.com/james-w/specta"
 )
 
 func TestUser(t *testing.T) {
@@ -47,15 +47,15 @@ func TestUser(t *testing.T) {
     }
 
     // Compose matchers for readable assertions
-    AssertThat(t, user.Name, Equal("Alice"))
-    AssertThat(t, user.Email, Contains("example.com"))
-    AssertThat(t, user.Age, GreaterThan(18))
+    specta.AssertThat(t, user.Name, specta.Equal("Alice"))
+    specta.AssertThat(t, user.Email, specta.Contains("example.com"))
+    specta.AssertThat(t, user.Age, specta.GreaterThan(18))
 
     // Combine matchers with AllOf
-    AssertThat(t, user.Email, AllOf(
-        HasPrefix("alice"),
-        HasSuffix(".com"),
-        Contains("@"),
+    specta.AssertThat(t, user.Email, specta.AllOf(
+        specta.HasPrefix("alice"),
+        specta.HasSuffix(".com"),
+        specta.Contains("@"),
     ))
 }
 ```
@@ -67,9 +67,9 @@ func TestUser(t *testing.T) {
 Matchers are reusable predicates that test values and provide detailed failure messages:
 
 ```go
-AssertThat(t, value, Equal(expected))
-AssertThat(t, list, ContainsAllElements("a", "b", "c"))
-AssertThat(t, name, Not(Equal("")))
+specta.AssertThat(t, value, specta.Equal(expected))
+specta.AssertThat(t, list, specta.ContainsAllElements("a", "b", "c"))
+specta.AssertThat(t, name, specta.Not(specta.Equal("")))
 ```
 
 ### Composition
@@ -77,12 +77,12 @@ AssertThat(t, name, Not(Equal("")))
 Build complex matchers from simple ones:
 
 ```go
-validEmail := AllOf(
-    Contains("@"),
-    MatchesRegex(`^[a-z]+@[a-z]+\.[a-z]+$`),
+validEmail := specta.AllOf(
+    specta.Contains("@"),
+    specta.MatchesRegex(`^[a-z]+@[a-z]+\.[a-z]+$`),
 )
 
-AssertThat(t, user.Email, validEmail)
+specta.AssertThat(t, user.Email, validEmail)
 ```
 
 ### Partial Matching
@@ -91,9 +91,9 @@ Only assert what matters for each test:
 
 ```go
 // Only care about the name and email, other fields can have any value
-AssertThat(t, user, MatchUser().
-    WithName(Equal("Alice")).
-    WithEmail(Contains("example.com")))
+specta.AssertThat(t, user, MatchUser().
+    WithName(specta.Equal("Alice")).
+    WithEmail(specta.Contains("example.com")))
 ```
 
 ## Next Steps
