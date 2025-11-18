@@ -60,7 +60,9 @@ var (
 	OrganizationDefaultCEO      = specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec))
 	OrganizationDefaultTeams    = func(s specta.Source) []showcase.Team { var zero []showcase.Team; return zero }
 	OrganizationDefaultMembers  = func(s specta.Source) []showcase.Member { var zero []showcase.Member; return zero }
-	OrganizationDefaultMetadata = func(specta.Source) map[string]string { var zero map[string]string; return zero }
+	OrganizationDefaultMetadata = func(s specta.Source) map[string]string {
+		return specta.Map(specta.String(), specta.String()).MaxLen(5).Draw(s, "Metadata")
+	}
 )
 
 // BuildOrganization constructs a Organization from a OrganizationSpec.

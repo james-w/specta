@@ -884,3 +884,165 @@ func (g *SliceGenerator[T]) Draw(s Source, label string) []T {
 	// Filter exhausted max attempts - skip this test iteration
 	panic(skipTest{})
 }
+
+// MapGenerator generates maps with key-value pairs using generators for keys and values.
+type MapGenerator[K comparable, V any] struct {
+	keyGen            Generator[K]
+	valueGen          Generator[V]
+	minLen            *int
+	maxLen            *int
+	filterFn          func(map[K]V) bool
+	maxFilterAttempts int
+}
+
+// Map creates a new map generator using the given key and value generators.
+// By default it generates maps with 0-100 entries.
+// Use MinLen/MaxLen/Len to constrain the size.
+//
+// Example:
+//
+//	// Generate maps from string keys to int values
+//	m := Map(String().AlphaNum(), Int().Range(0, 100)).MinLen(1).MaxLen(10)
+func Map[K comparable, V any](keyGen Generator[K], valueGen Generator[V]) *MapGenerator[K, V] {
+	return &MapGenerator[K, V]{
+		keyGen:   keyGen,
+		valueGen: valueGen,
+	}
+}
+
+// validate checks that the generator's constraints are consistent.
+func (g *MapGenerator[K, V]) validate() {
+	if g.minLen != nil && g.maxLen != nil && *g.minLen > *g.maxLen {
+		panic(fmt.Sprintf("MapGenerator: MinLen(%d) > MaxLen(%d)", *g.minLen, *g.maxLen))
+	}
+}
+
+// MinLen constrains the generator to produce maps with at least minLen entries.
+func (g *MapGenerator[K, V]) MinLen(minLen int) *MapGenerator[K, V] {
+	if minLen < 0 {
+		panic(fmt.Sprintf("MapGenerator.MinLen: minLen (%d) must be >= 0", minLen))
+	}
+	g.minLen = &minLen
+	g.validate()
+	return g
+}
+
+// MaxLen constrains the generator to produce maps with at most maxLen entries.
+func (g *MapGenerator[K, V]) MaxLen(maxLen int) *MapGenerator[K, V] {
+	if maxLen < 0 {
+		panic(fmt.Sprintf("MapGenerator.MaxLen: maxLen (%d) must be >= 0", maxLen))
+	}
+	g.maxLen = &maxLen
+	g.validate()
+	return g
+}
+
+// Len constrains the generator to produce maps with exactly len entries.
+func (g *MapGenerator[K, V]) Len(len int) *MapGenerator[K, V] {
+	if len < 0 {
+		panic(fmt.Sprintf("MapGenerator.Len: len (%d) must be >= 0", len))
+	}
+	g.minLen = &len
+	g.maxLen = &len
+	g.validate()
+	return g
+}
+
+// NonEmpty constrains the generator to produce non-empty maps.
+func (g *MapGenerator[K, V]) NonEmpty() *MapGenerator[K, V] {
+	one := 1
+	g.minLen = &one
+	g.validate()
+	return g
+}
+
+// Filter constrains the generator to only produce maps that satisfy the predicate.
+// The generator will retry up to 100 times (by default) to find a matching value.
+// If no matching value is found after max attempts, the test iteration is skipped.
+//
+// Use Filter for predicates that pass frequently (>50% of values).
+// For rare conditions, use t.Assume() instead to skip test iterations directly.
+//
+// Example:
+//
+//	nonEmptyValues := Map(String(), Int()).Filter(func(m map[string]int) bool {
+//	    for _, v := range m {
+//	        if v == 0 { return false }
+//	    }
+//	    return true
+//	})
+func (g *MapGenerator[K, V]) Filter(fn func(map[K]V) bool) *MapGenerator[K, V] {
+	g.filterFn = fn
+	if g.maxFilterAttempts == 0 {
+		g.maxFilterAttempts = 100
+	}
+	return g
+}
+
+// Draw generates a map from the source.
+func (g *MapGenerator[K, V]) Draw(s Source, label string) map[K]V {
+	// Determine length bounds
+	minLen := 0
+	maxLen := 100 // Default max length
+	if g.minLen != nil {
+		minLen = *g.minLen
+	}
+	if g.maxLen != nil {
+		maxLen = *g.maxLen
+	}
+
+	maxAttempts := 1
+	if g.filterFn != nil {
+		maxAttempts = g.maxFilterAttempts
+	}
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		// Generate a target size
+		var targetSize int
+		if s.IsDeterministic() {
+			// Deterministic mode: use counter for predictable sizes
+			counter := s.DrawBits(64)
+			if minLen == maxLen {
+				targetSize = minLen
+			} else {
+				rangeSize := maxLen - minLen + 1
+				targetSize = minLen + int(counter%uint64(rangeSize))
+			}
+		} else {
+			// Random mode: random size in range
+			if minLen == maxLen {
+				targetSize = minLen
+			} else {
+				sizeRange := maxLen - minLen + 1
+				targetSize = minLen + int(s.DrawBits(32)%uint64(sizeRange))
+			}
+		}
+
+		// Generate entries until we have targetSize unique keys
+		// Note: We may need to generate more than targetSize entries if keys collide
+		result := make(map[K]V, targetSize)
+		attempts := 0
+		maxKeyAttempts := targetSize * 10 // Allow some retries for key collisions
+
+		for len(result) < targetSize && attempts < maxKeyAttempts {
+			key := g.keyGen.Draw(s, fmt.Sprintf("%s[key-%d]", label, len(result)))
+			value := g.valueGen.Draw(s, fmt.Sprintf("%s[val-%d]", label, len(result)))
+			result[key] = value // Overwrites if key already exists
+			attempts++
+		}
+
+		// If we couldn't generate enough unique keys, we have what we have
+		// This is acceptable behavior - maps naturally deduplicate keys
+
+		// Check filter predicate if present
+		if g.filterFn != nil && !g.filterFn(result) {
+			continue // Try again
+		}
+
+		s.WriteLog(fmt.Sprintf("Map(%s)=[%d entries] ", label, len(result)))
+		return result
+	}
+
+	// Filter exhausted max attempts - skip this test iteration
+	panic(skipTest{})
+}

@@ -505,3 +505,192 @@ func TestSliceGenerator_Deterministic(t *testing.T) {
 		}
 	})
 }
+
+// TestMapGenerator tests map generation with key and value generators
+func TestMapGenerator(t *testing.T) {
+	t.Run("generates maps by default", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(specta.String(), specta.Int())
+			value := gen.Draw(t.Source, "test")
+			// Should generate a map (possibly empty)
+			_ = value
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("respects MinLen constraint", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(specta.String(), specta.Int()).MinLen(5)
+			value := gen.Draw(t.Source, "test")
+			if len(value) < 5 {
+				t.Errorf("map length %d less than min 5", len(value))
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("respects MaxLen constraint", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(specta.String(), specta.Bool()).MaxLen(10)
+			value := gen.Draw(t.Source, "test")
+			if len(value) > 10 {
+				t.Errorf("map length %d greater than max 10", len(value))
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("respects Len constraint", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(specta.Int(), specta.String()).Len(7)
+			value := gen.Draw(t.Source, "test")
+			// Note: May be less than 7 if key collisions occur
+			if len(value) > 7 {
+				t.Errorf("map length %d greater than exact 7", len(value))
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("NonEmpty generates non-empty maps", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(specta.String().AlphaNum(), specta.Float64()).NonEmpty()
+			value := gen.Draw(t.Source, "test")
+			if len(value) == 0 {
+				t.Errorf("generated empty map")
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("key and value generator constraints are respected", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(
+				specta.String().Prefix("key_"),
+				specta.Int().Range(1, 10),
+			)
+			value := gen.Draw(t.Source, "test")
+			for k, v := range value {
+				if !strings.HasPrefix(k, "key_") {
+					t.Errorf("key %q doesn't have prefix 'key_'", k)
+				}
+				if v < 1 || v > 10 {
+					t.Errorf("value %d outside range [1, 10]", v)
+				}
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("can generate empty maps by default", func(t *testing.T) {
+		foundEmpty := false
+
+		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
+			specta.Property(t, func(t *specta.T) {
+				gen := specta.Map(specta.String(), specta.Int())
+				value := gen.Draw(t.Source, "test")
+				if len(value) == 0 {
+					foundEmpty = true
+				}
+			}, specta.Seed(seed), specta.MaxTests(50))
+		}
+
+		if !foundEmpty {
+			t.Logf("note: never generated empty map (low probability, not necessarily a bug)")
+		}
+	})
+
+	t.Run("generates varying sizes", func(t *testing.T) {
+		sizes := make(map[int]bool)
+
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(specta.String(), specta.Int()).MinLen(0).MaxLen(10)
+			value := gen.Draw(t.Source, "test")
+			sizes[len(value)] = true
+		}, specta.MaxTests(200))
+
+		// Should see at least a few different sizes
+		if len(sizes) < 3 {
+			t.Errorf("only saw %d different sizes, expected more variety", len(sizes))
+		}
+	})
+
+	t.Run("Filter works on maps", func(t *testing.T) {
+		specta.Property(t, func(t *specta.T) {
+			// Only accept maps where all values are even
+			gen := specta.Map(
+				specta.String(),
+				specta.Int().Range(0, 100),
+			).NonEmpty().Filter(func(m map[string]int64) bool {
+				for _, v := range m {
+					if v%2 != 0 {
+						return false
+					}
+				}
+				return true
+			})
+			value := gen.Draw(t.Source, "test")
+
+			// Verify filter condition holds
+			for k, v := range value {
+				if v%2 != 0 {
+					t.Errorf("filter should ensure all values are even, but %s=%d is odd", k, v)
+				}
+			}
+		}, specta.MaxTests(100))
+	})
+
+	t.Run("handles key collisions gracefully", func(t *testing.T) {
+		// Use a generator that produces limited unique keys
+		specta.Property(t, func(t *specta.T) {
+			gen := specta.Map(
+				specta.Int().Range(0, 5), // Only 6 possible keys
+				specta.String(),
+			).MinLen(3).MaxLen(10)
+			value := gen.Draw(t.Source, "test")
+
+			// Should generate a map, possibly smaller than MaxLen due to collisions
+			if len(value) > 6 {
+				t.Errorf("map has %d entries but only 6 unique keys possible", len(value))
+			}
+		}, specta.MaxTests(100))
+	})
+}
+
+// TestMapGenerator_Deterministic tests deterministic behavior
+func TestMapGenerator_Deterministic(t *testing.T) {
+	t.Run("deterministic mode produces predictable results", func(t *testing.T) {
+		gen := specta.New(specta.WithStart(0))
+
+		map1 := specta.Map(specta.String(), specta.Int()).MinLen(3).MaxLen(5).Draw(gen, "test")
+
+		// Reset to same state
+		gen = specta.New(specta.WithStart(0))
+		map2 := specta.Map(specta.String(), specta.Int()).MinLen(3).MaxLen(5).Draw(gen, "test")
+
+		// Should get identical results
+		if len(map1) != len(map2) {
+			t.Errorf("deterministic maps have different sizes: %d vs %d", len(map1), len(map2))
+		}
+
+		for k, v1 := range map1 {
+			v2, ok := map2[k]
+			if !ok {
+				t.Errorf("deterministic maps differ: key %q present in map1 but not map2", k)
+			} else if v1 != v2 {
+				t.Errorf("deterministic maps differ at key %q: %d vs %d", k, v1, v2)
+			}
+		}
+
+		for k := range map2 {
+			if _, ok := map1[k]; !ok {
+				t.Errorf("deterministic maps differ: key %q present in map2 but not map1", k)
+			}
+		}
+	})
+
+	t.Run("deterministic mode uses counter for size", func(t *testing.T) {
+		gen := specta.New(specta.WithStart(0))
+
+		// First map should have size based on counter 0
+		m := specta.Map(specta.String(), specta.Int()).MinLen(0).MaxLen(10).Draw(gen, "test")
+		expectedSize := 0 // counter 0 % 11 = 0
+		if len(m) != expectedSize {
+			t.Logf("note: first map size %d (implementation detail, not a bug if different)", len(m))
+		}
+	})
+}

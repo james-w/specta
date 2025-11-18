@@ -1696,6 +1696,80 @@ func defaultProvider(pkg string, f field) string {
 		return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
 	}
 
+	// Handle maps separately
+	if strings.HasPrefix(typ, "map[") {
+		// Parse map[K]V - simple approach for common cases
+		// Extract key and value types
+		remaining := strings.TrimPrefix(typ, "map[")
+		bracketCount := 0
+		keyEndIdx := -1
+
+		for i, ch := range remaining {
+			if ch == '[' {
+				bracketCount++
+			} else if ch == ']' {
+				if bracketCount == 0 {
+					keyEndIdx = i
+					break
+				}
+				bracketCount--
+			}
+		}
+
+		if keyEndIdx == -1 {
+			// Malformed map type, fall back to zero
+			return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
+		}
+
+		keyType := remaining[:keyEndIdx]
+		valueType := remaining[keyEndIdx+1:]
+
+		// Only generate for primitive key and value types
+		if isPrimitiveType(keyType) && isPrimitiveType(valueType) {
+			var keyGen, valueGen string
+
+			// Key generator
+			switch keyType {
+			case "string":
+				keyGen = "specta.String()"
+			case "int":
+				keyGen = "specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, \"\")) })"
+			case "int64":
+				keyGen = "specta.GeneratorFromProvider(func(s specta.Source) int64 { return specta.Int().Draw(s, \"\") })"
+			case "uint64":
+				keyGen = "specta.GeneratorFromProvider(func(s specta.Source) uint64 { return uint64(specta.Int().NonNegative().Draw(s, \"\")) })"
+			default:
+				// Non-comparable or unknown key type - fall back to zero
+				return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
+			}
+
+			// Value generator
+			switch valueType {
+			case "string":
+				valueGen = "specta.String()"
+			case "int":
+				valueGen = "specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, \"\")) })"
+			case "int64":
+				valueGen = "specta.GeneratorFromProvider(func(s specta.Source) int64 { return specta.Int().Draw(s, \"\") })"
+			case "uint64":
+				valueGen = "specta.GeneratorFromProvider(func(s specta.Source) uint64 { return uint64(specta.Int().NonNegative().Draw(s, \"\")) })"
+			case "bool":
+				valueGen = "specta.Bool()"
+			case "float64":
+				valueGen = "specta.Float64()"
+			default:
+				// Unknown value type - fall back to zero
+				return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
+			}
+
+			// Use Map generator with reasonable default max size
+			return fmt.Sprintf("func(s specta.Source) %s { return specta.Map(%s, %s).MaxLen(5).Draw(s, %q) }", typ, keyGen, valueGen, name)
+		}
+
+		// For non-primitive maps, default to empty to avoid circular dependencies
+		return fmt.Sprintf("func(s specta.Source) %s { var zero %s; return zero }", typ, typ)
+	}
+
 	// If it's a custom type, use FromSpec with unqualified name for function references
 	if f.IsCustomType {
 		return fmt.Sprintf("specta.FromSpec(Build%s, New%sSpec)", f.UnqualifiedTypeName, f.UnqualifiedTypeName)
