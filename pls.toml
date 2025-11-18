@@ -1,0 +1,66 @@
+# specta - Task Runner Configuration
+
+# Build the code generator binary
+[artifact.exec.build]
+description = "Build the specta code generator"
+command = "go build -o specta ./cmd/main.go"
+if_files_changed = ["cmd/**/*.go", "*.go", "go.mod", "go.sum"]
+updates_paths = ["specta"]
+dir = "."
+
+# Code generation
+[artifact.exec.generate-example]
+description = "Generate code for example module"
+command = "../specta -config specta.yaml"
+dir = "example"
+requires = ["build"]
+if_files_changed = ["specta", "example/*.go"]
+updates_paths = ["example/factory/parent_gen.go", "example/factory/parent_matcher_gen.go", "example/factory/userview_gen.go", "example/factory/userview_matcher_gen.go", "example/factory/spec/parent_gen.go", "example/factory/spec/userview_gen.go"]
+
+[artifact.exec.generate-showcase]
+description = "Generate code for showcase module"
+command = "../specta -config specta.yaml"
+dir = "showcase"
+requires = ["build"]
+if_files_changed = ["specta", "showcase/*.go", "showcase/factory/user.go", "showcase/factory/user_matcher.go"]
+# Not exactly true as there can be overrides, but close enough
+updates_paths = ["showcase/factory/*.go", "showcase/factory/spec/*.go"]
+
+[group.generate]
+description = "Generate code for all modules"
+requires = ["generate-example", "generate-showcase"]
+
+# Testing
+[command.exec.test]
+description = "Run tests for main module"
+command = "go test ./... {args}"
+
+[command.exec.test-example]
+description = "Generate and test example module"
+command = "go test ./... {args}"
+dir = "example"
+requires = ["generate-example"]
+
+[command.exec.test-showcase]
+description = "Generate and test showcase module"
+command = "go test ./... {args}"
+dir = "showcase"
+requires = ["generate-showcase"]
+
+[group.test-all]
+description = "Run tests for all modules"
+requires = ["test", "test-example", "test-showcase"]
+
+# Code quality
+[command.exec.format]
+description = "Format all Go code"
+command = "gofmt -s -w ."
+
+[command.exec.lint]
+description = "Run golangci-lint"
+command = "golangci-lint run"
+
+# Composite tasks
+[group.ci]
+description = "Full CI check (format, generate, test all, lint)"
+requires = ["format", "generate", "test-all", "lint"]

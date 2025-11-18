@@ -25,6 +25,35 @@ Generated: `example/` and `showcase/` have `factory/` directories with `*_gen.go
 
 Generated code is type-checked before writing. All generated files have `//go:build !ignore_testgen` tags and are excluded from linting.
 
+## Task Runner (pls)
+
+This project uses `pls` (github.com/james-w/pls) as a task runner. **Always use pls commands instead of running tools directly** to ensure consistency and proper dependency management.
+
+**Common tasks:**
+- `pls build` - Build the code generator binary (./specta)
+- `pls run test` - Test main module only
+- `pls run test-example` - Generate and test example module
+- `pls run test-showcase` - Generate and test showcase module
+- `pls run test-all` - Test all modules (automatically generates code first)
+- `pls run generate` - Regenerate code for all modules
+- `pls run format` - Format all code with gofmt
+- `pls run lint` - Run golangci-lint
+- `pls run ci` - Full CI check (format + generate + test-all + lint)
+
+**Passing extra arguments:**
+You can pass additional flags to test commands:
+- `pls run test -run TestFoo` - Run specific tests in main module
+- `pls run test -v -race` - Run with verbose and race detector
+- `pls run test-example -run TestUser` - Run specific tests in example module
+
+The `{args}` placeholder in pls.toml allows passing extra flags directly to the underlying command.
+
+**Why use pls:**
+- Ensures code generation runs before tests (test-example/test-showcase depend on generate)
+- The generator binary is built as an artifact (only rebuilds when source changes)
+- Tasks declare dependencies explicitly (no manual ordering required)
+- Consistent commands across the team
+
 ## Linting & Testing
 
 **.golangci.yml**: errcheck, govet, ineffassign, staticcheck, unused, misspell, gocyclo, dupl, unconvert. Test files and generated files excluded.
@@ -45,13 +74,25 @@ Generated code is type-checked before writing. All generated files have `//go:bu
 
 ## Before Committing
 
-1. Regenerate code if types change: `go run ./cmd/main.go -config specta.yaml` in each target directory
-2. Format: `gofmt -s -w .`
-3. Test: `go test -v -race ./...`
-4. Lint: `golangci-lint run`
-5. Commit generated files with source changes or CI will fail
-6. Should README.md be updated?
-7. Does the change include anything important enough to update CLAUDE.md?
+**Quick check:** Run `pls run ci`
+
+This single command will:
+1. Format code (`gofmt -s -w .`)
+2. Regenerate code for all modules (if needed)
+3. Run all tests (main + example + showcase with `-v -race`)
+4. Run linter (`golangci-lint run`)
+
+**Then ask yourself:**
+5. Should README.md be updated?
+6. Does the change include anything important enough to update CLAUDE.md?
+
+**Manual workflow (if needed):**
+- Regenerate code: `pls run generate` (builds generator first, runs in all modules)
+- Format: `pls run format`
+- Test: `pls run test-all` (generates code automatically before testing)
+- Lint: `pls run lint`
+
+Generated files are automatically committed when pls regenerates them.
 
 ## Primitives System
 

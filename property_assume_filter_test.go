@@ -83,7 +83,7 @@ func TestStringFilter(t *testing.T) {
 
 		// Should be alphanumeric
 		for _, r := range s {
-			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
+			if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
 				t.Errorf("expected alphanumeric string, got %q", s)
 			}
 		}
