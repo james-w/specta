@@ -1,7 +1,6 @@
 ---
 title: "Factories + Matchers Together"
 weight: 5
-bookCollapseSection: false
 ---
 
 # Factories + Matchers Together

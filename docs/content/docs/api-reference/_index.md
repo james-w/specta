@@ -1,7 +1,6 @@
 ---
 title: "API Reference"
 weight: 8
-bookCollapseSection: false
 ---
 
 # API Reference

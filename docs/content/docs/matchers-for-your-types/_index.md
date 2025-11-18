@@ -1,7 +1,6 @@
 ---
 title: "Matchers for Your Types"
 weight: 3
-bookCollapseSection: false
 ---
 
 # Matchers for Your Types

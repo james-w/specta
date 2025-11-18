@@ -1,7 +1,6 @@
 ---
 title: "Introduction"
 weight: 1
-bookCollapseSection: false
 ---
 
 # Introduction to specta

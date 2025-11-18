@@ -1,6 +1,6 @@
 ---
 title: specta
-type: docs
+description: Composable Testing for Go
 ---
 
 # specta
@@ -34,7 +34,7 @@ if user.Name != "Alice" || user.Email != "alice@example.com" {
 // Write composable, expressive matchers:
 AssertThat(t, user, MatchUser().
     WithName(Equal("Alice")).
-    WithEmail(ContainString("example.com")))
+    WithEmail(Contains("example.com")))
 ```
 
 [Get Started →](/docs/introduction/)

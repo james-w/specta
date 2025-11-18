@@ -1,7 +1,6 @@
 ---
 title: "Advanced Topics"
 weight: 7
-bookCollapseSection: false
 ---
 
 # Advanced Topics

@@ -1,7 +1,6 @@
 ---
 title: "Property-Based Testing"
 weight: 6
-bookCollapseSection: false
 ---
 
 # Property-Based Testing

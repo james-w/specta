@@ -1,7 +1,6 @@
 ---
 title: "Test Data Factories"
 weight: 4
-bookCollapseSection: false
 ---
 
 # Test Data Factories

@@ -1,7 +1,6 @@
 ---
 title: "Core Matchers"
 weight: 2
-bookCollapseSection: false
 ---
 
 # Core Matchers

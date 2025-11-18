@@ -1,7 +1,6 @@
 ---
 title: "Examples & Recipes"
 weight: 9
-bookCollapseSection: false
 ---
 
 # Examples & Recipes
