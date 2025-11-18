@@ -12,24 +12,24 @@ Matchers are the foundation of specta. They test values and provide detailed, st
 ### Equality
 
 ```go
-AssertThat(t, value, Equal(42))
-AssertThat(t, user, DeepEqual(expectedUser))
+specta.AssertThat(t, value, specta.Equal(42))
+specta.AssertThat(t, user, specta.DeepEqual(expectedUser))
 ```
 
 ### Comparison
 
 ```go
-AssertThat(t, age, GreaterThan(18))
-AssertThat(t, score, LessThan(100))
-AssertThat(t, value, GreaterThanOrEqual(0))
-AssertThat(t, count, LessThanOrEqual(10))
+specta.AssertThat(t, age, specta.GreaterThan(18))
+specta.AssertThat(t, score, specta.LessThan(100))
+specta.AssertThat(t, value, specta.GreaterThanOrEqual(0))
+specta.AssertThat(t, count, specta.LessThanOrEqual(10))
 ```
 
 ### Nil Checking
 
 ```go
-AssertThat(t, ptr, BeNil())
-AssertThat(t, value, NotBeNil())
+specta.AssertThat(t, ptr, specta.IsNil[YourType]())
+specta.AssertThat(t, value, specta.IsNotNil[YourType]())
 ```
 
 ## String Matchers
@@ -37,21 +37,21 @@ AssertThat(t, value, NotBeNil())
 ### Substring Matching
 
 ```go
-AssertThat(t, message, ContainString("error"))
-AssertThat(t, filename, HavePrefix("test_"))
-AssertThat(t, email, HaveSuffix(".com"))
+specta.AssertThat(t, message, specta.Contains("error"))
+specta.AssertThat(t, filename, specta.HasPrefix("test_"))
+specta.AssertThat(t, email, specta.HasSuffix(".com"))
 ```
 
 ### Pattern Matching
 
 ```go
-AssertThat(t, email, MatchRegex(`^[a-z]+@[a-z]+\.[a-z]+$`))
+specta.AssertThat(t, email, specta.MatchesRegex(`^[a-z]+@[a-z]+\.[a-z]+$`))
 ```
 
 ### Empty Strings
 
 ```go
-AssertThat(t, name, Not(BeEmpty()))
+specta.AssertThat(t, name, specta.Not(specta.Equal("")))
 ```
 
 ## Collection Matchers
@@ -59,26 +59,24 @@ AssertThat(t, name, Not(BeEmpty()))
 ### Size and Emptiness
 
 ```go
-AssertThat(t, list, HaveLength(5))
-AssertThat(t, emptyList, BeEmpty())
+specta.AssertThat(t, list, specta.HasSize[string](5))
+specta.AssertThat(t, emptyList, specta.IsEmpty[string]())
 ```
 
 ### Membership
 
 ```go
-AssertThat(t, list, Contain("apple"))
-AssertThat(t, list, ContainAll("apple", "banana", "cherry"))
-AssertThat(t, list, ContainAny("apple", "durian"))
+specta.AssertThat(t, list, specta.ContainsElement("apple"))
+specta.AssertThat(t, list, specta.ContainsAllElements("apple", "banana", "cherry"))
+specta.AssertThat(t, list, specta.ContainsAnyElement("apple", "durian"))
 ```
 
 ### Element Matching
 
 ```go
-// All elements must match the matcher
+// All elements must be greater than zero
 numbers := []int{2, 4, 6, 8}
-AssertThat(t, numbers, EachMatch(func(n int) bool {
-    return n%2 == 0
-}))
+specta.AssertThat(t, numbers, specta.Every(specta.GreaterThan(0)))
 ```
 
 ## Composing Matchers
@@ -88,10 +86,10 @@ AssertThat(t, numbers, EachMatch(func(n int) bool {
 All matchers must pass:
 
 ```go
-AssertThat(t, email, AllOf(
-    ContainString("@"),
-    HaveSuffix(".com"),
-    HavePrefix("user"),
+specta.AssertThat(t, email, specta.AllOf(
+    specta.Contains("@"),
+    specta.HasSuffix(".com"),
+    specta.HasPrefix("user"),
 ))
 ```
 
@@ -100,10 +98,10 @@ AssertThat(t, email, AllOf(
 At least one matcher must pass:
 
 ```go
-AssertThat(t, status, AnyOf(
-    Equal("active"),
-    Equal("pending"),
-    Equal("processing"),
+specta.AssertThat(t, status, specta.AnyOf(
+    specta.Equal("active"),
+    specta.Equal("pending"),
+    specta.Equal("processing"),
 ))
 ```
 
@@ -112,8 +110,8 @@ AssertThat(t, status, AnyOf(
 Inverts a matcher:
 
 ```go
-AssertThat(t, name, Not(BeEmpty()))
-AssertThat(t, list, Not(Contain("forbidden")))
+specta.AssertThat(t, name, specta.Not(specta.Equal("")))
+specta.AssertThat(t, list, specta.Not(specta.ContainsElement("forbidden")))
 ```
 
 ## Understanding Matcher Errors
@@ -123,11 +121,11 @@ When a matcher fails, specta provides structured error messages with visual indi
 ```
 Value does not match:
   ✗ AllOf:
-    ✓ ContainString("@")
-    ✗ HaveSuffix(".com")
+    ✓ Contains("@")
+    ✗ HasSuffix(".com")
       Expected: string ending with ".com"
       Got:      "user@example.org"
-    ✓ HavePrefix("user")
+    ✓ HasPrefix("user")
 ```
 
 **Symbols:**
@@ -140,23 +138,22 @@ Value does not match:
 Extract common matcher patterns:
 
 ```go
+import "github.com/james-w/specta"
+
 // Define reusable matchers
 var (
-    validEmail = AllOf(
-        ContainString("@"),
-        MatchRegex(`^[^@]+@[^@]+\.[^@]+$`),
+    validEmail = specta.AllOf(
+        specta.Contains("@"),
+        specta.MatchesRegex(`^[^@]+@[^@]+\.[^@]+$`),
     )
 
-    positiveInteger = AllOf(
-        GreaterThan(0),
-        // Add custom matcher for integer check
-    )
+    positiveInteger = specta.GreaterThan(0)
 )
 
 // Use in tests
 func TestUser(t *testing.T) {
-    AssertThat(t, user.Email, validEmail)
-    AssertThat(t, user.Age, positiveInteger)
+    specta.AssertThat(t, user.Email, validEmail)
+    specta.AssertThat(t, user.Age, positiveInteger)
 }
 ```
 

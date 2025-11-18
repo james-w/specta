@@ -183,17 +183,28 @@ func (m *UserMatcher) Matches(u User) specta.MatchResult {
 
 // Common test variables
 var (
-	value    = "test"
-	expected = "test"
-	list     = []string{"a", "b", "c"}
-	name     = "Alice"
-	user     = User{
+	value         = 42
+	expectedUser  = User{ID: "user-123", Name: "Alice", Email: "alice@example.com", Age: 30}
+	expected      = "test"
+	list          = []string{"a", "b", "c", "apple", "banana", "cherry"}
+	emptyList     = []string{}
+	name          = "Alice"
+	age           = 30
+	score         = 85
+	count         = 5
+	message       = "error occurred"
+	filename      = "test_file.go"
+	email         = "user@example.com"
+	status        = "active"
+	numbers       = []int{2, 4, 6, 8}
+	user          = User{
 		ID:     "user-123",
 		Name:   "Alice",
 		Email:  "alice@example.com",
 		Age:    30,
 		Active: true,
 	}
+	ptr *int // nil pointer for testing
 )
 `
 }
