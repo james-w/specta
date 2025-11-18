@@ -50,9 +50,9 @@ func TestCreateUser(t *testing.T) {
 **What we want:**
 
 ```go
-AssertThat(t, user, MatchUser().
-    WithName(Equal("Alice")).
-    WithEmail(ContainString("example.com")))
+specta.AssertThat(t, user, MatchUser().
+    WithName(specta.Equal("Alice")).
+    WithEmail(specta.Contains("example.com")))
 ```
 
 Clean, fluent, partial matching - only assert what matters!
@@ -63,25 +63,25 @@ You can implement the `Matcher[T]` interface yourself:
 
 ```go
 type userMatcher struct {
-    nameMatcher  Matcher[string]
-    emailMatcher Matcher[string]
+    nameMatcher  specta.Matcher[string]
+    emailMatcher specta.Matcher[string]
 }
 
 func MatchUser() *userMatcher {
     return &userMatcher{}
 }
 
-func (m *userMatcher) WithName(matcher Matcher[string]) *userMatcher {
+func (m *userMatcher) WithName(matcher specta.Matcher[string]) *userMatcher {
     m.nameMatcher = matcher
     return m
 }
 
-func (m *userMatcher) WithEmail(matcher Matcher[string]) *userMatcher {
+func (m *userMatcher) WithEmail(matcher specta.Matcher[string]) *userMatcher {
     m.emailMatcher = matcher
     return m
 }
 
-func (m *userMatcher) Match(user User) MatchResult {
+func (m *userMatcher) Match(user User) specta.MatchResult {
     // Implementation details...
 }
 ```
@@ -132,6 +132,7 @@ This generates three files in `factory/`:
 package mypackage_test
 
 import (
+    "github.com/james-w/specta"
     "testing"
     . "github.com/james-w/specta"
     "mypackage/factory"
@@ -141,9 +142,9 @@ func TestCreateUser(t *testing.T) {
     user := CreateUser("Alice", "alice@example.com")
 
     // Clean, fluent, partial matching!
-    AssertThat(t, user, factory.MatchUser().
-        WithName(Equal("Alice")).
-        WithEmail(ContainString("example.com")))
+    specta.AssertThat(t, user, factory.MatchUser().
+        WithName(specta.Equal("Alice")).
+        WithEmail(specta.Contains("example.com")))
 }
 ```
 
@@ -175,16 +176,16 @@ func MatchUser() *UserMatcher {
     return &UserMatcher{}
 }
 
-func (m *UserMatcher) WithName(matcher Matcher[string]) *UserMatcher {
+func (m *UserMatcher) WithName(matcher specta.Matcher[string]) *UserMatcher {
     m.matchers = append(m.matchers, fieldMatcher{"Name", matcher})
     return m
 }
 
-func (m *UserMatcher) WithEmail(matcher Matcher[string]) *UserMatcher {
+func (m *UserMatcher) WithEmail(matcher specta.Matcher[string]) *UserMatcher {
     // ...
 }
 
-func (m *UserMatcher) Match(user User) MatchResult {
+func (m *UserMatcher) Match(user User) specta.MatchResult {
     // Applies all configured field matchers
 }
 ```
@@ -194,20 +195,20 @@ func (m *UserMatcher) Match(user User) MatchResult {
 ### Basic Field Matching
 
 ```go
-AssertThat(t, user, MatchUser().
-    WithName(Equal("Alice")).
+specta.AssertThat(t, user, MatchUser().
+    WithName(specta.Equal("Alice")).
     WithAge(GreaterThan(18)))
 ```
 
 ### Compose with Core Matchers
 
 ```go
-AssertThat(t, user, MatchUser().
+specta.AssertThat(t, user, MatchUser().
     WithEmail(AllOf(
         ContainString("@"),
         HaveSuffix(".com"),
     )).
-    WithName(Not(BeEmpty())))
+    WithName(specta.Not(specta.Equal(""))))
 ```
 
 ### Nested Struct Matching
@@ -215,25 +216,25 @@ AssertThat(t, user, MatchUser().
 If `User` has a nested `Address` struct:
 
 ```go
-AssertThat(t, user, MatchUser().
+specta.AssertThat(t, user, MatchUser().
     WithAddress(MatchAddress().
-        WithCity(Equal("Seattle")).
-        WithZipCode(MatchRegex(`^\d{5}$`))))
+        WithCity(specta.Equal("Seattle")).
+        WithZipCode(specta.MatchesRegex(`^\d{5}$`))))
 ```
 
 ### Partial Matching in Action
 
 ```go
 // Test 1: Only care about name
-AssertThat(t, user, MatchUser().WithName(Equal("Alice")))
+specta.AssertThat(t, user, MatchUser().WithName(specta.Equal("Alice")))
 
 // Test 2: Only care about email domain
-AssertThat(t, user, MatchUser().WithEmail(HaveSuffix("@company.com")))
+specta.AssertThat(t, user, MatchUser().WithEmail(specta.HasSuffix("@company.com")))
 
 // Test 3: Validate age and creation time
-AssertThat(t, user, MatchUser().
+specta.AssertThat(t, user, MatchUser().
     WithAge(GreaterThan(0)).
-    WithCreatedAt(Not(BeNil())))
+    WithCreatedAt(Not(specta.IsNil[time.Time]())))
 ```
 
 Each test asserts exactly what it cares about. Adding new fields to `User` won't break these tests!
@@ -270,12 +271,12 @@ func TestUserCreation(t *testing.T) {
 func TestUserCreation(t *testing.T) {
     user := CreateUser("Alice", "alice@example.com", 30)
 
-    AssertThat(t, user, MatchUser().
-        WithID(Not(BeEmpty())).
-        WithName(Equal("Alice")).
-        WithEmail(ContainString("alice")).
+    specta.AssertThat(t, user, MatchUser().
+        WithID(Not(specta.Equal(""))).
+        WithName(specta.Equal("Alice")).
+        WithEmail(specta.Contains("alice")).
         WithAge(Equal(30)).
-        WithCreatedAt(Not(BeZero())))
+        WithCreatedAt(Not(specta.IsZero[time.Time]())))
 }
 ```
 
@@ -286,9 +287,9 @@ func TestUserCreation(t *testing.T) {
     user := CreateUser("Alice", "alice@example.com", 30)
 
     // Only assert the fields this test cares about
-    AssertThat(t, user, MatchUser().
-        WithName(Equal("Alice")).
-        WithEmail(Equal("alice@example.com")))
+    specta.AssertThat(t, user, MatchUser().
+        WithName(specta.Equal("Alice")).
+        WithEmail(specta.Equal("alice@example.com")))
 }
 ```
 
