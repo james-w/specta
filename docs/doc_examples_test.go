@@ -185,7 +185,7 @@ func (m *UserMatcher) Matches(u User) specta.MatchResult {
 var (
 	value         = 42
 	expectedUser  = User{ID: "user-123", Name: "Alice", Email: "alice@example.com", Age: 30}
-	expected      = "test"
+	expected      = 42  // Changed to int to match 'value' type
 	list          = []string{"a", "b", "c", "apple", "banana", "cherry"}
 	emptyList     = []string{}
 	name          = "Alice"
