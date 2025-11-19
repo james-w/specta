@@ -167,20 +167,60 @@ func (g *IntGenerator) Draw(s Source, label string) int64 {
 			maxAttempts = g.maxFilterAttempts
 		}
 
-		for attempt := 0; attempt < maxAttempts; attempt++ {
-			// Random mode: full exploration of int64 space
-			value = int64(bits)
+		// Build edge case pool once (same for all attempts)
+		edgeCases := make([]int64, 0, 20)
 
-			// Apply constraints
-			if g.min != nil || g.max != nil {
+		// Add special values if in range
+		for _, special := range []int64{0, 1, -1} {
+			if special >= min && special <= max {
+				edgeCases = append(edgeCases, special)
+			}
+		}
+
+		// Add boundaries
+		edgeCases = append(edgeCases, min, max)
+		// Add near-boundaries if they're in range
+		if min+1 <= max && min < math.MaxInt64 {
+			edgeCases = append(edgeCases, min+1)
+		}
+		if max-1 >= min && max > math.MinInt64 {
+			edgeCases = append(edgeCases, max-1)
+		}
+
+		// Add powers of 2 within range
+		for p := int64(1); p > 0 && p <= max; p *= 2 {
+			if p >= min && p <= max {
+				edgeCases = append(edgeCases, p)
+			}
+		}
+		// Negative powers of 2
+		for p := int64(-1); p < 0 && p >= min; p *= 2 {
+			if p >= min && p <= max {
+				edgeCases = append(edgeCases, p)
+			}
+		}
+
+		for attempt := 0; attempt < maxAttempts; attempt++ {
+			// Random mode with edge case biasing
+			// 30% of the time, pick from edge cases; 70% uniform random
+
+			// Decide: edge case (30%) or uniform (70%)
+			biasDecision := s.DrawBits(8) // 0-255
+			useBias := biasDecision < 77  // 77/255 ≈ 30%
+
+			if useBias && len(edgeCases) > 0 {
+				// Pick randomly from edge cases
+				idx := s.DrawBits(32) % uint64(len(edgeCases))
+				value = edgeCases[idx]
+			} else {
+				// Uniform random across full range
 				rangeSize := uint64(max - min + 1)
 				if rangeSize == 0 {
-					// Special case: range wraps around (e.g., MinInt64 to MaxInt64)
-					// In this case, any value is valid
-					value = int64(bits)
+					// Special case: range wraps around
+					value = int64(s.DrawBits(64))
 				} else {
 					// Map bits to [0, rangeSize) then add min
-					offset := bits % rangeSize
+					offset := s.DrawBits(64) % rangeSize
 					value = min + int64(offset)
 				}
 			}
@@ -426,13 +466,36 @@ func (g *StringGenerator) drawRandom(s Source, label string) string {
 			continue // Try again with filter
 		}
 
-		// Generate random length for the middle part
+		// Generate random length for the middle part with edge case biasing
 		var randomLen int
 		if randomMaxLen == randomMinLen {
 			randomLen = randomMinLen
 		} else {
-			lengthRange := randomMaxLen - randomMinLen + 1
-			randomLen = randomMinLen + int(s.DrawBits(32)%uint64(lengthRange))
+			// Build edge case pool: 0 (empty), 1 (single char), max, max-1
+			edgeCases := make([]int, 0, 4)
+			for _, special := range []int{0, 1} {
+				if special >= randomMinLen && special <= randomMaxLen {
+					edgeCases = append(edgeCases, special)
+				}
+			}
+			edgeCases = append(edgeCases, randomMaxLen)
+			if randomMaxLen-1 >= randomMinLen && randomMaxLen > 0 {
+				edgeCases = append(edgeCases, randomMaxLen-1)
+			}
+
+			// 30% edge cases, 70% uniform
+			biasDecision := s.DrawBits(8) // 0-255
+			useBias := biasDecision < 77  // 77/255 ≈ 30%
+
+			if useBias && len(edgeCases) > 0 {
+				// Pick from edge cases
+				idx := s.DrawBits(32) % uint64(len(edgeCases))
+				randomLen = edgeCases[idx]
+			} else {
+				// Uniform random
+				lengthRange := randomMaxLen - randomMinLen + 1
+				randomLen = randomMinLen + int(s.DrawBits(32)%uint64(lengthRange))
+			}
 		}
 
 		// Generate random bytes based on charset
@@ -857,12 +920,95 @@ func (g *SliceGenerator[T]) Draw(s Source, label string) []T {
 				length = minLen + int(counter%uint64(rangeSize))
 			}
 		} else {
-			// Random mode: random length in range
+			// Random mode with size biasing toward edge cases
+			// Use weighted distribution:
+			// 20%: 0 (empty)
+			// 25%: 1 (single element)
+			// 35%: 2-5 (small)
+			// 12%: 6-20 (medium)
+			// 5%: 21-50 (large)
+			// 3%: 51-maxLen (very large)
+
 			if minLen == maxLen {
 				length = minLen
 			} else {
-				lengthRange := maxLen - minLen + 1
-				length = minLen + int(s.DrawBits(32)%uint64(lengthRange))
+				// Draw random 0-99 for weighted choice
+				// Use rejection sampling to avoid modulo bias
+				var choice uint64
+				for {
+					choice = s.DrawBits(7) // 0-127
+					if choice < 100 {
+						break
+					}
+				}
+
+				switch {
+				case choice < 20:
+					// 20%: empty (0) - if allowed
+					if minLen == 0 {
+						length = 0
+					} else {
+						length = minLen
+					}
+				case choice < 45:
+					// 25%: single element (1) - if allowed
+					if minLen <= 1 && maxLen >= 1 {
+						length = 1
+					} else {
+						length = minLen
+					}
+				case choice < 80:
+					// 35%: small (2-5)
+					smallMin := max(minLen, 2)
+					smallMax := min(maxLen, 5)
+					if smallMin <= smallMax {
+						if smallMin == smallMax {
+							length = smallMin
+						} else {
+							length = smallMin + int(s.DrawBits(16)%uint64(smallMax-smallMin+1))
+						}
+					} else {
+						length = minLen
+					}
+				case choice < 92:
+					// 12%: medium (6-20)
+					medMin := max(minLen, 6)
+					medMax := min(maxLen, 20)
+					if medMin <= medMax {
+						if medMin == medMax {
+							length = medMin
+						} else {
+							length = medMin + int(s.DrawBits(16)%uint64(medMax-medMin+1))
+						}
+					} else {
+						length = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
+					}
+				case choice < 97:
+					// 5%: large (21-50)
+					largeMin := max(minLen, 21)
+					largeMax := min(maxLen, 50)
+					if largeMin <= largeMax {
+						if largeMin == largeMax {
+							length = largeMin
+						} else {
+							length = largeMin + int(s.DrawBits(16)%uint64(largeMax-largeMin+1))
+						}
+					} else {
+						length = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
+					}
+				default:
+					// 3%: very large (51-maxLen)
+					veryLargeMin := max(minLen, 51)
+					if veryLargeMin <= maxLen {
+						if veryLargeMin == maxLen {
+							length = veryLargeMin
+						} else {
+							length = veryLargeMin + int(s.DrawBits(32)%uint64(maxLen-veryLargeMin+1))
+						}
+					} else {
+						length = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
+					}
+				}
 			}
 		}
 
@@ -1009,12 +1155,95 @@ func (g *MapGenerator[K, V]) Draw(s Source, label string) map[K]V {
 				targetSize = minLen + int(counter%uint64(rangeSize))
 			}
 		} else {
-			// Random mode: random size in range
+			// Random mode with size biasing toward edge cases
+			// Use same weighted distribution as Slice:
+			// 20%: 0 (empty)
+			// 25%: 1 (single entry)
+			// 35%: 2-5 (small)
+			// 12%: 6-20 (medium)
+			// 5%: 21-50 (large)
+			// 3%: 51-maxLen (very large)
+
 			if minLen == maxLen {
 				targetSize = minLen
 			} else {
-				sizeRange := maxLen - minLen + 1
-				targetSize = minLen + int(s.DrawBits(32)%uint64(sizeRange))
+				// Draw random 0-99 for weighted choice
+				// Use rejection sampling to avoid modulo bias
+				var choice uint64
+				for {
+					choice = s.DrawBits(7) // 0-127
+					if choice < 100 {
+						break
+					}
+				}
+
+				switch {
+				case choice < 20:
+					// 20%: empty (0) - if allowed
+					if minLen == 0 {
+						targetSize = 0
+					} else {
+						targetSize = minLen
+					}
+				case choice < 45:
+					// 25%: single entry (1) - if allowed
+					if minLen <= 1 && maxLen >= 1 {
+						targetSize = 1
+					} else {
+						targetSize = minLen
+					}
+				case choice < 80:
+					// 35%: small (2-5)
+					smallMin := max(minLen, 2)
+					smallMax := min(maxLen, 5)
+					if smallMin <= smallMax {
+						if smallMin == smallMax {
+							targetSize = smallMin
+						} else {
+							targetSize = smallMin + int(s.DrawBits(16)%uint64(smallMax-smallMin+1))
+						}
+					} else {
+						targetSize = minLen
+					}
+				case choice < 92:
+					// 12%: medium (6-20)
+					medMin := max(minLen, 6)
+					medMax := min(maxLen, 20)
+					if medMin <= medMax {
+						if medMin == medMax {
+							targetSize = medMin
+						} else {
+							targetSize = medMin + int(s.DrawBits(16)%uint64(medMax-medMin+1))
+						}
+					} else {
+						targetSize = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
+					}
+				case choice < 97:
+					// 5%: large (21-50)
+					largeMin := max(minLen, 21)
+					largeMax := min(maxLen, 50)
+					if largeMin <= largeMax {
+						if largeMin == largeMax {
+							targetSize = largeMin
+						} else {
+							targetSize = largeMin + int(s.DrawBits(16)%uint64(largeMax-largeMin+1))
+						}
+					} else {
+						targetSize = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
+					}
+				default:
+					// 3%: very large (51-maxLen)
+					veryLargeMin := max(minLen, 51)
+					if veryLargeMin <= maxLen {
+						if veryLargeMin == maxLen {
+							targetSize = veryLargeMin
+						} else {
+							targetSize = veryLargeMin + int(s.DrawBits(32)%uint64(maxLen-veryLargeMin+1))
+						}
+					} else {
+						targetSize = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
+					}
+				}
 			}
 		}
 
