@@ -72,13 +72,13 @@ func (r AddressRecipe) Provider() specta.Provider[showcase.Address] {
 }
 
 // Build creates a single Address instance.
-func (r AddressRecipe) Build(p specta.Primitives) showcase.Address {
-	return spec.NewAddressFactory(p).Make(r.opts...)
+func (r AddressRecipe) Build(s specta.Source) showcase.Address {
+	return spec.NewAddressFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Address instances with unique generated values.
-func (r AddressRecipe) Many(n int, p specta.Primitives) []showcase.Address {
-	return spec.NewAddressFactory(p).Many(n, r.opts...)
+func (r AddressRecipe) Many(n int, s specta.Source) []showcase.Address {
+	return spec.NewAddressFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -92,7 +92,7 @@ func (r AddressRecipe) AsEqualMatcher() specta.Matcher[showcase.Address] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 

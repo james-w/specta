@@ -46,22 +46,22 @@ type TeamSpec struct {
 func NewTeamSpec() TeamSpec { return TeamSpec{} }
 
 // NewTeamFactory creates a new SpecFactory for Team.
-func NewTeamFactory(p specta.Primitives) *specta.SpecFactory[showcase.Team, TeamSpec] {
-	return specta.NewSpecFactory(p, NewTeamSpec, BuildTeam)
+func NewTeamFactory(s specta.Source) *specta.SpecFactory[showcase.Team, TeamSpec] {
+	return specta.NewSpecFactory(s, NewTeamSpec, BuildTeam)
 }
 
 // Default field providers.
 var (
-	TeamDefaultID      = func(p specta.Primitives) string { return p.ID() }
-	TeamDefaultName    = func(p specta.Primitives) string { return p.StringWith("name_") }
-	TeamDefaultMembers = func(p specta.Primitives) []showcase.Member { var zero []showcase.Member; return zero }
+	TeamDefaultID      = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
+	TeamDefaultName    = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
+	TeamDefaultMembers = func(s specta.Source) []showcase.Member { var zero []showcase.Member; return zero }
 )
 
 // BuildTeam constructs a Team from a TeamSpec.
-func BuildTeam(p specta.Primitives, s TeamSpec) showcase.Team {
-	iD := s.ID.Get(p, TeamDefaultID)
-	name := s.Name.Get(p, TeamDefaultName)
-	members := s.Members.Get(p, TeamDefaultMembers)
+func BuildTeam(s specta.Source, spec TeamSpec) showcase.Team {
+	iD := spec.ID.Get(s, TeamDefaultID)
+	name := spec.Name.Get(s, TeamDefaultName)
+	members := spec.Members.Get(s, TeamDefaultMembers)
 	return showcase.Team{
 		ID:      iD,
 		Name:    name,

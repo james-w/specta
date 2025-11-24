@@ -47,24 +47,24 @@ type UserViewSpec struct {
 func NewUserViewSpec() UserViewSpec { return UserViewSpec{} }
 
 // NewUserViewFactory creates a new SpecFactory for UserView.
-func NewUserViewFactory(p specta.Primitives) *specta.SpecFactory[example.UserView, UserViewSpec] {
-	return specta.NewSpecFactory(p, NewUserViewSpec, BuildUserView)
+func NewUserViewFactory(s specta.Source) *specta.SpecFactory[example.UserView, UserViewSpec] {
+	return specta.NewSpecFactory(s, NewUserViewSpec, BuildUserView)
 }
 
 // Default field providers.
 var (
-	UserViewDefaultID     = func(p specta.Primitives) string { return p.ID() }
-	UserViewDefaultName   = func(p specta.Primitives) string { return p.StringWith("name_") }
-	UserViewDefaultActive = func(p specta.Primitives) bool { return p.Bool() }
-	UserViewDefaultScore  = func(p specta.Primitives) int { return p.Int() }
+	UserViewDefaultID     = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
+	UserViewDefaultName   = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
+	UserViewDefaultActive = func(s specta.Source) bool { return specta.Bool().Draw(s, "Active") }
+	UserViewDefaultScore  = func(s specta.Source) int { return int(specta.Int().Draw(s, "Score")) }
 )
 
 // BuildUserView constructs a UserView from a UserViewSpec.
-func BuildUserView(p specta.Primitives, s UserViewSpec) example.UserView {
-	iD := s.ID.Get(p, UserViewDefaultID)
-	name := s.Name.Get(p, UserViewDefaultName)
-	active := s.Active.Get(p, UserViewDefaultActive)
-	score := s.Score.Get(p, UserViewDefaultScore)
+func BuildUserView(s specta.Source, spec UserViewSpec) example.UserView {
+	iD := spec.ID.Get(s, UserViewDefaultID)
+	name := spec.Name.Get(s, UserViewDefaultName)
+	active := spec.Active.Get(s, UserViewDefaultActive)
+	score := spec.Score.Get(s, UserViewDefaultScore)
 	return example.UserView{
 		ID:     iD,
 		Name:   name,

@@ -50,26 +50,26 @@ type CommentSpec struct {
 func NewCommentSpec() CommentSpec { return CommentSpec{} }
 
 // NewCommentFactory creates a new SpecFactory for Comment.
-func NewCommentFactory(p specta.Primitives) *specta.SpecFactory[showcase.Comment, CommentSpec] {
-	return specta.NewSpecFactory(p, NewCommentSpec, BuildComment)
+func NewCommentFactory(s specta.Source) *specta.SpecFactory[showcase.Comment, CommentSpec] {
+	return specta.NewSpecFactory(s, NewCommentSpec, BuildComment)
 }
 
 // Default field providers.
 var (
-	CommentDefaultID        = func(p specta.Primitives) string { return p.ID() }
+	CommentDefaultID        = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
 	CommentDefaultPost      = specta.FromSpec(BuildBlogPost, NewBlogPostSpec)
 	CommentDefaultAuthor    = specta.FromSpec(BuildUser, NewUserSpec)
-	CommentDefaultContent   = func(p specta.Primitives) string { return p.StringWith("content_") }
-	CommentDefaultCreatedAt = func(p specta.Primitives) time.Time { return p.Time() }
+	CommentDefaultContent   = func(s specta.Source) string { return specta.String().ExampleHint("content_").Draw(s, "Content") }
+	CommentDefaultCreatedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "CreatedAt") }
 )
 
 // BuildComment constructs a Comment from a CommentSpec.
-func BuildComment(p specta.Primitives, s CommentSpec) showcase.Comment {
-	iD := s.ID.Get(p, CommentDefaultID)
-	post := s.Post.Get(p, CommentDefaultPost)
-	author := s.Author.Get(p, CommentDefaultAuthor)
-	content := s.Content.Get(p, CommentDefaultContent)
-	createdAt := s.CreatedAt.Get(p, CommentDefaultCreatedAt)
+func BuildComment(s specta.Source, spec CommentSpec) showcase.Comment {
+	iD := spec.ID.Get(s, CommentDefaultID)
+	post := spec.Post.Get(s, CommentDefaultPost)
+	author := spec.Author.Get(s, CommentDefaultAuthor)
+	content := spec.Content.Get(s, CommentDefaultContent)
+	createdAt := spec.CreatedAt.Get(s, CommentDefaultCreatedAt)
 	return showcase.Comment{
 		ID:        iD,
 		Post:      post,

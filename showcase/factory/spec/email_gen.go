@@ -44,26 +44,28 @@ type EmailSpec struct {
 func NewEmailSpec() EmailSpec { return EmailSpec{} }
 
 // NewEmailFactory creates a new SpecFactory for Email.
-func NewEmailFactory(p specta.Primitives) *specta.SpecFactory[showcase.Email, EmailSpec] {
+func NewEmailFactory(s specta.Source) *specta.SpecFactory[showcase.Email, EmailSpec] {
 	// Wrap error-returning constructor - panic on error for test factories
-	wrappedBuild := func(p specta.Primitives, s EmailSpec) showcase.Email {
-		result, err := BuildEmail(p, s)
+	wrappedBuild := func(s specta.Source, spec EmailSpec) showcase.Email {
+		result, err := BuildEmail(s, spec)
 		if err != nil {
 			panic("BuildEmail failed: " + err.Error())
 		}
 		return result
 	}
-	return specta.NewSpecFactory(p, NewEmailSpec, wrappedBuild)
+	return specta.NewSpecFactory(s, NewEmailSpec, wrappedBuild)
 }
 
 // Default parameter providers.
 var (
-	EmailDefaultAddress = func(p specta.Primitives) string { return p.StringWith("user") + "@example.com" }
+	EmailDefaultAddress = func(s specta.Source) string {
+		return specta.String().ExampleHint("user_").Draw(s, "user") + "@example.com"
+	}
 )
 
 // BuildEmail constructs a Email from a EmailSpec.
-func BuildEmail(p specta.Primitives, s EmailSpec) (showcase.Email, error) {
-	address := s.Address.Get(p, EmailDefaultAddress)
+func BuildEmail(s specta.Source, spec EmailSpec) (showcase.Email, error) {
+	address := spec.Address.Get(s, EmailDefaultAddress)
 	return showcase.NewEmail(address)
 }
 

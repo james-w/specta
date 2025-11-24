@@ -106,13 +106,13 @@ func (r BlogPostRecipe) Provider() specta.Provider[showcase.BlogPost] {
 }
 
 // Build creates a single BlogPost instance.
-func (r BlogPostRecipe) Build(p specta.Primitives) showcase.BlogPost {
-	return spec.NewBlogPostFactory(p).Make(r.opts...)
+func (r BlogPostRecipe) Build(s specta.Source) showcase.BlogPost {
+	return spec.NewBlogPostFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple BlogPost instances with unique generated values.
-func (r BlogPostRecipe) Many(n int, p specta.Primitives) []showcase.BlogPost {
-	return spec.NewBlogPostFactory(p).Many(n, r.opts...)
+func (r BlogPostRecipe) Many(n int, s specta.Source) []showcase.BlogPost {
+	return spec.NewBlogPostFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -126,7 +126,7 @@ func (r BlogPostRecipe) AsEqualMatcher() specta.Matcher[showcase.BlogPost] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 

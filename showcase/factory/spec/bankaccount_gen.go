@@ -45,20 +45,20 @@ type BankAccountSpec struct {
 func NewBankAccountSpec() BankAccountSpec { return BankAccountSpec{} }
 
 // NewBankAccountFactory creates a new SpecFactory for BankAccount.
-func NewBankAccountFactory(p specta.Primitives) *specta.SpecFactory[showcase.BankAccount, BankAccountSpec] {
-	return specta.NewSpecFactory(p, NewBankAccountSpec, BuildBankAccount)
+func NewBankAccountFactory(s specta.Source) *specta.SpecFactory[showcase.BankAccount, BankAccountSpec] {
+	return specta.NewSpecFactory(s, NewBankAccountSpec, BuildBankAccount)
 }
 
 // Default parameter providers.
 var (
-	BankAccountDefaultName    = func(p specta.Primitives) string { return p.StringWith("name_") }
-	BankAccountDefaultBalance = func(p specta.Primitives) int { return int(p.Int()) }
+	BankAccountDefaultName    = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
+	BankAccountDefaultBalance = func(s specta.Source) int { return int(specta.Int().Draw(s, "Balance")) }
 )
 
 // BuildBankAccount constructs a BankAccount from a BankAccountSpec.
-func BuildBankAccount(p specta.Primitives, s BankAccountSpec) showcase.BankAccount {
-	name := s.Name.Get(p, BankAccountDefaultName)
-	balance := s.Balance.Get(p, BankAccountDefaultBalance)
+func BuildBankAccount(s specta.Source, spec BankAccountSpec) showcase.BankAccount {
+	name := spec.Name.Get(s, BankAccountDefaultName)
+	balance := spec.Balance.Get(s, BankAccountDefaultBalance)
 	return showcase.NewBankAccount(name, balance)
 }
 

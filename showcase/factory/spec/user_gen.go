@@ -53,32 +53,32 @@ type UserSpec struct {
 func NewUserSpec() UserSpec { return UserSpec{} }
 
 // NewUserFactory creates a new SpecFactory for User.
-func NewUserFactory(p specta.Primitives) *specta.SpecFactory[showcase.User, UserSpec] {
-	return specta.NewSpecFactory(p, NewUserSpec, BuildUser)
+func NewUserFactory(s specta.Source) *specta.SpecFactory[showcase.User, UserSpec] {
+	return specta.NewSpecFactory(s, NewUserSpec, BuildUser)
 }
 
 // Default field providers.
 var (
-	UserDefaultID        = func(p specta.Primitives) string { return p.ID() }
-	UserDefaultEmail     = func(p specta.Primitives) string { return p.StringWith("email_") }
-	UserDefaultFirstName = func(p specta.Primitives) string { return p.StringWith("firstname_") }
-	UserDefaultLastName  = func(p specta.Primitives) string { return p.StringWith("lastname_") }
-	UserDefaultActive    = func(p specta.Primitives) bool { return p.Bool() }
+	UserDefaultID        = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
+	UserDefaultEmail     = func(s specta.Source) string { return specta.String().ExampleHint("email_").Draw(s, "Email") }
+	UserDefaultFirstName = func(s specta.Source) string { return specta.String().ExampleHint("firstname_").Draw(s, "FirstName") }
+	UserDefaultLastName  = func(s specta.Source) string { return specta.String().ExampleHint("lastname_").Draw(s, "LastName") }
+	UserDefaultActive    = func(s specta.Source) bool { return specta.Bool().Draw(s, "Active") }
 	UserDefaultAddress   = specta.FromSpec(BuildAddress, NewAddressSpec)
-	UserDefaultCreatedAt = func(p specta.Primitives) time.Time { return p.Time() }
-	UserDefaultUpdatedAt = func(p specta.Primitives) time.Time { return p.Time() }
+	UserDefaultCreatedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "CreatedAt") }
+	UserDefaultUpdatedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "UpdatedAt") }
 )
 
 // BuildUser constructs a User from a UserSpec.
-func BuildUser(p specta.Primitives, s UserSpec) showcase.User {
-	iD := s.ID.Get(p, UserDefaultID)
-	email := s.Email.Get(p, UserDefaultEmail)
-	firstName := s.FirstName.Get(p, UserDefaultFirstName)
-	lastName := s.LastName.Get(p, UserDefaultLastName)
-	active := s.Active.Get(p, UserDefaultActive)
-	address := s.Address.Get(p, UserDefaultAddress)
-	createdAt := s.CreatedAt.Get(p, UserDefaultCreatedAt)
-	updatedAt := s.UpdatedAt.Get(p, UserDefaultUpdatedAt)
+func BuildUser(s specta.Source, spec UserSpec) showcase.User {
+	iD := spec.ID.Get(s, UserDefaultID)
+	email := spec.Email.Get(s, UserDefaultEmail)
+	firstName := spec.FirstName.Get(s, UserDefaultFirstName)
+	lastName := spec.LastName.Get(s, UserDefaultLastName)
+	active := spec.Active.Get(s, UserDefaultActive)
+	address := spec.Address.Get(s, UserDefaultAddress)
+	createdAt := spec.CreatedAt.Get(s, UserDefaultCreatedAt)
+	updatedAt := spec.UpdatedAt.Get(s, UserDefaultUpdatedAt)
 	return showcase.User{
 		ID:        iD,
 		Email:     email,

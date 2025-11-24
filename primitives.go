@@ -3,6 +3,7 @@ package specta
 import (
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -19,6 +20,7 @@ type Primitives interface {
 	Float64() float64
 	String() string
 	StringWith(prefix string) string
+	Bytes() []byte
 	BytesN(n int) []byte
 	Time() time.Time
 	TimeAtOffset(d time.Duration) time.Time
@@ -32,6 +34,8 @@ type Gen struct {
 	baseTime time.Time
 	step     time.Duration
 	prefix   string
+	logging  bool
+	log      strings.Builder
 }
 
 type Option func(*Gen)
@@ -50,7 +54,11 @@ func New(opts ...Option) *Gen {
 }
 
 func (g *Gen) Next() uint64 { return g.ctr.Add(1) }
-func (g *Gen) Bool() bool   { return false }
+
+// Bool always returns false for deterministic, minimal test data generation.
+// This is intentional - Gen is for factories, not property testing.
+// For random booleans, use PropertyPrimitives.
+func (g *Gen) Bool() bool { return false }
 func (g *Gen) Int() int {
 	n := g.Next()
 	if n > uint64(math.MaxInt) {
@@ -77,6 +85,10 @@ func (g *Gen) String() string   { return g.StringWith("str_") }
 func (g *Gen) StringWith(prefix string) string {
 	return fmt.Sprintf("%s%s%d", g.prefix, prefix, g.Next())
 }
+func (g *Gen) Bytes() []byte {
+	// Default to 16 bytes for deterministic generation
+	return g.BytesN(16)
+}
 func (g *Gen) BytesN(n int) []byte {
 	if n <= 0 {
 		return nil
@@ -94,6 +106,31 @@ func (g *Gen) Duration() time.Duration                { return time.Duration(g.N
 func (g *Gen) ID() string                             { return fmt.Sprintf("%sid_%d", g.prefix, g.Next()) }
 
 func (g *Gen) UUID() uuid.UUID { return DeterministicUUIDFromInt(g.Next()) }
+
+// DrawBits implements Source interface.
+// Returns bits from the counter for deterministic, predictable generation.
+func (g *Gen) DrawBits(n int) uint64 {
+	if n <= 0 || n > 64 {
+		panic("DrawBits: n must be between 1 and 64")
+	}
+	value := g.Next()
+	mask := uint64((1 << n) - 1)
+	return value & mask
+}
+
+// WriteLog implements Source interface.
+// Appends to the log if logging is enabled.
+func (g *Gen) WriteLog(msg string) {
+	if g.logging {
+		g.log.WriteString(msg)
+	}
+}
+
+// IsDeterministic implements Source interface.
+// Returns true because Gen produces predictable, friendly values.
+func (g *Gen) IsDeterministic() bool {
+	return true
+}
 
 var ns = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 

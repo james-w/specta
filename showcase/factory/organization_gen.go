@@ -90,13 +90,13 @@ func (r OrganizationRecipe) Provider() specta.Provider[showcase.Organization] {
 }
 
 // Build creates a single Organization instance.
-func (r OrganizationRecipe) Build(p specta.Primitives) showcase.Organization {
-	return spec.NewOrganizationFactory(p).Make(r.opts...)
+func (r OrganizationRecipe) Build(s specta.Source) showcase.Organization {
+	return spec.NewOrganizationFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Organization instances with unique generated values.
-func (r OrganizationRecipe) Many(n int, p specta.Primitives) []showcase.Organization {
-	return spec.NewOrganizationFactory(p).Many(n, r.opts...)
+func (r OrganizationRecipe) Many(n int, s specta.Source) []showcase.Organization {
+	return spec.NewOrganizationFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -110,7 +110,7 @@ func (r OrganizationRecipe) AsEqualMatcher() specta.Matcher[showcase.Organizatio
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
