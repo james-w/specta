@@ -11,9 +11,9 @@ specta is a Go testing library that emphasizes composition and reuse through mat
 
 ## Quick Links
 
-- [Get Started](/docs/introduction/)
+- [Get Started]({{< relref "/docs/introduction" >}})
 - [GitHub Repository](https://github.com/james-w/specta)
-- [API Reference](/docs/api-reference/)
+- [API Reference]({{< relref "/docs/api-reference" >}})
 
 ## Key Features
 
@@ -37,4 +37,4 @@ specta.AssertThat(t, user, MatchUser().
     WithEmail(specta.Contains("example.com")))
 ```
 
-[Get Started →](/docs/introduction/)
+[Get Started →]({{< relref "/docs/introduction" >}})

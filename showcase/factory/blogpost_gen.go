@@ -48,9 +48,21 @@ func (r BlogPostRecipe) ID(v string) BlogPostRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r BlogPostRecipe) IDFromGenerator(gen specta.Generator[string]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostIDFromGenerator(gen))
+	return r
+}
+
 // Title sets the Title field.
 func (r BlogPostRecipe) Title(v string) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostTitle(v))
+	return r
+}
+
+// TitleFromGenerator sets the Title field using a Generator.
+func (r BlogPostRecipe) TitleFromGenerator(gen specta.Generator[string]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostTitleFromGenerator(gen))
 	return r
 }
 
@@ -60,9 +72,22 @@ func (r BlogPostRecipe) Content(v string) BlogPostRecipe {
 	return r
 }
 
+// ContentFromGenerator sets the Content field using a Generator.
+func (r BlogPostRecipe) ContentFromGenerator(gen specta.Generator[string]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostContentFromGenerator(gen))
+	return r
+}
+
 // Author sets the Author field.
 func (r BlogPostRecipe) Author(v showcase.User) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostAuthor(v))
+	r.authorRecipe = nil
+	return r
+}
+
+// AuthorFromGenerator sets the Author field using a Generator.
+func (r BlogPostRecipe) AuthorFromGenerator(gen specta.Generator[showcase.User]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostAuthorFromGenerator(gen))
 	r.authorRecipe = nil
 	return r
 }
@@ -82,9 +107,21 @@ func (r BlogPostRecipe) Published(v bool) BlogPostRecipe {
 	return r
 }
 
+// PublishedFromGenerator sets the Published field using a Generator.
+func (r BlogPostRecipe) PublishedFromGenerator(gen specta.Generator[bool]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostPublishedFromGenerator(gen))
+	return r
+}
+
 // PublishedAt sets the PublishedAt field.
 func (r BlogPostRecipe) PublishedAt(v time.Time) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostPublishedAt(v))
+	return r
+}
+
+// PublishedAtFromGenerator sets the PublishedAt field using a Generator.
+func (r BlogPostRecipe) PublishedAtFromGenerator(gen specta.Generator[time.Time]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostPublishedAtFromGenerator(gen))
 	return r
 }
 
@@ -94,9 +131,21 @@ func (r BlogPostRecipe) CreatedAt(v time.Time) BlogPostRecipe {
 	return r
 }
 
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r BlogPostRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostCreatedAtFromGenerator(gen))
+	return r
+}
+
 // UpdatedAt sets the UpdatedAt field.
 func (r BlogPostRecipe) UpdatedAt(v time.Time) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostUpdatedAt(v))
+	return r
+}
+
+// UpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
+func (r BlogPostRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostUpdatedAtFromGenerator(gen))
 	return r
 }
 

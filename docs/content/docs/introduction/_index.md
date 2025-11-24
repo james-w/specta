@@ -3,6 +3,67 @@ title: "Introduction"
 weight: 1
 ---
 
+<!-- setup
+package doctest
+
+import (
+	"testing"
+	"github.com/james-w/specta"
+)
+
+var _ = testing.Verbose
+
+type User struct {
+	Name  string
+	Email string
+	Age   int
+}
+
+// Mock matcher builder for User
+type UserMatcher struct {
+	nameMatcher  specta.Matcher[string]
+	emailMatcher specta.Matcher[string]
+}
+
+func MatchUser() *UserMatcher {
+	return &UserMatcher{}
+}
+
+func (m *UserMatcher) WithName(matcher specta.Matcher[string]) *UserMatcher {
+	m.nameMatcher = matcher
+	return m
+}
+
+func (m *UserMatcher) WithEmail(matcher specta.Matcher[string]) *UserMatcher {
+	m.emailMatcher = matcher
+	return m
+}
+
+func (m *UserMatcher) Matches(u User) specta.MatchResult {
+	if m.nameMatcher != nil {
+		result := m.nameMatcher.Matches(u.Name)
+		if !result.Matched {
+			return specta.MatchResult{Matched: false, Message: "name did not match"}
+		}
+	}
+	if m.emailMatcher != nil {
+		result := m.emailMatcher.Matches(u.Email)
+		if !result.Matched {
+			return specta.MatchResult{Matched: false, Message: "email did not match"}
+		}
+	}
+	return specta.MatchResult{Matched: true}
+}
+
+var (
+	value    = 42
+	expected = 42
+	list     = []string{"a", "b", "c"}
+	name     = "Alice"
+	user     = User{Name: "Alice", Email: "alice@example.com", Age: 30}
+)
+-->
+
 # Introduction to specta
 
 specta is a Go testing library that emphasizes **composition and reuse** through matchers and test data factories.
@@ -98,9 +159,9 @@ specta.AssertThat(t, user, MatchUser().
 
 ## Next Steps
 
-- Learn about [Core Matchers](/docs/core-matchers/) - the building blocks
-- Explore [Code Generation](/docs/matchers-for-your-types/) for custom types
-- Set up [Test Data Factories](/docs/factories/) for deterministic test data
+- Learn about [Core Matchers]({{< relref "/docs/core-matchers/" >}}) - the building blocks
+- Explore [Code Generation]({{< relref "/docs/matchers-for-your-types/" >}}) for custom types
+- Set up [Test Data Factories]({{< relref "/docs/factories/" >}}) for deterministic test data
 
 ## Module Information
 

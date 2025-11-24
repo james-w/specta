@@ -9,6 +9,7 @@ Real-world examples and common patterns.
 
 ## Complete CRUD Example
 
+<!-- skip-test -->
 ```go
 package users_test
 
@@ -20,7 +21,7 @@ import (
 )
 
 func TestUserCRUD(t *testing.T) {
-    p := NewGen()
+    p := specta.New()
     db := setupTestDB(t)
 
     t.Run("Create", func(t *testing.T) {
@@ -32,10 +33,10 @@ func TestUserCRUD(t *testing.T) {
         created := db.CreateUser(input)
 
         specta.AssertThat(t, created, factory.MatchUser().
-            WithID(specta.Not(BeEmpty())).
+            WithID(specta.Not(IsEmpty())).
             WithName(specta.Equal("Alice")).
             WithEmail(specta.Equal("alice@example.com")).
-            WithCreatedAt(specta.Not(BeZero())))
+            WithCreatedAt(specta.Not(IsZero())))
     })
 
     t.Run("Read", func(t *testing.T) {
@@ -81,6 +82,7 @@ func TestUserCRUD(t *testing.T) {
 
 ## REST API Testing
 
+<!-- skip-test -->
 ```go
 package api_test
 
@@ -94,7 +96,7 @@ import (
 )
 
 func TestUserAPI(t *testing.T) {
-    p := NewGen()
+    p := specta.New()
     server := setupTestServer(t)
 
     t.Run("GET /users/:id", func(t *testing.T) {
@@ -132,7 +134,7 @@ func TestUserAPI(t *testing.T) {
         json.NewDecoder(resp.Body).Decode(&created)
 
         specta.AssertThat(t, created, factory.MatchUser().
-            WithID(specta.Not(BeEmpty())).
+            WithID(specta.Not(IsEmpty())).
             WithName(specta.Equal("Alice")).
             WithEmail(specta.Equal("alice@example.com")))
     })
@@ -161,9 +163,10 @@ func TestUserAPI(t *testing.T) {
 
 ## Complex Object Graphs
 
+<!-- skip-test -->
 ```go
 func TestOrderProcessing(t *testing.T) {
-    p := NewGen()
+    p := specta.New()
 
     // Build a complete order with user, items, and addresses
     order := factory.NewOrder(p).
@@ -209,9 +212,10 @@ func TestOrderProcessing(t *testing.T) {
 
 ## Validation Testing
 
+<!-- skip-test -->
 ```go
 func TestUserValidation(t *testing.T) {
-    p := NewGen()
+    p := specta.New()
 
     tests := []struct {
         name      string
@@ -279,9 +283,10 @@ func TestUserValidation(t *testing.T) {
 
 ## Property-Based Testing Example
 
+<!-- skip-test -->
 ```go
 func TestUserSerializationRoundTrip(t *testing.T) {
-    p := NewGen()
+    p := specta.New()
 
     for i := 0; i < 100; i++ {
         // Generate varied test data
@@ -318,6 +323,7 @@ func generateRandomItems(p Primitives, count int) []Item {
 
 ## Reusable Matchers Pattern
 
+<!-- skip-test -->
 ```go
 // matchers/common.go
 package matchers
@@ -367,9 +373,10 @@ func TestUser(t *testing.T) {
 
 ## Testing State Machines
 
+<!-- skip-test -->
 ```go
 func TestUserStatusTransitions(t *testing.T) {
-    p := NewGen()
+    p := specta.New()
 
     tests := []struct {
         name        string
@@ -422,6 +429,7 @@ func TestUserStatusTransitions(t *testing.T) {
 
 ### Before: Traditional Go Testing
 
+<!-- skip-test -->
 ```go
 func TestOldWay(t *testing.T) {
     user := User{
@@ -449,9 +457,10 @@ func TestOldWay(t *testing.T) {
 
 ### After: With specta
 
+<!-- skip-test -->
 ```go
 func TestNewWay(t *testing.T) {
-    p := NewGen()
+    p := specta.New()
 
     user := factory.NewUser(p).
         WithName("Alice").
@@ -470,6 +479,7 @@ func TestNewWay(t *testing.T) {
 
 ### Setup Helpers
 
+<!-- skip-test -->
 ```go
 // helpers/test_helpers.go
 package helpers
@@ -498,6 +508,7 @@ func AdminUserWithPermissions(p Primitives, permissions ...string) User {
 
 ### Custom Primitives
 
+<!-- skip-test -->
 ```go
 // Create specialized primitives for your domain
 type ProductPrimitives struct {
@@ -515,7 +526,7 @@ func (p *ProductPrimitives) Price() int {
 
 // Usage
 func TestProducts(t *testing.T) {
-    p := &ProductPrimitives{Gen: specta.NewGen()}
+    p := &ProductPrimitives{Gen: specta.New()}
 
     product := factory.NewProduct(p).
         WithSKU(p.SKU()).
@@ -530,5 +541,5 @@ func TestProducts(t *testing.T) {
 
 - Explore the [showcase directory](https://github.com/james-w/specta/tree/main/showcase) in the repo
 - Check out [example directory](https://github.com/james-w/specta/tree/main/example) for more patterns
-- Read the [API Reference](/docs/api-reference/) for complete documentation
+- Read the [API Reference]({{< relref "/docs/api-reference/" >}}) for complete documentation
 - Visit the [GitHub repository](https://github.com/james-w/specta) to contribute

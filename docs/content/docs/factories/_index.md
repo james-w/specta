@@ -3,6 +3,73 @@ title: "Test Data Factories"
 weight: 4
 ---
 
+<!-- setup
+package doctest
+
+import (
+	"testing"
+	"time"
+	"github.com/james-w/specta"
+)
+
+var _ = testing.Verbose
+
+type User struct {
+	ID        string
+	Name      string
+	Email     string
+	Age       int
+	Role      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// Mock factory
+type factoryType struct{}
+
+type userBuilder struct {
+	p    *specta.Gen
+	name string
+	role string
+}
+
+func (b *userBuilder) WithName(name string) *userBuilder {
+	b.name = name
+	return b
+}
+
+func (b *userBuilder) WithRole(role string) *userBuilder {
+	b.role = role
+	return b
+}
+
+func (b *userBuilder) Build() User {
+	name := b.name
+	if name == "" {
+		name = b.p.StringWith("user")
+	}
+	role := b.role
+	if role == "" {
+		role = "user"
+	}
+	return User{
+		ID:        b.p.ID(),
+		Name:      name,
+		Email:     b.p.StringWith("user") + "@example.com",
+		Age:       30,
+		Role:      role,
+		CreatedAt: b.p.Time(),
+		UpdatedAt: b.p.Time(),
+	}
+}
+
+func (f factoryType) NewUser(p *specta.Gen) *userBuilder {
+	return &userBuilder{p: p}
+}
+
+var factory = factoryType{}
+-->
+
 # Test Data Factories
 
 Factories are the flip side of matchers. While matchers **validate** with partial matching, factories **generate** test data with sensible defaults.
@@ -11,15 +78,16 @@ Factories are the flip side of matchers. While matchers **validate** with partia
 
 ### The Test Data Problem
 
+<!-- skip-test -->
 ```go
 func TestUserWorkflow(t *testing.T) {
-    // Ugh, need to specify everything every time
+    // What does this test actually care about?
     user1 := User{
         ID:        "user-1",
         Name:      "Alice",
         Email:     "alice@example.com",
         Age:       30,
-        Role:      "admin",
+        Role:      "admin",           // This matters
         CreatedAt: time.Now(),
         UpdatedAt: time.Now(),
     }
@@ -29,33 +97,52 @@ func TestUserWorkflow(t *testing.T) {
         Name:      "Bob",
         Email:     "bob@example.com",
         Age:       25,
-        Role:      "user",
+        Role:      "user",             // This matters
         CreatedAt: time.Now(),
         UpdatedAt: time.Now(),
     }
 
-    // Copy-paste exhaustion...
+    // Test logic here...
 }
 ```
+
+**The Problem:** It's unclear what the test depends on. Does it care about:
+- The specific names "Alice" and "Bob"?
+- The exact email addresses?
+- The ages being different?
+- The timestamps?
+
+You have to read the whole test to figure out what actually matters. Most of these fields are just **noise** - required by the struct but irrelevant to the test.
 
 ### The Factory Solution
 
+<!-- skip-test -->
 ```go
 func TestUserWorkflow(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
-    // Specify only what matters, get sensible defaults for the rest
-    alice := factory.NewUser(p).WithName("Alice").WithRole("admin").Build()
-    bob := factory.NewUser(p).WithName("Bob").Build()
+    // Crystal clear: this test cares about roles
+    alice := factory.NewUser(p).WithRole("admin").Build()
+    bob := factory.NewUser(p).WithRole("user").Build()
 
-    // IDs, emails, timestamps, etc. are automatically generated
+    // Everything else gets sensible defaults
+    // IDs, emails, names, timestamps - all deterministic, not random
 }
 ```
+
+**The Philosophy:**
+- **Only specify what matters** - If the test doesn't care about the name, don't set it
+- **Defaults aren't special** - They're unlikely to be magic values that make tests pass accidentally
+- **Deterministic, not random** - Same test run produces same data (no flakiness)
+- **Clear dependencies** - Reader immediately sees what the test depends on
+
+With factories, `alice` and `bob` will have different IDs, emails, names (generated deterministically), but you only specified roles because **that's what the test actually cares about**.
 
 ## Primitives System
 
 The `Primitives` interface provides deterministic test data generation:
 
+<!-- skip-test -->
 ```go
 type Primitives interface {
     Next() int                    // Counter-based: 0, 1, 2, 3...
@@ -70,30 +157,19 @@ type Primitives interface {
 
 `Gen` is the standard implementation:
 
+<!-- skip-test -->
 ```go
-p := specta.NewGen()
+p := specta.New()
 
 // Deterministic generation
-id1 := p.ID("user")   // "user-0"
-id2 := p.ID("user")   // "user-1"
-email1 := p.String("user") + "@example.com"  // "user-0@example.com"
-email2 := p.String("user") + "@example.com"  // "user-1@example.com"
+id1 := p.ID()   // "user-0"
+id2 := p.ID()   // "user-1"
+email1 := p.StringWith("user") + "@example.com"  // "user-0@example.com"
+email2 := p.StringWith("user") + "@example.com"  // "user-1@example.com"
 
 // Times increment from base
 t1 := p.Time()  // 2024-01-01 00:00:00
 t2 := p.Time()  // 2024-01-01 00:00:01
-```
-
-### Configuring Gen
-
-```go
-// Custom configuration
-p := &specta.Gen{
-    Counter:  100,                          // Start counter at 100
-    BaseTime: time.Date(2025, 1, 1, ...),  // Custom base time
-    Step:     5 * time.Second,              // 5-second increments
-    Prefix:   "test",                       // Default prefix
-}
 ```
 
 ## Generated Factories
@@ -102,37 +178,30 @@ Remember the `specta.yaml` from the matchers section? It **also** generates fact
 
 ```yaml
 # specta.yaml
-package: mypackage
-output_dir: factory
-types:
-  - name: User
-    fields:
-      - name: ID
-        type: string
-      - name: Name
-        type: string
-      - name: Email
-        type: string
-      - name: Age
-        type: int
-      - name: CreatedAt
-        type: time.Time
+version: 1
+targets:
+  - package: .
+    types:
+      include:
+        - User
 ```
 
-Running `go run github.com/james-w/specta/cmd/main.go -config specta.yaml` generates:
+Running `go run github.com/james-w/specta/cmd -config specta.yaml` generates:
 
-- `factory/user_gen.go` - Factory builders
+- `factory/user_gen.go` - Factory recipes (fluent builders)
 - `factory/user_matcher_gen.go` - Matchers (we already covered these!)
+- `factory/spec/user_gen.go` - Low-level factory builders
 
 ## Using Generated Factories
 
 ### Basic Usage
 
+<!-- skip-test -->
 ```go
-p := specta.NewGen()
+p := specta.New()
 
 // Build with all defaults
-user := factory.NewUser(p).Build()
+user := factory.User().Build(p)
 // Result:
 //   ID: "user-0"
 //   Name: "name-0"
@@ -141,10 +210,10 @@ user := factory.NewUser(p).Build()
 //   CreatedAt: <base time>
 
 // Override specific fields
-alice := factory.NewUser(p).
-    WithName("Alice").
-    WithEmail("alice@example.com").
-    Build()
+alice := factory.User().
+    Name("Alice").
+    Email("alice@example.com").
+    Build(p)
 // Result:
 //   ID: "user-1"          ← Auto-generated
 //   Name: "Alice"         ← Specified
@@ -157,14 +226,15 @@ alice := factory.NewUser(p).
 
 Build multiple related objects:
 
+<!-- skip-test -->
 ```go
 func TestMultipleUsers(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
     users := []User{
-        factory.NewUser(p).WithName("Alice").WithRole("admin").Build(),
-        factory.NewUser(p).WithName("Bob").Build(),
-        factory.NewUser(p).WithName("Charlie").Build(),
+        factory.User().Name("Alice").Role("admin").Build(p),
+        factory.User().Name("Bob").Build(p),
+        factory.User().Name("Charlie").Build(p),
     }
 
     // Each gets unique IDs, emails, timestamps automatically
@@ -173,89 +243,75 @@ func TestMultipleUsers(t *testing.T) {
 
 ### Nested Objects
 
+<!-- skip-test -->
 ```go
+p := specta.New()
+
 // Generate nested structures
-order := factory.NewOrder(p).
-    WithUser(factory.NewUser(p).
-        WithName("Alice").
-        Build()).
-    WithItems([]Item{
-        factory.NewItem(p).WithSKU("WIDGET-1").Build(),
-        factory.NewItem(p).WithSKU("GADGET-2").Build(),
+order := factory.Order().
+    UserFromRecipe(factory.User().Name("Alice")).
+    Items([]Item{
+        factory.Item().SKU("WIDGET-1").Build(p),
+        factory.Item().SKU("GADGET-2").Build(p),
     }).
-    Build()
+    Build(p)
 ```
 
 ## Factory Patterns
 
 ### Named Configurations
 
-Create factory functions for common scenarios:
+Create factory functions that return recipes for common scenarios:
 
+<!-- skip-test -->
 ```go
 // factory/helpers.go
-func AdminUser(p Primitives) User {
-    return NewUser(p).
-        WithRole("admin").
-        WithPermissions([]string{"read", "write", "delete"}).
-        Build()
+func AdminUser() UserRecipe {
+    return factory.User().
+        Role("admin").
+        Permissions([]string{"read", "write", "delete"})
 }
 
-func GuestUser(p Primitives) User {
-    return NewUser(p).
-        WithRole("guest").
-        WithPermissions([]string{"read"}).
-        Build()
+func GuestUser() UserRecipe {
+    return factory.User().
+        Role("guest").
+        Permissions([]string{"read"})
 }
 
-func ExpiredUser(p Primitives) User {
-    return NewUser(p).
-        WithExpiresAt(time.Now().Add(-24 * time.Hour)).
-        Build()
+func ExpiredUser() UserRecipe {
+    return factory.User().
+        ExpiresAt(time.Now().Add(-24 * time.Hour))
 }
 ```
 
 Usage:
 
+<!-- skip-test -->
 ```go
 func TestPermissions(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
-    admin := factory.AdminUser(p)
-    guest := factory.GuestUser(p)
+    // Build directly
+    admin := factory.AdminUser().Build(p)
+    guest := factory.GuestUser().Build(p)
 
-    // Test with clearly-named test data
+    // Or further customize before building
+    superAdmin := factory.AdminUser().
+        Name("Super Admin").
+        Build(p)
 }
 ```
 
-### Partial Specification
-
-Only set what matters for your test:
-
-```go
-// Test email validation - don't care about other fields
-func TestEmailValidation(t *testing.T) {
-    p := specta.NewGen()
-
-    validUser := factory.NewUser(p).
-        WithEmail("valid@example.com").
-        Build()
-
-    invalidUser := factory.NewUser(p).
-        WithEmail("invalid-email").
-        Build()
-
-    // Everything else is auto-generated
-}
-```
+**Why return recipes?** They're composable - you can further customize them before building, or use them in nested structures with `FromRecipe` methods.
 
 ### Composing Factories
 
 Build complex object graphs:
 
+<!-- skip-test -->
 ```go
 func TestOrderProcessing(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
     // Build an entire order graph
     order := factory.NewOrder(p).
@@ -281,10 +337,11 @@ func TestOrderProcessing(t *testing.T) {
 
 Factories with primitives give you **reproducible test data**:
 
+<!-- skip-test -->
 ```go
 func TestSomething(t *testing.T) {
     // Same starting point = same data every time
-    p := specta.NewGen()
+    p := specta.New()
 
     user1 := factory.NewUser(p).Build()
     user2 := factory.NewUser(p).Build()
@@ -298,11 +355,10 @@ func TestSomething(t *testing.T) {
 
 This is crucial for:
 - Debugging flaky tests
-- Property-based testing (coming next!)
 - Consistent test environments
 
 ## Next Steps
 
-- [Factories + Matchers Together](/docs/factories-and-matchers/) - The complete pattern
-- [Property-Based Testing](/docs/property-based-testing/) - Use factories for PBT
-- [Examples](/docs/examples/) - Real-world factory usage
+- [Factories + Matchers Together]({{< relref "/docs/factories-and-matchers/" >}}) - The complete pattern
+- [Property-Based Testing]({{< relref "/docs/property-based-testing/" >}}) - Use factories for PBT
+- [Examples]({{< relref "/docs/examples/" >}}) - Real-world factory usage

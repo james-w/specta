@@ -40,15 +40,33 @@ func (r TeamRecipe) ID(v string) TeamRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r TeamRecipe) IDFromGenerator(gen specta.Generator[string]) TeamRecipe {
+	r.opts = append(r.opts, spec.WithTeamIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r TeamRecipe) Name(v string) TeamRecipe {
 	r.opts = append(r.opts, spec.WithTeamName(v))
 	return r
 }
 
+// NameFromGenerator sets the Name field using a Generator.
+func (r TeamRecipe) NameFromGenerator(gen specta.Generator[string]) TeamRecipe {
+	r.opts = append(r.opts, spec.WithTeamNameFromGenerator(gen))
+	return r
+}
+
 // Members sets the Members field.
 func (r TeamRecipe) Members(v []showcase.Member) TeamRecipe {
 	r.opts = append(r.opts, spec.WithTeamMembers(v))
+	return r
+}
+
+// MembersFromGenerator sets the Members field using a Generator.
+func (r TeamRecipe) MembersFromGenerator(gen specta.Generator[[]showcase.Member]) TeamRecipe {
+	r.opts = append(r.opts, spec.WithTeamMembersFromGenerator(gen))
 	return r
 }
 

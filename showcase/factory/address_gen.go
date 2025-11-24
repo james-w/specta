@@ -42,9 +42,21 @@ func (r AddressRecipe) Street(v string) AddressRecipe {
 	return r
 }
 
+// StreetFromGenerator sets the Street field using a Generator.
+func (r AddressRecipe) StreetFromGenerator(gen specta.Generator[string]) AddressRecipe {
+	r.opts = append(r.opts, spec.WithAddressStreetFromGenerator(gen))
+	return r
+}
+
 // City sets the City field.
 func (r AddressRecipe) City(v string) AddressRecipe {
 	r.opts = append(r.opts, spec.WithAddressCity(v))
+	return r
+}
+
+// CityFromGenerator sets the City field using a Generator.
+func (r AddressRecipe) CityFromGenerator(gen specta.Generator[string]) AddressRecipe {
+	r.opts = append(r.opts, spec.WithAddressCityFromGenerator(gen))
 	return r
 }
 
@@ -54,15 +66,33 @@ func (r AddressRecipe) State(v string) AddressRecipe {
 	return r
 }
 
+// StateFromGenerator sets the State field using a Generator.
+func (r AddressRecipe) StateFromGenerator(gen specta.Generator[string]) AddressRecipe {
+	r.opts = append(r.opts, spec.WithAddressStateFromGenerator(gen))
+	return r
+}
+
 // ZipCode sets the ZipCode field.
 func (r AddressRecipe) ZipCode(v string) AddressRecipe {
 	r.opts = append(r.opts, spec.WithAddressZipCode(v))
 	return r
 }
 
+// ZipCodeFromGenerator sets the ZipCode field using a Generator.
+func (r AddressRecipe) ZipCodeFromGenerator(gen specta.Generator[string]) AddressRecipe {
+	r.opts = append(r.opts, spec.WithAddressZipCodeFromGenerator(gen))
+	return r
+}
+
 // Country sets the Country field.
 func (r AddressRecipe) Country(v string) AddressRecipe {
 	r.opts = append(r.opts, spec.WithAddressCountry(v))
+	return r
+}
+
+// CountryFromGenerator sets the Country field using a Generator.
+func (r AddressRecipe) CountryFromGenerator(gen specta.Generator[string]) AddressRecipe {
+	r.opts = append(r.opts, spec.WithAddressCountryFromGenerator(gen))
 	return r
 }
 

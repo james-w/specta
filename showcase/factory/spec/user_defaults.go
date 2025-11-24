@@ -10,14 +10,14 @@ import (
 // This file demonstrates overriding generated defaults with custom logic.
 
 func init() {
-	// Override email default to use a more realistic test pattern
-	UserDefaultEmail = func(s specta.Source) string {
+	// Override email generator to use a more realistic test pattern
+	UserEmailGenerator = specta.GeneratorFromProvider(func(s specta.Source) string {
 		counter := s.DrawBits(32)
 		return fmt.Sprintf("user%d@test.example.com", counter)
-	}
+	})
 
-	// Override Active default to always be true (active by default)
-	UserDefaultActive = func(s specta.Source) bool {
+	// Override Active generator to always be true (active by default)
+	UserActiveGenerator = specta.GeneratorFromProvider(func(s specta.Source) bool {
 		return true
-	}
+	})
 }

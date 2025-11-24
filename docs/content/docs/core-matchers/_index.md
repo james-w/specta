@@ -3,6 +3,43 @@ title: "Core Matchers"
 weight: 2
 ---
 
+<!-- setup
+package doctest
+
+import (
+	"testing"
+)
+
+var _ = testing.Verbose
+
+type User struct {
+	Name  string
+	Email string
+	Age   int
+}
+
+type YourType struct{}
+
+var (
+	value        = 42
+	user         = User{Name: "Alice", Email: "alice@example.com", Age: 30}
+	expectedUser = User{Name: "Alice", Email: "alice@example.com", Age: 30}
+	age          = 25
+	score        = 85
+	count        = 5
+	ptr          *YourType
+	nonNilPtr    = &YourType{}
+	message      = "error occurred"
+	filename     = "test_file.go"
+	email        = "user@example.com"
+	name         = "Alice"
+	status       = "active"
+	list         = []string{"apple", "banana", "cherry"}
+	emptyList    = []string{}
+	numbers      = []int{2, 4, 6, 8}
+)
+-->
+
 # Core Matchers
 
 Matchers are the foundation of specta. They test values and provide detailed, structured failure messages.
@@ -22,14 +59,13 @@ specta.AssertThat(t, user, specta.DeepEqual(expectedUser))
 specta.AssertThat(t, age, specta.GreaterThan(18))
 specta.AssertThat(t, score, specta.LessThan(100))
 specta.AssertThat(t, value, specta.GreaterThanOrEqual(0))
-specta.AssertThat(t, count, specta.LessThanOrEqual(10))
 ```
 
 ### Nil Checking
 
 ```go
 specta.AssertThat(t, ptr, specta.IsNil[YourType]())
-specta.AssertThat(t, value, specta.IsNotNil[YourType]())
+specta.AssertThat(t, nonNilPtr, specta.IsNotNil[YourType]())
 ```
 
 ## String Matchers
@@ -59,7 +95,7 @@ specta.AssertThat(t, name, specta.Not(specta.Equal("")))
 ### Size and Emptiness
 
 ```go
-specta.AssertThat(t, list, specta.HasSize[string](5))
+specta.AssertThat(t, list, specta.HasSize[string](3))
 specta.AssertThat(t, emptyList, specta.IsEmpty[string]())
 ```
 
@@ -160,6 +196,6 @@ func TestUser(t *testing.T) {
 ## Next Steps
 
 Now that you understand core matchers, learn how to:
-- Generate matchers for [your custom types](/docs/matchers-for-your-types/)
-- Create [test data with factories](/docs/factories/)
-- Combine [factories and matchers](/docs/factories-and-matchers/) for powerful tests
+- Generate matchers for [your custom types]({{< relref "/docs/matchers-for-your-types/" >}})
+- Create [test data with factories]({{< relref "/docs/factories/" >}})
+- Combine [factories and matchers]({{< relref "/docs/factories-and-matchers/" >}}) for powerful tests

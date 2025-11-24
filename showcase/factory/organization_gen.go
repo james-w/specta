@@ -44,15 +44,34 @@ func (r OrganizationRecipe) ID(v string) OrganizationRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r OrganizationRecipe) IDFromGenerator(gen specta.Generator[string]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r OrganizationRecipe) Name(v string) OrganizationRecipe {
 	r.opts = append(r.opts, spec.WithOrganizationName(v))
 	return r
 }
 
+// NameFromGenerator sets the Name field using a Generator.
+func (r OrganizationRecipe) NameFromGenerator(gen specta.Generator[string]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationNameFromGenerator(gen))
+	return r
+}
+
 // CEO sets the CEO field.
 func (r OrganizationRecipe) CEO(v *showcase.User) OrganizationRecipe {
 	r.opts = append(r.opts, spec.WithOrganizationCEO(v))
+	r.cEORecipe = nil
+	return r
+}
+
+// CEOFromGenerator sets the CEO field using a Generator.
+func (r OrganizationRecipe) CEOFromGenerator(gen specta.Generator[*showcase.User]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationCEOFromGenerator(gen))
 	r.cEORecipe = nil
 	return r
 }
@@ -72,15 +91,33 @@ func (r OrganizationRecipe) Teams(v []showcase.Team) OrganizationRecipe {
 	return r
 }
 
+// TeamsFromGenerator sets the Teams field using a Generator.
+func (r OrganizationRecipe) TeamsFromGenerator(gen specta.Generator[[]showcase.Team]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationTeamsFromGenerator(gen))
+	return r
+}
+
 // Members sets the Members field.
 func (r OrganizationRecipe) Members(v []showcase.Member) OrganizationRecipe {
 	r.opts = append(r.opts, spec.WithOrganizationMembers(v))
 	return r
 }
 
+// MembersFromGenerator sets the Members field using a Generator.
+func (r OrganizationRecipe) MembersFromGenerator(gen specta.Generator[[]showcase.Member]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationMembersFromGenerator(gen))
+	return r
+}
+
 // Metadata sets the Metadata field.
 func (r OrganizationRecipe) Metadata(v map[string]string) OrganizationRecipe {
 	r.opts = append(r.opts, spec.WithOrganizationMetadata(v))
+	return r
+}
+
+// MetadataFromGenerator sets the Metadata field using a Generator.
+func (r OrganizationRecipe) MetadataFromGenerator(gen specta.Generator[map[string]string]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationMetadataFromGenerator(gen))
 	return r
 }
 

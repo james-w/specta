@@ -45,9 +45,21 @@ func (r ProductRecipe) ID(v string) ProductRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r ProductRecipe) IDFromGenerator(gen specta.Generator[string]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r ProductRecipe) Name(v string) ProductRecipe {
 	r.opts = append(r.opts, spec.WithProductName(v))
+	return r
+}
+
+// NameFromGenerator sets the Name field using a Generator.
+func (r ProductRecipe) NameFromGenerator(gen specta.Generator[string]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductNameFromGenerator(gen))
 	return r
 }
 
@@ -57,9 +69,21 @@ func (r ProductRecipe) Description(v string) ProductRecipe {
 	return r
 }
 
+// DescriptionFromGenerator sets the Description field using a Generator.
+func (r ProductRecipe) DescriptionFromGenerator(gen specta.Generator[string]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductDescriptionFromGenerator(gen))
+	return r
+}
+
 // Price sets the Price field.
 func (r ProductRecipe) Price(v float64) ProductRecipe {
 	r.opts = append(r.opts, spec.WithProductPrice(v))
+	return r
+}
+
+// PriceFromGenerator sets the Price field using a Generator.
+func (r ProductRecipe) PriceFromGenerator(gen specta.Generator[float64]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductPriceFromGenerator(gen))
 	return r
 }
 
@@ -69,9 +93,21 @@ func (r ProductRecipe) InStock(v bool) ProductRecipe {
 	return r
 }
 
+// InStockFromGenerator sets the InStock field using a Generator.
+func (r ProductRecipe) InStockFromGenerator(gen specta.Generator[bool]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductInStockFromGenerator(gen))
+	return r
+}
+
 // CreatedAt sets the CreatedAt field.
 func (r ProductRecipe) CreatedAt(v time.Time) ProductRecipe {
 	r.opts = append(r.opts, spec.WithProductCreatedAt(v))
+	return r
+}
+
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r ProductRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductCreatedAtFromGenerator(gen))
 	return r
 }
 

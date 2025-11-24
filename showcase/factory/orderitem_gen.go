@@ -42,6 +42,13 @@ func (r OrderItemRecipe) Product(v showcase.Product) OrderItemRecipe {
 	return r
 }
 
+// ProductFromGenerator sets the Product field using a Generator.
+func (r OrderItemRecipe) ProductFromGenerator(gen specta.Generator[showcase.Product]) OrderItemRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemProductFromGenerator(gen))
+	r.productRecipe = nil
+	return r
+}
+
 // ProductFromRecipe sets the Product field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
@@ -57,9 +64,21 @@ func (r OrderItemRecipe) Quantity(v int) OrderItemRecipe {
 	return r
 }
 
+// QuantityFromGenerator sets the Quantity field using a Generator.
+func (r OrderItemRecipe) QuantityFromGenerator(gen specta.Generator[int]) OrderItemRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemQuantityFromGenerator(gen))
+	return r
+}
+
 // Price sets the Price field.
 func (r OrderItemRecipe) Price(v float64) OrderItemRecipe {
 	r.opts = append(r.opts, spec.WithOrderItemPrice(v))
+	return r
+}
+
+// PriceFromGenerator sets the Price field using a Generator.
+func (r OrderItemRecipe) PriceFromGenerator(gen specta.Generator[float64]) OrderItemRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemPriceFromGenerator(gen))
 	return r
 }
 

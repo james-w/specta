@@ -47,9 +47,22 @@ func (r OrderRecipe) ID(v string) OrderRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r OrderRecipe) IDFromGenerator(gen specta.Generator[string]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderIDFromGenerator(gen))
+	return r
+}
+
 // User sets the User field.
 func (r OrderRecipe) User(v showcase.User) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderUser(v))
+	r.userRecipe = nil
+	return r
+}
+
+// UserFromGenerator sets the User field using a Generator.
+func (r OrderRecipe) UserFromGenerator(gen specta.Generator[showcase.User]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderUserFromGenerator(gen))
 	r.userRecipe = nil
 	return r
 }
@@ -69,9 +82,21 @@ func (r OrderRecipe) Items(v []showcase.OrderItem) OrderRecipe {
 	return r
 }
 
+// ItemsFromGenerator sets the Items field using a Generator.
+func (r OrderRecipe) ItemsFromGenerator(gen specta.Generator[[]showcase.OrderItem]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemsFromGenerator(gen))
+	return r
+}
+
 // Total sets the Total field.
 func (r OrderRecipe) Total(v float64) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderTotal(v))
+	return r
+}
+
+// TotalFromGenerator sets the Total field using a Generator.
+func (r OrderRecipe) TotalFromGenerator(gen specta.Generator[float64]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderTotalFromGenerator(gen))
 	return r
 }
 
@@ -81,15 +106,33 @@ func (r OrderRecipe) Status(v string) OrderRecipe {
 	return r
 }
 
+// StatusFromGenerator sets the Status field using a Generator.
+func (r OrderRecipe) StatusFromGenerator(gen specta.Generator[string]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderStatusFromGenerator(gen))
+	return r
+}
+
 // CreatedAt sets the CreatedAt field.
 func (r OrderRecipe) CreatedAt(v time.Time) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderCreatedAt(v))
 	return r
 }
 
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r OrderRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderCreatedAtFromGenerator(gen))
+	return r
+}
+
 // UpdatedAt sets the UpdatedAt field.
 func (r OrderRecipe) UpdatedAt(v time.Time) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderUpdatedAt(v))
+	return r
+}
+
+// UpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
+func (r OrderRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderUpdatedAtFromGenerator(gen))
 	return r
 }
 

@@ -13,15 +13,16 @@ Factories and matchers are two sides of the same coin. Together, they create a p
 
 **Matchers**: Validate with partial matching → "Assert what matters"
 
+<!-- skip-test -->
 ```go
 func TestUserCreation(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
     // Build: specify only what we're setting
-    input := factory.NewUser(p).
-        WithName("Alice").
-        WithEmail("alice@example.com").
-        Build()
+    input := factory.User().
+        Name("Alice").
+        Email("alice@example.com").
+        Build(p)
 
     result := CreateUser(input)
 
@@ -29,16 +30,17 @@ func TestUserCreation(t *testing.T) {
     specta.AssertThat(t, result, factory.MatchUser().
         WithName(specta.Equal("Alice")).
         WithEmail(specta.Equal("alice@example.com")).
-        WithID(specta.Not(BeEmpty())))
+        WithID(specta.Not(IsEmpty())))
 }
 ```
 
 ## Why This Works
 
-### Prevents Brittle Tests
+### Clear Test Dependencies
 
 When you add a new field to `User`:
 
+<!-- skip-test -->
 ```go
 type User struct {
     ID        string
@@ -52,27 +54,30 @@ type User struct {
 ```
 
 **Without factories/matchers:**
-- Every test that creates a `User{}` must be updated
-- Every assertion checking all fields breaks
-- Brittle, unmaintainable tests
+- Tests creating `User{}` get zero value for `LastLogin`
+- Unclear if that's intentional or an oversight
+- Hard to tell what each test actually depends on
+- If the new field needs a non-zero default, you must update every test
 
 **With factories/matchers:**
-- Factory provides a default for `LastLogin`
-- Matchers only check fields they care about
-- Tests continue working!
+- Factory provides a sensible default for `LastLogin` in one place
+- Tests continue working with reasonable data
+- Clear which fields each test cares about (only those in the matcher)
+- One update to the factory helper if needed, not N test updates
 
 ### Focus Tests on Intent
 
 Each test asserts exactly what it's testing:
 
+<!-- skip-test -->
 ```go
 // Test 1: Only care about name normalization
 func TestNameNormalization(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
-    user := CreateUser(factory.NewUser(p).
-        WithName("  ALICE  ").
-        Build())
+    user := CreateUser(factory.User().
+        Name("  ALICE  ").
+        Build(p))
 
     specta.AssertThat(t, user, factory.MatchUser().
         WithName(specta.Equal("Alice")))
@@ -80,11 +85,11 @@ func TestNameNormalization(t *testing.T) {
 
 // Test 2: Only care about email domain validation
 func TestEmailDomain(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
-    user := CreateUser(factory.NewUser(p).
-        WithEmail("alice@company.com").
-        Build())
+    user := CreateUser(factory.User().
+        Email("alice@company.com").
+        Build(p))
 
     specta.AssertThat(t, user, factory.MatchUser().
         WithEmail(HaveSuffix("@company.com")))
@@ -95,61 +100,64 @@ func TestEmailDomain(t *testing.T) {
 
 ### Testing CRUD Operations
 
+<!-- skip-test -->
 ```go
 func TestCreateUser(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
     db := setupTestDB(t)
 
     // Arrange: Build input
-    userData := factory.NewUser(p).
-        WithName("Alice").
-        WithEmail("alice@example.com").
-        Build()
+    userData := factory.User().
+        Name("Alice").
+        Email("alice@example.com").
+        Build(p)
 
     // Act
     created := db.CreateUser(userData)
 
     // Assert: Validate result
     specta.AssertThat(t, created, factory.MatchUser().
-        WithID(specta.Not(BeEmpty())).              // DB generated
-        WithName(specta.Equal("Alice")).
-        WithEmail(specta.Equal("alice@example.com")).
-        WithCreatedAt(specta.Not(BeZero())))        // DB timestamp
+        WithID(specta.Not(IsEmpty())).              // DB generated
+        WithName(specta.Equal(userData.Name)).
+        WithEmail(specta.Equal(userData.Email)).
+        WithCreatedAt(specta.Not(IsZero())))        // DB timestamp
 }
 
 func TestUpdateUser(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
     db := setupTestDB(t)
 
     // Create initial user
-    user := db.CreateUser(factory.NewUser(p).Build())
+    user := db.CreateUser(factory.User().Build(p))
 
     // Update name
-    updates := factory.NewUser(p).
-        WithName("New Name").
-        Build()
+    updates := factory.User().
+        Name("New Name").
+        Build(p)
 
     updated := db.UpdateUser(user.ID, updates)
 
     // Assert only what changed
     specta.AssertThat(t, updated, factory.MatchUser().
-        WithID(specta.Equal(user.ID)).              // Same ID
-        WithName(specta.Equal("New Name")).         // Updated
-        WithCreatedAt(specta.Equal(user.CreatedAt))) // Unchanged
+        WithID(specta.Equal(user.ID)).                  // Same ID
+        WithName(specta.Equal(updates.Name)).           // Updated
+        WithCreatedAt(specta.Equal(user.CreatedAt)).    // Unchanged
+        WithUpdatedAt(specta.GreaterThan(user.UpdatedAt))) // Changed
 }
 ```
 
 ### API Response Validation
 
+<!-- skip-test -->
 ```go
 func TestGetUserAPI(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
     // Setup: Create user in DB
-    user := factory.NewUser(p).
-        WithName("Alice").
-        WithEmail("alice@example.com").
-        Build()
+    user := factory.User().
+        Name("Alice").
+        Email("alice@example.com").
+        Build(p)
     db.CreateUser(user)
 
     // Make API request
@@ -162,84 +170,36 @@ func TestGetUserAPI(t *testing.T) {
     // Validate response
     specta.AssertThat(t, result, factory.MatchUser().
         WithID(specta.Equal(user.ID)).
-        WithName(specta.Equal("Alice")).
-        WithEmail(specta.Equal("alice@example.com")))
+        WithName(specta.Equal(user.Name)).
+        WithEmail(specta.Equal(user.Email)))
 }
 ```
 
-### Database Entity Tests
+**Note:** You could extract this matcher into a reusable function:
 
+<!-- skip-test -->
 ```go
-func TestUserRepository(t *testing.T) {
-    p := specta.NewGen()
-    repo := NewUserRepository(db)
-
-    tests := []struct {
-        name  string
-        user  User
-        check func(*testing.T, User)
-    }{
-        {
-            name: "creates user with generated ID",
-            user: factory.NewUser(p).WithName("Alice").Build(),
-            check: func(t *testing.T, result User) {
-                specta.AssertThat(t, result, factory.MatchUser().
-                    WithID(specta.Not(BeEmpty())).
-                    WithName(specta.Equal("Alice")))
-            },
-        },
-        {
-            name: "normalizes email",
-            user: factory.NewUser(p).WithEmail("ALICE@EXAMPLE.COM").Build(),
-            check: func(t *testing.T, result User) {
-                specta.AssertThat(t, result, factory.MatchUser().
-                    WithEmail(specta.Equal("alice@example.com")))
-            },
-        },
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            result := repo.Create(tt.user)
-            tt.check(t, result)
-        })
-    }
+func MatchesDBUser(user User) factory.UserMatcher {
+    return factory.MatchUser().
+        WithID(specta.Equal(user.ID)).
+        WithName(specta.Equal(user.Name)).
+        WithEmail(specta.Equal(user.Email))
 }
+
+// Usage
+specta.AssertThat(t, result, MatchesDBUser(user))
 ```
+
+This is especially useful when testing multiple API endpoints that return the same user representation.
 
 ## Advanced Patterns
 
-### Testing Relationships
-
-```go
-func TestOrderWithItems(t *testing.T) {
-    p := specta.NewGen()
-
-    order := factory.NewOrder(p).
-        WithUser(factory.NewUser(p).
-            WithName("Alice").
-            Build()).
-        WithItems([]Item{
-            factory.NewItem(p).WithPrice(1000).Build(),
-            factory.NewItem(p).WithPrice(2000).Build(),
-        }).
-        Build()
-
-    result := ProcessOrder(order)
-
-    specta.AssertThat(t, result, factory.MatchOrder().
-        WithStatus(specta.Equal("processed")).
-        WithTotal(specta.Equal(3000)).
-        WithUser(factory.MatchUser().
-            WithName(specta.Equal("Alice"))))
-}
-```
-
 ### Table-Driven Tests
 
+<!-- skip-test -->
 ```go
 func TestValidation(t *testing.T) {
-    p := specta.NewGen()
+    p := specta.New()
 
     tests := []struct {
         name      string
@@ -248,23 +208,23 @@ func TestValidation(t *testing.T) {
     }{
         {
             name: "valid user",
-            user: factory.NewUser(p).
-                WithEmail("valid@example.com").
-                Build(),
+            user: factory.User().
+                Email("valid@example.com").
+                Build(p),
             wantError: false,
         },
         {
             name: "invalid email",
-            user: factory.NewUser(p).
-                WithEmail("invalid").
-                Build(),
+            user: factory.User().
+                Email("invalid").
+                Build(p),
             wantError: true,
         },
         {
             name: "missing name",
-            user: factory.NewUser(p).
-                WithName("").
-                Build(),
+            user: factory.User().
+                Name("").
+                Build(p),
             wantError: true,
         },
     }
@@ -295,6 +255,6 @@ func TestValidation(t *testing.T) {
 
 ## Next Steps
 
-- [Property-Based Testing](/docs/property-based-testing/) - Use factories for PBT
-- [Advanced Topics](/docs/advanced/) - Custom matchers, patterns
-- [Examples](/docs/examples/) - More real-world examples
+- [Property-Based Testing]({{< relref "/docs/property-based-testing/" >}}) - Use factories for PBT
+- [Advanced Topics]({{< relref "/docs/advanced/" >}}) - Custom matchers, patterns
+- [Examples]({{< relref "/docs/examples/" >}}) - More real-world examples

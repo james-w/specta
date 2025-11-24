@@ -43,9 +43,21 @@ func (r ProfileRecipe) ID(v string) ProfileRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r ProfileRecipe) IDFromGenerator(gen specta.Generator[string]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r ProfileRecipe) Name(v string) ProfileRecipe {
 	r.opts = append(r.opts, spec.WithProfileName(v))
+	return r
+}
+
+// NameFromGenerator sets the Name field using a Generator.
+func (r ProfileRecipe) NameFromGenerator(gen specta.Generator[string]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileNameFromGenerator(gen))
 	return r
 }
 
@@ -55,9 +67,22 @@ func (r ProfileRecipe) Description(v string) ProfileRecipe {
 	return r
 }
 
+// DescriptionFromGenerator sets the Description field using a Generator.
+func (r ProfileRecipe) DescriptionFromGenerator(gen specta.Generator[string]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileDescriptionFromGenerator(gen))
+	return r
+}
+
 // Manager sets the Manager field.
 func (r ProfileRecipe) Manager(v *showcase.User) ProfileRecipe {
 	r.opts = append(r.opts, spec.WithProfileManager(v))
+	r.managerRecipe = nil
+	return r
+}
+
+// ManagerFromGenerator sets the Manager field using a Generator.
+func (r ProfileRecipe) ManagerFromGenerator(gen specta.Generator[*showcase.User]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileManagerFromGenerator(gen))
 	r.managerRecipe = nil
 	return r
 }
@@ -74,6 +99,12 @@ func (r ProfileRecipe) ManagerFromRecipe(v UserRecipe) ProfileRecipe {
 // IsPublic sets the IsPublic field.
 func (r ProfileRecipe) IsPublic(v bool) ProfileRecipe {
 	r.opts = append(r.opts, spec.WithProfileIsPublic(v))
+	return r
+}
+
+// IsPublicFromGenerator sets the IsPublic field using a Generator.
+func (r ProfileRecipe) IsPublicFromGenerator(gen specta.Generator[bool]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileIsPublicFromGenerator(gen))
 	return r
 }
 

@@ -41,9 +41,21 @@ func (r UserViewRecipe) ID(v string) UserViewRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r UserViewRecipe) IDFromGenerator(gen specta.Generator[string]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r UserViewRecipe) Name(v string) UserViewRecipe {
 	r.opts = append(r.opts, spec.WithUserViewName(v))
+	return r
+}
+
+// NameFromGenerator sets the Name field using a Generator.
+func (r UserViewRecipe) NameFromGenerator(gen specta.Generator[string]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewNameFromGenerator(gen))
 	return r
 }
 
@@ -53,9 +65,21 @@ func (r UserViewRecipe) Active(v bool) UserViewRecipe {
 	return r
 }
 
+// ActiveFromGenerator sets the Active field using a Generator.
+func (r UserViewRecipe) ActiveFromGenerator(gen specta.Generator[bool]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewActiveFromGenerator(gen))
+	return r
+}
+
 // Score sets the Score field.
 func (r UserViewRecipe) Score(v int) UserViewRecipe {
 	r.opts = append(r.opts, spec.WithUserViewScore(v))
+	return r
+}
+
+// ScoreFromGenerator sets the Score field using a Generator.
+func (r UserViewRecipe) ScoreFromGenerator(gen specta.Generator[int]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewScoreFromGenerator(gen))
 	return r
 }
 

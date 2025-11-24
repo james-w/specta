@@ -35,6 +35,23 @@ func (m Maybe[V]) Value(s Source) V {
 	return m.fn(s)
 }
 
+// GetWithGenerator returns the set value if present, otherwise draws from the generator with the given label.
+// This is used by generated factory code to support composable generator defaults.
+func (m Maybe[V]) GetWithGenerator(s Source, label string, gen Generator[V]) V {
+	if m.set {
+		return m.fn(s)
+	}
+	return gen.Draw(s, label)
+}
+
+// ProviderFromGenerator converts a Generator[V] into a Provider[V] by capturing the label.
+// This bridges the gap between composable generators and the Provider-based spec system.
+func ProviderFromGenerator[V any](gen Generator[V], label string) Provider[V] {
+	return func(s Source) V {
+		return gen.Draw(s, label)
+	}
+}
+
 // Opt applies to a spec S (not the final instance).
 type Opt[S any] func(*S)
 

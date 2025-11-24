@@ -11,6 +11,7 @@ Core matchers are great, but what about testing your own custom types? This sect
 
 Suppose you have a `User` struct:
 
+<!-- skip-test -->
 ```go
 type User struct {
     ID        string
@@ -21,8 +22,9 @@ type User struct {
 }
 ```
 
-Testing with basic matchers becomes verbose and brittle:
+Testing without matchers is verbose and brittle:
 
+<!-- skip-test -->
 ```go
 func TestCreateUser(t *testing.T) {
     user := CreateUser("Alice", "alice@example.com")
@@ -41,14 +43,37 @@ func TestCreateUser(t *testing.T) {
 }
 ```
 
-**Problems:**
-- Repetitive field-by-field assertions
-- Tests break when adding new fields (even optional ones)
-- No composition or reusability
-- Error messages aren't structured
+Using basic matchers improves error messages, but isn't composable:
+
+<!-- skip-test -->
+```go
+func TestCreateUser(t *testing.T) {
+    user := CreateUser("Alice", "alice@example.com")
+
+    // Better, but can't reuse these assertions
+    specta.AssertThat(t, user.Name, specta.Equal("Alice"))
+    specta.AssertThat(t, user.Email, specta.Equal("alice@example.com"))
+    specta.AssertThat(t, user.Age, specta.GreaterThan(0))
+}
+
+func TestUpdateUser(t *testing.T) {
+    user := UpdateUser(existingUser, "Bob")
+
+    // Have to repeat the same field assertions
+    specta.AssertThat(t, user.Name, specta.Equal("Bob"))
+    specta.AssertThat(t, user.Email, specta.Equal("alice@example.com"))
+    // Can't express "same email as before" as a reusable matcher
+}
+```
+
+**The Problem:**
+- Can't build a reusable "valid user" matcher to use across tests
+- Can't compose field matchers into higher-level concepts
+- Every test duplicates the same field-by-field assertions
 
 **What we want:**
 
+<!-- skip-test -->
 ```go
 specta.AssertThat(t, user, MatchUser().
     WithName(specta.Equal("Alice")).
@@ -61,6 +86,7 @@ Clean, fluent, partial matching - only assert what matters!
 
 You can implement the `Matcher[T]` interface yourself:
 
+<!-- skip-test -->
 ```go
 type userMatcher struct {
     nameMatcher  specta.Matcher[string]
@@ -96,45 +122,40 @@ specta can automatically generate matchers (and factories) for your types!
 
 In your package directory, create a configuration file:
 
+<!-- skip-test -->
 ```yaml
 # specta.yaml
-package: mypackage
-output_dir: factory
-types:
-  - name: User
-    fields:
-      - name: ID
-        type: string
-      - name: Name
-        type: string
-      - name: Email
-        type: string
-      - name: Age
-        type: int
-      - name: CreatedAt
-        type: time.Time
+version: 1
+targets:
+  - package: .
+    types:
+      include:
+        - User
 ```
+
+The generator will introspect your `User` struct and generate matchers for all its exported (public) fields automatically.
 
 ### Step 2: Run the Generator
 
+<!-- skip-test -->
 ```bash
-go run github.com/james-w/specta/cmd/main.go -config specta.yaml
+go run github.com/james-w/specta/cmd -config specta.yaml
 ```
 
 This generates three files in `factory/`:
-- `user_gen.go` - Low-level spec API
 - `user_matcher_gen.go` - Matcher builders ← We'll use this!
-- `factory/user_gen.go` - Factory builders (covered in next section)
+- `user_gen.go` - Factory recipes (covered in next section)
+- `spec/user_gen.go` - Low-level Factory builders (covered in next section)
 
 ### Step 3: Use Generated Matchers
 
+<!-- skip-test -->
 ```go
 package mypackage_test
 
 import (
     "github.com/james-w/specta"
     "testing"
-    . "github.com/james-w/specta"
     "mypackage/factory"
 )
 
@@ -160,6 +181,7 @@ func TestCreateUser(t *testing.T) {
 ### Build Tags
 
 Generated files include:
+<!-- skip-test -->
 ```go
 //go:build !ignore_testgen
 ```
@@ -170,6 +192,7 @@ This allows excluding them from linting/analysis tools while keeping them in you
 
 **`*_matcher_gen.go`**: Fluent matcher builders
 
+<!-- skip-test -->
 ```go
 // Generated matcher
 func MatchUser() *UserMatcher {
@@ -194,6 +217,7 @@ func (m *UserMatcher) Match(user User) specta.MatchResult {
 
 ### Basic Field Matching
 
+<!-- skip-test -->
 ```go
 specta.AssertThat(t, user, MatchUser().
     WithName(specta.Equal("Alice")).
@@ -202,6 +226,7 @@ specta.AssertThat(t, user, MatchUser().
 
 ### Compose with Core Matchers
 
+<!-- skip-test -->
 ```go
 specta.AssertThat(t, user, MatchUser().
     WithEmail(AllOf(
@@ -215,6 +240,7 @@ specta.AssertThat(t, user, MatchUser().
 
 If `User` has a nested `Address` struct:
 
+<!-- skip-test -->
 ```go
 specta.AssertThat(t, user, MatchUser().
     WithAddress(MatchAddress().
@@ -224,6 +250,7 @@ specta.AssertThat(t, user, MatchUser().
 
 ### Partial Matching in Action
 
+<!-- skip-test -->
 ```go
 // Test 1: Only care about name
 specta.AssertThat(t, user, MatchUser().WithName(specta.Equal("Alice")))
@@ -237,68 +264,61 @@ specta.AssertThat(t, user, MatchUser().
     WithCreatedAt(Not(specta.IsNil[time.Time]())))
 ```
 
-Each test asserts exactly what it cares about. Adding new fields to `User` won't break these tests!
+Each test asserts exactly what it cares about. Adding new fields to `User` won't break these tests.
 
-## Example: Before & After
+### Reusable Matchers
 
-**Before (verbose, brittle):**
+Build higher-level matchers from the generated ones:
 
+<!-- skip-test -->
 ```go
-func TestUserCreation(t *testing.T) {
-    user := CreateUser("Alice", "alice@example.com", 30)
+// Define reusable matchers for common patterns
+func ValidUser() *factory.UserMatcher {
+    return factory.MatchUser().
+        WithName(specta.Not(specta.Equal(""))).
+        WithEmail(specta.Contains("@")).
+        WithAge(specta.GreaterThan(0))
+}
 
-    if user.ID == "" {
-        t.Error("ID should not be empty")
-    }
-    if user.Name != "Alice" {
-        t.Errorf("expected name Alice, got %s", user.Name)
-    }
-    if user.Email != "alice@example.com" {
-        t.Errorf("expected email alice@example.com, got %s", user.Email)
-    }
-    if user.Age != 30 {
-        t.Errorf("expected age 30, got %d", user.Age)
-    }
-    if user.CreatedAt.IsZero() {
-        t.Error("CreatedAt should be set")
-    }
+func AdminUser() *factory.UserMatcher {
+    return ValidUser().
+        WithEmail(specta.HasSuffix("@company.com"))
+}
+
+// Use across tests
+func TestCreateUser(t *testing.T) {
+    user := CreateUser("Alice", "alice@company.com", 30)
+    specta.AssertThat(t, user, AdminUser())
+}
+
+func TestPromoteUser(t *testing.T) {
+    user := PromoteToAdmin(regularUser)
+    specta.AssertThat(t, user, AdminUser())
 }
 ```
 
-**After (clean, composable, focused):**
-
-```go
-func TestUserCreation(t *testing.T) {
-    user := CreateUser("Alice", "alice@example.com", 30)
-
-    specta.AssertThat(t, user, MatchUser().
-        WithID(Not(specta.Equal(""))).
-        WithName(specta.Equal("Alice")).
-        WithEmail(specta.Contains("alice")).
-        WithAge(Equal(30)).
-        WithCreatedAt(Not(specta.IsZero[time.Time]())))
-}
-```
-
-Or, focus on what matters:
-
-```go
-func TestUserCreation(t *testing.T) {
-    user := CreateUser("Alice", "alice@example.com", 30)
-
-    // Only assert the fields this test cares about
-    specta.AssertThat(t, user, MatchUser().
-        WithName(specta.Equal("Alice")).
-        WithEmail(specta.Equal("alice@example.com")))
-}
-```
+**When you add a new field** (e.g., `Status string`):
+1. Regenerate: `go run github.com/james-w/specta/cmd -config specta.yaml`
+2. Update `ValidUser()` if the new field should be validated:
+   <!-- skip-test -->
+   ```go
+   func ValidUser() *factory.UserMatcher {
+       return factory.MatchUser().
+           WithName(specta.Not(specta.Equal(""))).
+           WithEmail(specta.Contains("@")).
+           WithAge(specta.GreaterThan(0)).
+           WithStatus(specta.Equal("active"))  // One update here
+   }
+   ```
+3. All tests using `ValidUser()` now validate the new field - **zero test changes needed!**
 
 ## Regenerating After Changes
 
 When you modify your types, regenerate:
 
+<!-- skip-test -->
 ```bash
-go run github.com/james-w/specta/cmd/main.go -config specta.yaml
+go run github.com/james-w/specta/cmd -config specta.yaml
 ```
 
 The generator:
@@ -312,6 +332,6 @@ The generator:
 ## Next Steps
 
 Now you have matchers for your types! Next, learn about:
-- [Test Data Factories](/docs/factories/) - The flip side of matchers
-- [Factories + Matchers Together](/docs/factories-and-matchers/) - The complete pattern
-- [API Reference](/docs/api-reference/) - Full generator configuration options
+- [Test Data Factories]({{< relref "/docs/factories/" >}}) - The flip side of matchers
+- [Factories + Matchers Together]({{< relref "/docs/factories-and-matchers/" >}}) - The complete pattern
+- [API Reference]({{< relref "/docs/api-reference/" >}}) - Full generator configuration options

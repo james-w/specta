@@ -932,7 +932,8 @@ func commonFuncMap() template.FuncMap {
 }
 
 var specTmpl = template.Must(template.New("spec").Funcs(commonFuncMap()).Funcs(template.FuncMap{
-	"defaultProvider": func(pkg string, f field) string { return defaultProvider(pkg, f) },
+	"defaultProvider":  func(pkg string, f field) string { return defaultProvider(pkg, f) },
+	"defaultGenerator": func(pkg string, f field) string { return defaultGenerator(pkg, f) },
 	"qualifiedType": func(pkg string, f field) string {
 		// TypeExpr is already qualified by collectFields using qualifyTypeExpr
 		return f.TypeExpr
@@ -1091,17 +1092,17 @@ func With{{$.TypeName}}{{.Name}}FromProvider(prov specta.Provider[{{qualifiedTyp
 {{end}}
 {{end}}
 {{- else}}
-// Default field providers.
+// Default field generators.
 var (
 	{{- range .Fields}}
-	{{$.TypeName}}Default{{.Name}} = {{ defaultProvider $.ParentPackage . }}
+	{{$.TypeName}}{{.Name}}Generator specta.Generator[{{qualifiedType $.ParentPackage .}}] = {{ defaultGenerator $.ParentPackage . }}
 	{{- end}}
 )
 
 // Build{{.TypeName}} constructs a {{.TypeName}} from a {{.SpecName}}.
 func Build{{.TypeName}}(s specta.Source, spec {{.SpecName}}) {{$.ParentPackage}}.{{.TypeName}} {
 	{{- range .Fields}}
-	{{lower .Name}} := spec.{{.Name}}.Get(s, {{$.TypeName}}Default{{.Name}})
+	{{lower .Name}} := spec.{{.Name}}.GetWithGenerator(s, "{{.Name}}", {{$.TypeName}}{{.Name}}Generator)
 	{{- end}}
 	return {{$.ParentPackage}}.{{.TypeName}}{
 		{{- range .Fields}}
@@ -1114,6 +1115,15 @@ func Build{{.TypeName}}(s specta.Source, spec {{.SpecName}}) {{$.ParentPackage}}
 // With{{$.TypeName}}{{.Name}} sets the {{.Name}} field to a literal value.
 func With{{$.TypeName}}{{.Name}}(v {{qualifiedType $.ParentPackage .}}) specta.Opt[{{$.SpecName}}] {
 	return specta.SetLit(func(s *{{$.SpecName}}, m specta.Maybe[{{qualifiedType $.ParentPackage .}}]) { s.{{.Name}} = m }, v)
+}
+
+// With{{$.TypeName}}{{.Name}}FromGenerator sets the {{.Name}} field using a Generator.
+func With{{$.TypeName}}{{.Name}}FromGenerator(gen specta.Generator[{{qualifiedType $.ParentPackage .}}]) specta.Opt[{{$.SpecName}}] {
+	prov := specta.ProviderFromGenerator(gen, "{{.Name}}")
+	return specta.SetWith(
+		func(s *{{$.SpecName}}, m specta.Maybe[{{qualifiedType $.ParentPackage .}}]) { s.{{.Name}} = m },
+		prov,
+	)
 }
 {{if .IsCustomType}}
 // With{{$.TypeName}}{{.Name}}FromProvider sets the {{.Name}} field using a Provider (evaluated lazily).
@@ -1302,6 +1312,17 @@ func (r {{$.RecipeName}}) {{.Name}}FromRecipe(v {{.UnqualifiedTypeName}}Recipe) 
 // {{.Name}} sets the {{.Name}} field.
 func (r {{$.RecipeName}}) {{.Name}}(v {{qualifiedType $.ParentPackage .}}) {{$.RecipeName}} {
 	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}(v))
+	{{- if .IsCustomType}}
+	{{- if not (hasPrefix .TypeExpr "[]")}}
+	r.{{lower .Name}}Recipe = nil
+	{{- end}}
+	{{- end}}
+	return r
+}
+
+// {{.Name}}FromGenerator sets the {{.Name}} field using a Generator.
+func (r {{$.RecipeName}}) {{.Name}}FromGenerator(gen specta.Generator[{{qualifiedType $.ParentPackage .}}]) {{$.RecipeName}} {
+	r.opts = append(r.opts, spec.With{{$.TypeName}}{{.Name}}FromGenerator(gen))
 	{{- if .IsCustomType}}
 	{{- if not (hasPrefix .TypeExpr "[]")}}
 	r.{{lower .Name}}Recipe = nil
@@ -1825,5 +1846,163 @@ func defaultProvider(pkg string, f field) string {
 	default:
 		// conservative: default to zero for unknown types in this skeleton
 		return fmt.Sprintf("func(specta.Source) %s { var zero %s; return zero }", typ, typ)
+	}
+}
+
+// defaultGenerator returns a Generator[T] expression for a field.
+// Unlike defaultProvider which returns Provider[T] functions, this returns composable Generator objects.
+func defaultGenerator(pkg string, f field) string {
+	name := f.Name
+	typ := f.TypeExpr
+
+	// Handle pointers separately
+	if strings.HasPrefix(typ, "*") {
+		elemType := strings.TrimPrefix(typ, "*")
+		isPrimitive := isPrimitiveType(elemType)
+
+		if isPrimitive {
+			// Zero value generator for primitive pointers
+			return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
+		}
+		// Custom type pointer - wrap PtrOf in GeneratorFromProvider
+		return fmt.Sprintf("specta.GeneratorFromProvider(specta.PtrOf(specta.FromSpec(Build%s, New%sSpec)))",
+			f.UnqualifiedTypeName, f.UnqualifiedTypeName)
+	}
+
+	// Handle slices separately
+	if strings.HasPrefix(typ, "[]") {
+		elemType := strings.TrimPrefix(typ, "[]")
+
+		if isPrimitiveType(elemType) {
+			var elemGen string
+			switch elemType {
+			case "string":
+				elemGen = "specta.String()"
+			case "int":
+				elemGen = "specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, \"\")) })"
+			case "int64":
+				elemGen = "specta.GeneratorFromProvider(func(s specta.Source) int64 { return specta.Int().Draw(s, \"\") })"
+			case "uint64":
+				elemGen = "specta.GeneratorFromProvider(func(s specta.Source) uint64 { return uint64(specta.Int().NonNegative().Draw(s, \"\")) })"
+			case "bool":
+				elemGen = "specta.Bool()"
+			case "float64":
+				elemGen = "specta.Float64()"
+			default:
+				// Unknown primitive - fall back to zero value generator
+				return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
+			}
+			// Return Slice generator directly (it's already a Generator)
+			return fmt.Sprintf("specta.Slice(%s).MaxLen(5)", elemGen)
+		}
+
+		// For custom type slices, default to empty generator
+		return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
+	}
+
+	// Handle maps separately
+	if strings.HasPrefix(typ, "map[") {
+		remaining := strings.TrimPrefix(typ, "map[")
+		bracketCount := 0
+		keyEndIdx := -1
+
+		for i, ch := range remaining {
+			if ch == '[' {
+				bracketCount++
+			} else if ch == ']' {
+				if bracketCount == 0 {
+					keyEndIdx = i
+					break
+				}
+				bracketCount--
+			}
+		}
+
+		if keyEndIdx == -1 {
+			return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
+		}
+
+		keyType := remaining[:keyEndIdx]
+		valueType := remaining[keyEndIdx+1:]
+
+		if isPrimitiveType(keyType) && isPrimitiveType(valueType) {
+			var keyGen, valueGen string
+
+			// Key generator
+			switch keyType {
+			case "string":
+				keyGen = "specta.String()"
+			case "int":
+				keyGen = "specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, \"\")) })"
+			case "int64":
+				keyGen = "specta.GeneratorFromProvider(func(s specta.Source) int64 { return specta.Int().Draw(s, \"\") })"
+			case "uint64":
+				keyGen = "specta.GeneratorFromProvider(func(s specta.Source) uint64 { return uint64(specta.Int().NonNegative().Draw(s, \"\")) })"
+			default:
+				return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
+			}
+
+			// Value generator
+			switch valueType {
+			case "string":
+				valueGen = "specta.String()"
+			case "int":
+				valueGen = "specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, \"\")) })"
+			case "int64":
+				valueGen = "specta.GeneratorFromProvider(func(s specta.Source) int64 { return specta.Int().Draw(s, \"\") })"
+			case "uint64":
+				valueGen = "specta.GeneratorFromProvider(func(s specta.Source) uint64 { return uint64(specta.Int().NonNegative().Draw(s, \"\")) })"
+			case "bool":
+				valueGen = "specta.Bool()"
+			case "float64":
+				valueGen = "specta.Float64()"
+			default:
+				return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
+			}
+
+			// Return Map generator directly
+			return fmt.Sprintf("specta.Map(%s, %s).MaxLen(5)", keyGen, valueGen)
+		}
+
+		return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
+	}
+
+	// If it's a custom type, wrap FromSpec in GeneratorFromProvider
+	if f.IsCustomType {
+		return fmt.Sprintf("specta.GeneratorFromProvider(specta.FromSpec(Build%s, New%sSpec))",
+			f.UnqualifiedTypeName, f.UnqualifiedTypeName)
+	}
+
+	// Primitive types - return Generator objects
+	switch typ {
+	case "string":
+		ln := strings.ToLower(name)
+		hint := strings.ToLower(name) + "_"
+		if strings.HasSuffix(ln, "id") || ln == "id" {
+			hint = "id_"
+		}
+		return fmt.Sprintf("specta.String().ExampleHint(%q)", hint)
+	case "int":
+		// Wrap because Int() returns int64, not int
+		return "specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, \"\")) })"
+	case "int64":
+		return "specta.Int()"
+	case "uint64":
+		return "specta.GeneratorFromProvider(func(s specta.Source) uint64 { return uint64(specta.Int().NonNegative().Draw(s, \"\")) })"
+	case "bool":
+		return "specta.Bool()"
+	case "float64":
+		return "specta.Float64()"
+	case "time.Time":
+		return "specta.Time()"
+	case "time.Duration":
+		return "specta.Duration()"
+	case "[]byte":
+		return "specta.Bytes()"
+	case "uuid.UUID":
+		return "specta.UUID()"
+	default:
+		// Conservative: default to zero generator for unknown types
+		return fmt.Sprintf("specta.GeneratorFromProvider(func(s specta.Source) %s { var zero %s; return zero })", typ, typ)
 	}
 }

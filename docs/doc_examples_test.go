@@ -54,30 +54,86 @@ func testNameFromPath(path string) string {
 	return strings.Join(parts, "")
 }
 
+// extractSetupCode extracts setup code from <!-- setup ... --> comment in markdown
+func extractSetupCode(content string) string {
+	// Match <!-- setup ... --> blocks
+	re := regexp.MustCompile(`(?s)<!--\s*setup\s*\n(.*?)\n\s*-->`)
+	matches := re.FindStringSubmatch(content)
+
+	if len(matches) > 1 {
+		return matches[1]
+	}
+
+	// Return minimal default if no setup found
+	return `package doctest
+
+import (
+	"testing"
+	"github.com/james-w/specta"
+)
+`
+}
+
+// CodeBlockType indicates how a code block should be validated
+type CodeBlockType int
+
+const (
+	CodeBlockTest        CodeBlockType = iota // Full test execution (default)
+	CodeBlockCompileOnly                      // Type checking only
+	CodeBlockSkip                             // No validation
+)
+
+// CodeBlock represents an extracted code block with its validation type
+type CodeBlock struct {
+	Code string
+	Type CodeBlockType
+}
+
 // extractGoCodeBlocks extracts all ```go code blocks from a markdown file
-func extractGoCodeBlocks(content string) []string {
-	// Match ```go ... ``` blocks
-	re := regexp.MustCompile("(?s)```go\n(.*?)```")
+// Returns blocks with their validation type based on preceding markers:
+// - <!-- skip-test --> : no validation
+// - <!-- compile-only --> : type checking only
+// - (no marker) : full test execution
+func extractGoCodeBlocks(content string) []CodeBlock {
+	// Match ```go ... ``` blocks with optional marker
+	// Allow whitespace (including indentation) before the marker and code fence
+	re := regexp.MustCompile("(?s)[ \\t]*(<!--\\s*(skip-test|compile-only)\\s*-->\\s*\n)?[ \\t]*```go\n(.*?)```")
 	matches := re.FindAllStringSubmatch(content, -1)
 
-	var blocks []string
+	var blocks []CodeBlock
 	for _, match := range matches {
-		if len(match) > 1 {
-			blocks = append(blocks, match[1])
+		if len(match) > 3 {
+			marker := match[2] // "skip-test", "compile-only", or ""
+			code := match[3]   // The actual code
+
+			var blockType CodeBlockType
+			switch marker {
+			case "skip-test":
+				blockType = CodeBlockSkip
+			case "compile-only":
+				blockType = CodeBlockCompileOnly
+			default:
+				blockType = CodeBlockTest
+			}
+
+			if blockType != CodeBlockSkip {
+				blocks = append(blocks, CodeBlock{Code: code, Type: blockType})
+			}
 		}
 	}
 	return blocks
 }
 
 // wrapCodeBlock wraps a code snippet in a minimal test file
-func wrapCodeBlock(code string, index int) string {
+// For compile-only blocks, it returns raw code without test wrapper
+func wrapCodeBlock(code string, index int, blockType CodeBlockType) string {
 	// Strip any existing package declaration - we'll use doctest
 	packageRe := regexp.MustCompile(`(?m)^package\s+\w+\s*$`)
 	code = packageRe.ReplaceAllString(code, "")
 
 	// Check what the code contains
 	hasImport := strings.Contains(code, "import")
-	hasFunc := strings.Contains(code, "func Test") || strings.Contains(code, "func Example")
+	hasFunc := strings.Contains(code, "func Test") || strings.Contains(code, "func Example") || strings.Contains(code, "func ")
 
 	var sb strings.Builder
 
@@ -92,7 +148,15 @@ func wrapCodeBlock(code string, index int) string {
 		code = importRe2.ReplaceAllString(code, "")
 	}
 
-	// Add standard imports
+	// For compile-only, just emit the code as-is (already has functions or is top-level)
+	// Don't add imports for compile-only - let the code use what it needs
+	if blockType == CodeBlockCompileOnly {
+		sb.WriteString(strings.TrimSpace(code))
+		sb.WriteString("\n")
+		return sb.String()
+	}
+
+	// Add standard imports (only for test blocks)
 	sb.WriteString(`import (
 	"testing"
 	"github.com/james-w/specta"
@@ -100,7 +164,7 @@ func wrapCodeBlock(code string, index int) string {
 
 `)
 
-	// If it's not already a function, wrap it in a test
+	// For test blocks: if it's not already a function, wrap it in a test
 	if !hasFunc {
 		sb.WriteString("func TestDocExample_")
 		sb.WriteString(fmt.Sprintf("%d", index))
@@ -123,90 +187,6 @@ func wrapCodeBlock(code string, index int) string {
 	}
 
 	return sb.String()
-}
-
-// getFixturesCode returns common fixtures needed for doc examples
-func getFixturesCode() string {
-	return `package doctest
-
-import (
-	"time"
-	"github.com/james-w/specta"
-)
-
-// Common types used in examples
-type User struct {
-	ID        string
-	Name      string
-	Email     string
-	Age       int
-	Active    bool
-	CreatedAt time.Time
-}
-
-// Mock matcher builder for User
-type UserMatcher struct {
-	nameMatcher  specta.Matcher[string]
-	emailMatcher specta.Matcher[string]
-}
-
-func MatchUser() *UserMatcher {
-	return &UserMatcher{}
-}
-
-func (m *UserMatcher) WithName(matcher specta.Matcher[string]) *UserMatcher {
-	m.nameMatcher = matcher
-	return m
-}
-
-func (m *UserMatcher) WithEmail(matcher specta.Matcher[string]) *UserMatcher {
-	m.emailMatcher = matcher
-	return m
-}
-
-// Implement specta.Matcher[User] interface
-func (m *UserMatcher) Matches(u User) specta.MatchResult {
-	if m.nameMatcher != nil {
-		result := m.nameMatcher.Matches(u.Name)
-		if !result.Matched {
-			return specta.MatchResult{Matched: false, Message: "name did not match"}
-		}
-	}
-	if m.emailMatcher != nil {
-		result := m.emailMatcher.Matches(u.Email)
-		if !result.Matched {
-			return specta.MatchResult{Matched: false, Message: "email did not match"}
-		}
-	}
-	return specta.MatchResult{Matched: true}
-}
-
-// Common test variables
-var (
-	value         = 42
-	expectedUser  = User{ID: "user-123", Name: "Alice", Email: "alice@example.com", Age: 30}
-	expected      = 42  // Changed to int to match 'value' type
-	list          = []string{"a", "b", "c", "apple", "banana", "cherry"}
-	emptyList     = []string{}
-	name          = "Alice"
-	age           = 30
-	score         = 85
-	count         = 5
-	message       = "error occurred"
-	filename      = "test_file.go"
-	email         = "user@example.com"
-	status        = "active"
-	numbers       = []int{2, 4, 6, 8}
-	user          = User{
-		ID:     "user-123",
-		Name:   "Alice",
-		Email:  "alice@example.com",
-		Age:    30,
-		Active: true,
-	}
-	ptr *int // nil pointer for testing
-)
-`
 }
 
 func TestDocumentationExamples(t *testing.T) {
@@ -234,12 +214,16 @@ func testDocFile(t *testing.T, filePath string) {
 		t.Fatalf("failed to read %s: %v", filePath, err)
 	}
 
-	blocks := extractGoCodeBlocks(string(content))
+	contentStr := string(content)
+	blocks := extractGoCodeBlocks(contentStr)
 	if len(blocks) == 0 {
 		t.Skipf("no code blocks found in %s", filePath)
 	}
 
 	t.Logf("Found %d Go code blocks in %s", len(blocks), filePath)
+
+	// Extract setup code from markdown comment
+	setupCode := extractSetupCode(contentStr)
 
 	// Create a temporary directory for test files
 	tmpDir := t.TempDir()
@@ -248,7 +232,7 @@ func testDocFile(t *testing.T, filePath string) {
 	modFile := filepath.Join(tmpDir, "go.mod")
 	modContent := `module doctest
 
-go 1.22
+go 1.24.0
 
 require github.com/james-w/specta v0.0.0
 `
@@ -259,7 +243,7 @@ require github.com/james-w/specta v0.0.0
 	// Point to the parent directory for specta
 	workFile := filepath.Join(tmpDir, "go.work")
 	spectaPath, _ := filepath.Abs("..")
-	workContent := `go 1.22
+	workContent := `go 1.24.0
 
 use .
 replace github.com/james-w/specta => ` + spectaPath + `
@@ -268,10 +252,10 @@ replace github.com/james-w/specta => ` + spectaPath + `
 		t.Fatalf("failed to write go.work: %v", err)
 	}
 
-	// Write fixtures file
-	fixturesFile := filepath.Join(tmpDir, "fixtures.go")
-	if err := os.WriteFile(fixturesFile, []byte(getFixturesCode()), 0644); err != nil {
-		t.Fatalf("failed to write fixtures: %v", err)
+	// Write setup file with code extracted from markdown
+	setupFile := filepath.Join(tmpDir, "setup.go")
+	if err := os.WriteFile(setupFile, []byte(setupCode), 0644); err != nil {
+		t.Fatalf("failed to write setup: %v", err)
 	}
 
 	// Test each code block
@@ -279,11 +263,19 @@ replace github.com/james-w/specta => ` + spectaPath + `
 		block := block // capture
 		i := i
 
-		t.Run(fmt.Sprintf("block_%d", i), func(t *testing.T) {
-			t.Logf("Testing %s block %d:\n%s", filePath, i, block)
+		var suffix string
+		switch block.Type {
+		case CodeBlockTest:
+			suffix = "_test"
+		case CodeBlockCompileOnly:
+			suffix = "_compile"
+		}
+
+		t.Run(fmt.Sprintf("block_%d%s", i, suffix), func(t *testing.T) {
+			t.Logf("Testing %s block %d (type: %v):\n%s", filePath, i, block.Type, block.Code)
 
 			// Wrap the code block
-			wrapped := wrapCodeBlock(block, i)
+			wrapped := wrapCodeBlock(block.Code, i, block.Type)
 
 			// Write to a test file
 			testFile := filepath.Join(tmpDir, "example_test.go")
@@ -291,16 +283,25 @@ replace github.com/james-w/specta => ` + spectaPath + `
 				t.Fatalf("failed to write test file: %v", err)
 			}
 
-			// Run the tests (not just compile)
-			cmd := exec.Command("go", "test", "-v", "./...")
+			var cmd *exec.Cmd
+			var cmdDesc string
+			if block.Type == CodeBlockCompileOnly {
+				// For compile-only, just build (don't run tests)
+				cmd = exec.Command("go", "build", "./...")
+				cmdDesc = "compile"
+			} else {
+				// For test blocks, run the tests
+				cmd = exec.Command("go", "test", "-v", "./...")
+				cmdDesc = "test"
+			}
 			cmd.Dir = tmpDir
 			output, err := cmd.CombinedOutput()
 
 			if err != nil {
-				t.Errorf("FAILED: %s block %d\n\nOriginal code:\n%s\n\nGenerated code:\n%s\n\nError:\n%s",
-					filePath, i, block, wrapped, string(output))
+				t.Errorf("FAILED (%s): %s block %d\n\nOriginal code:\n%s\n\nGenerated code:\n%s\n\nError:\n%s",
+					cmdDesc, filePath, i, block.Code, wrapped, string(output))
 			} else {
-				t.Logf("PASSED: %s block %d", filePath, i)
+				t.Logf("PASSED (%s): %s block %d", cmdDesc, filePath, i)
 			}
 		})
 	}

@@ -52,22 +52,22 @@ func NewAddressFactory(s specta.Source) *specta.SpecFactory[showcase.Address, Ad
 	return specta.NewSpecFactory(s, NewAddressSpec, BuildAddress)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	AddressDefaultStreet  = func(s specta.Source) string { return specta.String().ExampleHint("street_").Draw(s, "Street") }
-	AddressDefaultCity    = func(s specta.Source) string { return specta.String().ExampleHint("city_").Draw(s, "City") }
-	AddressDefaultState   = func(s specta.Source) string { return specta.String().ExampleHint("state_").Draw(s, "State") }
-	AddressDefaultZipCode = func(s specta.Source) string { return specta.String().ExampleHint("zipcode_").Draw(s, "ZipCode") }
-	AddressDefaultCountry = func(s specta.Source) string { return specta.String().ExampleHint("country_").Draw(s, "Country") }
+	AddressStreetGenerator  specta.Generator[string] = specta.String().ExampleHint("street_")
+	AddressCityGenerator    specta.Generator[string] = specta.String().ExampleHint("city_")
+	AddressStateGenerator   specta.Generator[string] = specta.String().ExampleHint("state_")
+	AddressZipCodeGenerator specta.Generator[string] = specta.String().ExampleHint("zipcode_")
+	AddressCountryGenerator specta.Generator[string] = specta.String().ExampleHint("country_")
 )
 
 // BuildAddress constructs a Address from a AddressSpec.
 func BuildAddress(s specta.Source, spec AddressSpec) showcase.Address {
-	street := spec.Street.Get(s, AddressDefaultStreet)
-	city := spec.City.Get(s, AddressDefaultCity)
-	state := spec.State.Get(s, AddressDefaultState)
-	zipCode := spec.ZipCode.Get(s, AddressDefaultZipCode)
-	country := spec.Country.Get(s, AddressDefaultCountry)
+	street := spec.Street.GetWithGenerator(s, "Street", AddressStreetGenerator)
+	city := spec.City.GetWithGenerator(s, "City", AddressCityGenerator)
+	state := spec.State.GetWithGenerator(s, "State", AddressStateGenerator)
+	zipCode := spec.ZipCode.GetWithGenerator(s, "ZipCode", AddressZipCodeGenerator)
+	country := spec.Country.GetWithGenerator(s, "Country", AddressCountryGenerator)
 	return showcase.Address{
 		Street:  street,
 		City:    city,
@@ -82,9 +82,27 @@ func WithAddressStreet(v string) specta.Opt[AddressSpec] {
 	return specta.SetLit(func(s *AddressSpec, m specta.Maybe[string]) { s.Street = m }, v)
 }
 
+// WithAddressStreetFromGenerator sets the Street field using a Generator.
+func WithAddressStreetFromGenerator(gen specta.Generator[string]) specta.Opt[AddressSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Street")
+	return specta.SetWith(
+		func(s *AddressSpec, m specta.Maybe[string]) { s.Street = m },
+		prov,
+	)
+}
+
 // WithAddressCity sets the City field to a literal value.
 func WithAddressCity(v string) specta.Opt[AddressSpec] {
 	return specta.SetLit(func(s *AddressSpec, m specta.Maybe[string]) { s.City = m }, v)
+}
+
+// WithAddressCityFromGenerator sets the City field using a Generator.
+func WithAddressCityFromGenerator(gen specta.Generator[string]) specta.Opt[AddressSpec] {
+	prov := specta.ProviderFromGenerator(gen, "City")
+	return specta.SetWith(
+		func(s *AddressSpec, m specta.Maybe[string]) { s.City = m },
+		prov,
+	)
 }
 
 // WithAddressState sets the State field to a literal value.
@@ -92,12 +110,39 @@ func WithAddressState(v string) specta.Opt[AddressSpec] {
 	return specta.SetLit(func(s *AddressSpec, m specta.Maybe[string]) { s.State = m }, v)
 }
 
+// WithAddressStateFromGenerator sets the State field using a Generator.
+func WithAddressStateFromGenerator(gen specta.Generator[string]) specta.Opt[AddressSpec] {
+	prov := specta.ProviderFromGenerator(gen, "State")
+	return specta.SetWith(
+		func(s *AddressSpec, m specta.Maybe[string]) { s.State = m },
+		prov,
+	)
+}
+
 // WithAddressZipCode sets the ZipCode field to a literal value.
 func WithAddressZipCode(v string) specta.Opt[AddressSpec] {
 	return specta.SetLit(func(s *AddressSpec, m specta.Maybe[string]) { s.ZipCode = m }, v)
 }
 
+// WithAddressZipCodeFromGenerator sets the ZipCode field using a Generator.
+func WithAddressZipCodeFromGenerator(gen specta.Generator[string]) specta.Opt[AddressSpec] {
+	prov := specta.ProviderFromGenerator(gen, "ZipCode")
+	return specta.SetWith(
+		func(s *AddressSpec, m specta.Maybe[string]) { s.ZipCode = m },
+		prov,
+	)
+}
+
 // WithAddressCountry sets the Country field to a literal value.
 func WithAddressCountry(v string) specta.Opt[AddressSpec] {
 	return specta.SetLit(func(s *AddressSpec, m specta.Maybe[string]) { s.Country = m }, v)
+}
+
+// WithAddressCountryFromGenerator sets the Country field using a Generator.
+func WithAddressCountryFromGenerator(gen specta.Generator[string]) specta.Opt[AddressSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Country")
+	return specta.SetWith(
+		func(s *AddressSpec, m specta.Maybe[string]) { s.Country = m },
+		prov,
+	)
 }

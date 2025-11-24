@@ -50,18 +50,18 @@ func NewOrderItemFactory(s specta.Source) *specta.SpecFactory[showcase.OrderItem
 	return specta.NewSpecFactory(s, NewOrderItemSpec, BuildOrderItem)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	OrderItemDefaultProduct  = specta.FromSpec(BuildProduct, NewProductSpec)
-	OrderItemDefaultQuantity = func(s specta.Source) int { return int(specta.Int().Draw(s, "Quantity")) }
-	OrderItemDefaultPrice    = func(s specta.Source) float64 { return specta.Float64().Draw(s, "Price") }
+	OrderItemProductGenerator  specta.Generator[showcase.Product] = specta.GeneratorFromProvider(specta.FromSpec(BuildProduct, NewProductSpec))
+	OrderItemQuantityGenerator specta.Generator[int]              = specta.GeneratorFromProvider(func(s specta.Source) int { return int(specta.Int().Draw(s, "")) })
+	OrderItemPriceGenerator    specta.Generator[float64]          = specta.Float64()
 )
 
 // BuildOrderItem constructs a OrderItem from a OrderItemSpec.
 func BuildOrderItem(s specta.Source, spec OrderItemSpec) showcase.OrderItem {
-	product := spec.Product.Get(s, OrderItemDefaultProduct)
-	quantity := spec.Quantity.Get(s, OrderItemDefaultQuantity)
-	price := spec.Price.Get(s, OrderItemDefaultPrice)
+	product := spec.Product.GetWithGenerator(s, "Product", OrderItemProductGenerator)
+	quantity := spec.Quantity.GetWithGenerator(s, "Quantity", OrderItemQuantityGenerator)
+	price := spec.Price.GetWithGenerator(s, "Price", OrderItemPriceGenerator)
 	return showcase.OrderItem{
 		Product:  product,
 		Quantity: quantity,
@@ -72,6 +72,15 @@ func BuildOrderItem(s specta.Source, spec OrderItemSpec) showcase.OrderItem {
 // WithOrderItemProduct sets the Product field to a literal value.
 func WithOrderItemProduct(v showcase.Product) specta.Opt[OrderItemSpec] {
 	return specta.SetLit(func(s *OrderItemSpec, m specta.Maybe[showcase.Product]) { s.Product = m }, v)
+}
+
+// WithOrderItemProductFromGenerator sets the Product field using a Generator.
+func WithOrderItemProductFromGenerator(gen specta.Generator[showcase.Product]) specta.Opt[OrderItemSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Product")
+	return specta.SetWith(
+		func(s *OrderItemSpec, m specta.Maybe[showcase.Product]) { s.Product = m },
+		prov,
+	)
 }
 
 // WithOrderItemProductFromProvider sets the Product field using a Provider (evaluated lazily).
@@ -87,7 +96,25 @@ func WithOrderItemQuantity(v int) specta.Opt[OrderItemSpec] {
 	return specta.SetLit(func(s *OrderItemSpec, m specta.Maybe[int]) { s.Quantity = m }, v)
 }
 
+// WithOrderItemQuantityFromGenerator sets the Quantity field using a Generator.
+func WithOrderItemQuantityFromGenerator(gen specta.Generator[int]) specta.Opt[OrderItemSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Quantity")
+	return specta.SetWith(
+		func(s *OrderItemSpec, m specta.Maybe[int]) { s.Quantity = m },
+		prov,
+	)
+}
+
 // WithOrderItemPrice sets the Price field to a literal value.
 func WithOrderItemPrice(v float64) specta.Opt[OrderItemSpec] {
 	return specta.SetLit(func(s *OrderItemSpec, m specta.Maybe[float64]) { s.Price = m }, v)
+}
+
+// WithOrderItemPriceFromGenerator sets the Price field using a Generator.
+func WithOrderItemPriceFromGenerator(gen specta.Generator[float64]) specta.Opt[OrderItemSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Price")
+	return specta.SetWith(
+		func(s *OrderItemSpec, m specta.Maybe[float64]) { s.Price = m },
+		prov,
+	)
 }

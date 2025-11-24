@@ -48,9 +48,21 @@ func (r UserRecipe) ID(v string) UserRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r UserRecipe) IDFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserIDFromGenerator(gen))
+	return r
+}
+
 // Email sets the Email field.
 func (r UserRecipe) Email(v string) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserEmail(v))
+	return r
+}
+
+// EmailFromGenerator sets the Email field using a Generator.
+func (r UserRecipe) EmailFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserEmailFromGenerator(gen))
 	return r
 }
 
@@ -60,9 +72,21 @@ func (r UserRecipe) FirstName(v string) UserRecipe {
 	return r
 }
 
+// FirstNameFromGenerator sets the FirstName field using a Generator.
+func (r UserRecipe) FirstNameFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserFirstNameFromGenerator(gen))
+	return r
+}
+
 // LastName sets the LastName field.
 func (r UserRecipe) LastName(v string) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserLastName(v))
+	return r
+}
+
+// LastNameFromGenerator sets the LastName field using a Generator.
+func (r UserRecipe) LastNameFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserLastNameFromGenerator(gen))
 	return r
 }
 
@@ -72,9 +96,22 @@ func (r UserRecipe) Active(v bool) UserRecipe {
 	return r
 }
 
+// ActiveFromGenerator sets the Active field using a Generator.
+func (r UserRecipe) ActiveFromGenerator(gen specta.Generator[bool]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserActiveFromGenerator(gen))
+	return r
+}
+
 // Address sets the Address field.
 func (r UserRecipe) Address(v showcase.Address) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserAddress(v))
+	r.addressRecipe = nil
+	return r
+}
+
+// AddressFromGenerator sets the Address field using a Generator.
+func (r UserRecipe) AddressFromGenerator(gen specta.Generator[showcase.Address]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserAddressFromGenerator(gen))
 	r.addressRecipe = nil
 	return r
 }
@@ -94,9 +131,21 @@ func (r UserRecipe) CreatedAt(v time.Time) UserRecipe {
 	return r
 }
 
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r UserRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserCreatedAtFromGenerator(gen))
+	return r
+}
+
 // UpdatedAt sets the UpdatedAt field.
 func (r UserRecipe) UpdatedAt(v time.Time) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserUpdatedAt(v))
+	return r
+}
+
+// UpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
+func (r UserRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserUpdatedAtFromGenerator(gen))
 	return r
 }
 

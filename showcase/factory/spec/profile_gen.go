@@ -52,24 +52,22 @@ func NewProfileFactory(s specta.Source) *specta.SpecFactory[showcase.Profile, Pr
 	return specta.NewSpecFactory(s, NewProfileSpec, BuildProfile)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	ProfileDefaultID          = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
-	ProfileDefaultName        = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
-	ProfileDefaultDescription = func(s specta.Source) string {
-		return specta.String().ExampleHint("description_").Draw(s, "Description")
-	}
-	ProfileDefaultManager  = specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec))
-	ProfileDefaultIsPublic = func(s specta.Source) bool { return specta.Bool().Draw(s, "IsPublic") }
+	ProfileIDGenerator          specta.Generator[string]         = specta.String().ExampleHint("id_")
+	ProfileNameGenerator        specta.Generator[string]         = specta.String().ExampleHint("name_")
+	ProfileDescriptionGenerator specta.Generator[string]         = specta.String().ExampleHint("description_")
+	ProfileManagerGenerator     specta.Generator[*showcase.User] = specta.GeneratorFromProvider(specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec)))
+	ProfileIsPublicGenerator    specta.Generator[bool]           = specta.Bool()
 )
 
 // BuildProfile constructs a Profile from a ProfileSpec.
 func BuildProfile(s specta.Source, spec ProfileSpec) showcase.Profile {
-	iD := spec.ID.Get(s, ProfileDefaultID)
-	name := spec.Name.Get(s, ProfileDefaultName)
-	description := spec.Description.Get(s, ProfileDefaultDescription)
-	manager := spec.Manager.Get(s, ProfileDefaultManager)
-	isPublic := spec.IsPublic.Get(s, ProfileDefaultIsPublic)
+	iD := spec.ID.GetWithGenerator(s, "ID", ProfileIDGenerator)
+	name := spec.Name.GetWithGenerator(s, "Name", ProfileNameGenerator)
+	description := spec.Description.GetWithGenerator(s, "Description", ProfileDescriptionGenerator)
+	manager := spec.Manager.GetWithGenerator(s, "Manager", ProfileManagerGenerator)
+	isPublic := spec.IsPublic.GetWithGenerator(s, "IsPublic", ProfileIsPublicGenerator)
 	return showcase.Profile{
 		ID:          iD,
 		Name:        name,
@@ -84,9 +82,27 @@ func WithProfileID(v string) specta.Opt[ProfileSpec] {
 	return specta.SetLit(func(s *ProfileSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
+// WithProfileIDFromGenerator sets the ID field using a Generator.
+func WithProfileIDFromGenerator(gen specta.Generator[string]) specta.Opt[ProfileSpec] {
+	prov := specta.ProviderFromGenerator(gen, "ID")
+	return specta.SetWith(
+		func(s *ProfileSpec, m specta.Maybe[string]) { s.ID = m },
+		prov,
+	)
+}
+
 // WithProfileName sets the Name field to a literal value.
 func WithProfileName(v string) specta.Opt[ProfileSpec] {
 	return specta.SetLit(func(s *ProfileSpec, m specta.Maybe[string]) { s.Name = m }, v)
+}
+
+// WithProfileNameFromGenerator sets the Name field using a Generator.
+func WithProfileNameFromGenerator(gen specta.Generator[string]) specta.Opt[ProfileSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Name")
+	return specta.SetWith(
+		func(s *ProfileSpec, m specta.Maybe[string]) { s.Name = m },
+		prov,
+	)
 }
 
 // WithProfileDescription sets the Description field to a literal value.
@@ -94,9 +110,27 @@ func WithProfileDescription(v string) specta.Opt[ProfileSpec] {
 	return specta.SetLit(func(s *ProfileSpec, m specta.Maybe[string]) { s.Description = m }, v)
 }
 
+// WithProfileDescriptionFromGenerator sets the Description field using a Generator.
+func WithProfileDescriptionFromGenerator(gen specta.Generator[string]) specta.Opt[ProfileSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Description")
+	return specta.SetWith(
+		func(s *ProfileSpec, m specta.Maybe[string]) { s.Description = m },
+		prov,
+	)
+}
+
 // WithProfileManager sets the Manager field to a literal value.
 func WithProfileManager(v *showcase.User) specta.Opt[ProfileSpec] {
 	return specta.SetLit(func(s *ProfileSpec, m specta.Maybe[*showcase.User]) { s.Manager = m }, v)
+}
+
+// WithProfileManagerFromGenerator sets the Manager field using a Generator.
+func WithProfileManagerFromGenerator(gen specta.Generator[*showcase.User]) specta.Opt[ProfileSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Manager")
+	return specta.SetWith(
+		func(s *ProfileSpec, m specta.Maybe[*showcase.User]) { s.Manager = m },
+		prov,
+	)
 }
 
 // WithProfileManagerFromProvider sets the Manager field using a Provider (evaluated lazily).
@@ -110,4 +144,13 @@ func WithProfileManagerFromProvider(prov specta.Provider[*showcase.User]) specta
 // WithProfileIsPublic sets the IsPublic field to a literal value.
 func WithProfileIsPublic(v bool) specta.Opt[ProfileSpec] {
 	return specta.SetLit(func(s *ProfileSpec, m specta.Maybe[bool]) { s.IsPublic = m }, v)
+}
+
+// WithProfileIsPublicFromGenerator sets the IsPublic field using a Generator.
+func WithProfileIsPublicFromGenerator(gen specta.Generator[bool]) specta.Opt[ProfileSpec] {
+	prov := specta.ProviderFromGenerator(gen, "IsPublic")
+	return specta.SetWith(
+		func(s *ProfileSpec, m specta.Maybe[bool]) { s.IsPublic = m },
+		prov,
+	)
 }

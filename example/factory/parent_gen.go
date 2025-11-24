@@ -76,6 +76,13 @@ func (r ParentRecipe) Child(v example.UserView) ParentRecipe {
 	return r
 }
 
+// ChildFromGenerator sets the Child field using a Generator.
+func (r ParentRecipe) ChildFromGenerator(gen specta.Generator[example.UserView]) ParentRecipe {
+	r.opts = append(r.opts, spec.WithParentChildFromGenerator(gen))
+	r.childRecipe = nil
+	return r
+}
+
 // ChildFromRecipe sets the Child field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.

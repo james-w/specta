@@ -46,9 +46,22 @@ func (r CommentRecipe) ID(v string) CommentRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r CommentRecipe) IDFromGenerator(gen specta.Generator[string]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentIDFromGenerator(gen))
+	return r
+}
+
 // Post sets the Post field.
 func (r CommentRecipe) Post(v showcase.BlogPost) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentPost(v))
+	r.postRecipe = nil
+	return r
+}
+
+// PostFromGenerator sets the Post field using a Generator.
+func (r CommentRecipe) PostFromGenerator(gen specta.Generator[showcase.BlogPost]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentPostFromGenerator(gen))
 	r.postRecipe = nil
 	return r
 }
@@ -69,6 +82,13 @@ func (r CommentRecipe) Author(v showcase.User) CommentRecipe {
 	return r
 }
 
+// AuthorFromGenerator sets the Author field using a Generator.
+func (r CommentRecipe) AuthorFromGenerator(gen specta.Generator[showcase.User]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentAuthorFromGenerator(gen))
+	r.authorRecipe = nil
+	return r
+}
+
 // AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
@@ -84,9 +104,21 @@ func (r CommentRecipe) Content(v string) CommentRecipe {
 	return r
 }
 
+// ContentFromGenerator sets the Content field using a Generator.
+func (r CommentRecipe) ContentFromGenerator(gen specta.Generator[string]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentContentFromGenerator(gen))
+	return r
+}
+
 // CreatedAt sets the CreatedAt field.
 func (r CommentRecipe) CreatedAt(v time.Time) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentCreatedAt(v))
+	return r
+}
+
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r CommentRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentCreatedAtFromGenerator(gen))
 	return r
 }
 

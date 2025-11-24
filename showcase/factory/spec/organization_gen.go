@@ -53,26 +53,24 @@ func NewOrganizationFactory(s specta.Source) *specta.SpecFactory[showcase.Organi
 	return specta.NewSpecFactory(s, NewOrganizationSpec, BuildOrganization)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	OrganizationDefaultID       = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
-	OrganizationDefaultName     = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
-	OrganizationDefaultCEO      = specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec))
-	OrganizationDefaultTeams    = func(s specta.Source) []showcase.Team { var zero []showcase.Team; return zero }
-	OrganizationDefaultMembers  = func(s specta.Source) []showcase.Member { var zero []showcase.Member; return zero }
-	OrganizationDefaultMetadata = func(s specta.Source) map[string]string {
-		return specta.Map(specta.String(), specta.String()).MaxLen(5).Draw(s, "Metadata")
-	}
+	OrganizationIDGenerator       specta.Generator[string]            = specta.String().ExampleHint("id_")
+	OrganizationNameGenerator     specta.Generator[string]            = specta.String().ExampleHint("name_")
+	OrganizationCEOGenerator      specta.Generator[*showcase.User]    = specta.GeneratorFromProvider(specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec)))
+	OrganizationTeamsGenerator    specta.Generator[[]showcase.Team]   = specta.GeneratorFromProvider(func(s specta.Source) []showcase.Team { var zero []showcase.Team; return zero })
+	OrganizationMembersGenerator  specta.Generator[[]showcase.Member] = specta.GeneratorFromProvider(func(s specta.Source) []showcase.Member { var zero []showcase.Member; return zero })
+	OrganizationMetadataGenerator specta.Generator[map[string]string] = specta.Map(specta.String(), specta.String()).MaxLen(5)
 )
 
 // BuildOrganization constructs a Organization from a OrganizationSpec.
 func BuildOrganization(s specta.Source, spec OrganizationSpec) showcase.Organization {
-	iD := spec.ID.Get(s, OrganizationDefaultID)
-	name := spec.Name.Get(s, OrganizationDefaultName)
-	cEO := spec.CEO.Get(s, OrganizationDefaultCEO)
-	teams := spec.Teams.Get(s, OrganizationDefaultTeams)
-	members := spec.Members.Get(s, OrganizationDefaultMembers)
-	metadata := spec.Metadata.Get(s, OrganizationDefaultMetadata)
+	iD := spec.ID.GetWithGenerator(s, "ID", OrganizationIDGenerator)
+	name := spec.Name.GetWithGenerator(s, "Name", OrganizationNameGenerator)
+	cEO := spec.CEO.GetWithGenerator(s, "CEO", OrganizationCEOGenerator)
+	teams := spec.Teams.GetWithGenerator(s, "Teams", OrganizationTeamsGenerator)
+	members := spec.Members.GetWithGenerator(s, "Members", OrganizationMembersGenerator)
+	metadata := spec.Metadata.GetWithGenerator(s, "Metadata", OrganizationMetadataGenerator)
 	return showcase.Organization{
 		ID:       iD,
 		Name:     name,
@@ -88,14 +86,41 @@ func WithOrganizationID(v string) specta.Opt[OrganizationSpec] {
 	return specta.SetLit(func(s *OrganizationSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
+// WithOrganizationIDFromGenerator sets the ID field using a Generator.
+func WithOrganizationIDFromGenerator(gen specta.Generator[string]) specta.Opt[OrganizationSpec] {
+	prov := specta.ProviderFromGenerator(gen, "ID")
+	return specta.SetWith(
+		func(s *OrganizationSpec, m specta.Maybe[string]) { s.ID = m },
+		prov,
+	)
+}
+
 // WithOrganizationName sets the Name field to a literal value.
 func WithOrganizationName(v string) specta.Opt[OrganizationSpec] {
 	return specta.SetLit(func(s *OrganizationSpec, m specta.Maybe[string]) { s.Name = m }, v)
 }
 
+// WithOrganizationNameFromGenerator sets the Name field using a Generator.
+func WithOrganizationNameFromGenerator(gen specta.Generator[string]) specta.Opt[OrganizationSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Name")
+	return specta.SetWith(
+		func(s *OrganizationSpec, m specta.Maybe[string]) { s.Name = m },
+		prov,
+	)
+}
+
 // WithOrganizationCEO sets the CEO field to a literal value.
 func WithOrganizationCEO(v *showcase.User) specta.Opt[OrganizationSpec] {
 	return specta.SetLit(func(s *OrganizationSpec, m specta.Maybe[*showcase.User]) { s.CEO = m }, v)
+}
+
+// WithOrganizationCEOFromGenerator sets the CEO field using a Generator.
+func WithOrganizationCEOFromGenerator(gen specta.Generator[*showcase.User]) specta.Opt[OrganizationSpec] {
+	prov := specta.ProviderFromGenerator(gen, "CEO")
+	return specta.SetWith(
+		func(s *OrganizationSpec, m specta.Maybe[*showcase.User]) { s.CEO = m },
+		prov,
+	)
 }
 
 // WithOrganizationCEOFromProvider sets the CEO field using a Provider (evaluated lazily).
@@ -111,6 +136,15 @@ func WithOrganizationTeams(v []showcase.Team) specta.Opt[OrganizationSpec] {
 	return specta.SetLit(func(s *OrganizationSpec, m specta.Maybe[[]showcase.Team]) { s.Teams = m }, v)
 }
 
+// WithOrganizationTeamsFromGenerator sets the Teams field using a Generator.
+func WithOrganizationTeamsFromGenerator(gen specta.Generator[[]showcase.Team]) specta.Opt[OrganizationSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Teams")
+	return specta.SetWith(
+		func(s *OrganizationSpec, m specta.Maybe[[]showcase.Team]) { s.Teams = m },
+		prov,
+	)
+}
+
 // WithOrganizationTeamsFromProvider sets the Teams field using a Provider (evaluated lazily).
 func WithOrganizationTeamsFromProvider(prov specta.Provider[[]showcase.Team]) specta.Opt[OrganizationSpec] {
 	return specta.SetWith(
@@ -124,6 +158,15 @@ func WithOrganizationMembers(v []showcase.Member) specta.Opt[OrganizationSpec] {
 	return specta.SetLit(func(s *OrganizationSpec, m specta.Maybe[[]showcase.Member]) { s.Members = m }, v)
 }
 
+// WithOrganizationMembersFromGenerator sets the Members field using a Generator.
+func WithOrganizationMembersFromGenerator(gen specta.Generator[[]showcase.Member]) specta.Opt[OrganizationSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Members")
+	return specta.SetWith(
+		func(s *OrganizationSpec, m specta.Maybe[[]showcase.Member]) { s.Members = m },
+		prov,
+	)
+}
+
 // WithOrganizationMembersFromProvider sets the Members field using a Provider (evaluated lazily).
 func WithOrganizationMembersFromProvider(prov specta.Provider[[]showcase.Member]) specta.Opt[OrganizationSpec] {
 	return specta.SetWith(
@@ -135,4 +178,13 @@ func WithOrganizationMembersFromProvider(prov specta.Provider[[]showcase.Member]
 // WithOrganizationMetadata sets the Metadata field to a literal value.
 func WithOrganizationMetadata(v map[string]string) specta.Opt[OrganizationSpec] {
 	return specta.SetLit(func(s *OrganizationSpec, m specta.Maybe[map[string]string]) { s.Metadata = m }, v)
+}
+
+// WithOrganizationMetadataFromGenerator sets the Metadata field using a Generator.
+func WithOrganizationMetadataFromGenerator(gen specta.Generator[map[string]string]) specta.Opt[OrganizationSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Metadata")
+	return specta.SetWith(
+		func(s *OrganizationSpec, m specta.Maybe[map[string]string]) { s.Metadata = m },
+		prov,
+	)
 }

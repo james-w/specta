@@ -33,7 +33,17 @@ requires = ["generate-example", "generate-showcase"]
 # Testing
 [command.exec.test]
 description = "Run tests for main module"
+command = "go test {args}"
+
+[command.exec.test-main]
+description = "Generate and test all tests in main module"
 command = "go test ./... {args}"
+dir = "."
+
+[command.exec.test-docs]
+description = "Generate and test all tests in docs"
+command = "go test ./... {args}"
+dir = "docs"
 
 [command.exec.test-example]
 description = "Generate and test example module"
@@ -49,7 +59,7 @@ requires = ["generate-showcase"]
 
 [group.test-all]
 description = "Run tests for all modules"
-requires = ["test", "test-example", "test-showcase"]
+requires = ["test-main", "test-docs", "test-example", "test-showcase"]
 
 # Code quality
 [command.exec.format]
@@ -64,3 +74,9 @@ command = "golangci-lint run"
 [group.ci]
 description = "Full CI check (format, generate, test all, lint)"
 requires = ["format", "generate", "test-all", "lint"]
+
+[command.exec.serve-docs]
+description = "Run a local docs server"
+command = "hugo serve"
+dir = "docs"
+daemon = true

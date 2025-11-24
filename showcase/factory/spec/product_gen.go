@@ -55,26 +55,24 @@ func NewProductFactory(s specta.Source) *specta.SpecFactory[showcase.Product, Pr
 	return specta.NewSpecFactory(s, NewProductSpec, BuildProduct)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	ProductDefaultID          = func(s specta.Source) string { return specta.String().ExampleHint("id_").Draw(s, "ID") }
-	ProductDefaultName        = func(s specta.Source) string { return specta.String().ExampleHint("name_").Draw(s, "Name") }
-	ProductDefaultDescription = func(s specta.Source) string {
-		return specta.String().ExampleHint("description_").Draw(s, "Description")
-	}
-	ProductDefaultPrice     = func(s specta.Source) float64 { return specta.Float64().Draw(s, "Price") }
-	ProductDefaultInStock   = func(s specta.Source) bool { return specta.Bool().Draw(s, "InStock") }
-	ProductDefaultCreatedAt = func(s specta.Source) time.Time { return specta.Time().Draw(s, "CreatedAt") }
+	ProductIDGenerator          specta.Generator[string]    = specta.String().ExampleHint("id_")
+	ProductNameGenerator        specta.Generator[string]    = specta.String().ExampleHint("name_")
+	ProductDescriptionGenerator specta.Generator[string]    = specta.String().ExampleHint("description_")
+	ProductPriceGenerator       specta.Generator[float64]   = specta.Float64()
+	ProductInStockGenerator     specta.Generator[bool]      = specta.Bool()
+	ProductCreatedAtGenerator   specta.Generator[time.Time] = specta.Time()
 )
 
 // BuildProduct constructs a Product from a ProductSpec.
 func BuildProduct(s specta.Source, spec ProductSpec) showcase.Product {
-	iD := spec.ID.Get(s, ProductDefaultID)
-	name := spec.Name.Get(s, ProductDefaultName)
-	description := spec.Description.Get(s, ProductDefaultDescription)
-	price := spec.Price.Get(s, ProductDefaultPrice)
-	inStock := spec.InStock.Get(s, ProductDefaultInStock)
-	createdAt := spec.CreatedAt.Get(s, ProductDefaultCreatedAt)
+	iD := spec.ID.GetWithGenerator(s, "ID", ProductIDGenerator)
+	name := spec.Name.GetWithGenerator(s, "Name", ProductNameGenerator)
+	description := spec.Description.GetWithGenerator(s, "Description", ProductDescriptionGenerator)
+	price := spec.Price.GetWithGenerator(s, "Price", ProductPriceGenerator)
+	inStock := spec.InStock.GetWithGenerator(s, "InStock", ProductInStockGenerator)
+	createdAt := spec.CreatedAt.GetWithGenerator(s, "CreatedAt", ProductCreatedAtGenerator)
 	return showcase.Product{
 		ID:          iD,
 		Name:        name,
@@ -90,9 +88,27 @@ func WithProductID(v string) specta.Opt[ProductSpec] {
 	return specta.SetLit(func(s *ProductSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
+// WithProductIDFromGenerator sets the ID field using a Generator.
+func WithProductIDFromGenerator(gen specta.Generator[string]) specta.Opt[ProductSpec] {
+	prov := specta.ProviderFromGenerator(gen, "ID")
+	return specta.SetWith(
+		func(s *ProductSpec, m specta.Maybe[string]) { s.ID = m },
+		prov,
+	)
+}
+
 // WithProductName sets the Name field to a literal value.
 func WithProductName(v string) specta.Opt[ProductSpec] {
 	return specta.SetLit(func(s *ProductSpec, m specta.Maybe[string]) { s.Name = m }, v)
+}
+
+// WithProductNameFromGenerator sets the Name field using a Generator.
+func WithProductNameFromGenerator(gen specta.Generator[string]) specta.Opt[ProductSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Name")
+	return specta.SetWith(
+		func(s *ProductSpec, m specta.Maybe[string]) { s.Name = m },
+		prov,
+	)
 }
 
 // WithProductDescription sets the Description field to a literal value.
@@ -100,9 +116,27 @@ func WithProductDescription(v string) specta.Opt[ProductSpec] {
 	return specta.SetLit(func(s *ProductSpec, m specta.Maybe[string]) { s.Description = m }, v)
 }
 
+// WithProductDescriptionFromGenerator sets the Description field using a Generator.
+func WithProductDescriptionFromGenerator(gen specta.Generator[string]) specta.Opt[ProductSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Description")
+	return specta.SetWith(
+		func(s *ProductSpec, m specta.Maybe[string]) { s.Description = m },
+		prov,
+	)
+}
+
 // WithProductPrice sets the Price field to a literal value.
 func WithProductPrice(v float64) specta.Opt[ProductSpec] {
 	return specta.SetLit(func(s *ProductSpec, m specta.Maybe[float64]) { s.Price = m }, v)
+}
+
+// WithProductPriceFromGenerator sets the Price field using a Generator.
+func WithProductPriceFromGenerator(gen specta.Generator[float64]) specta.Opt[ProductSpec] {
+	prov := specta.ProviderFromGenerator(gen, "Price")
+	return specta.SetWith(
+		func(s *ProductSpec, m specta.Maybe[float64]) { s.Price = m },
+		prov,
+	)
 }
 
 // WithProductInStock sets the InStock field to a literal value.
@@ -110,7 +144,25 @@ func WithProductInStock(v bool) specta.Opt[ProductSpec] {
 	return specta.SetLit(func(s *ProductSpec, m specta.Maybe[bool]) { s.InStock = m }, v)
 }
 
+// WithProductInStockFromGenerator sets the InStock field using a Generator.
+func WithProductInStockFromGenerator(gen specta.Generator[bool]) specta.Opt[ProductSpec] {
+	prov := specta.ProviderFromGenerator(gen, "InStock")
+	return specta.SetWith(
+		func(s *ProductSpec, m specta.Maybe[bool]) { s.InStock = m },
+		prov,
+	)
+}
+
 // WithProductCreatedAt sets the CreatedAt field to a literal value.
 func WithProductCreatedAt(v time.Time) specta.Opt[ProductSpec] {
 	return specta.SetLit(func(s *ProductSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m }, v)
+}
+
+// WithProductCreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func WithProductCreatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[ProductSpec] {
+	prov := specta.ProviderFromGenerator(gen, "CreatedAt")
+	return specta.SetWith(
+		func(s *ProductSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m },
+		prov,
+	)
 }

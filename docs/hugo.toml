@@ -1,28 +1,26 @@
 baseURL = 'https://james-w.github.io/specta/'
 languageCode = 'en-us'
 title = 'specta'
-theme = 'doks'
 
 [params]
   description = "Composable Testing for Go"
-  github = "https://github.com/james-w/specta"
 
-  [params.doks]
-    githubRepo = "https://github.com/james-w/specta"
-    docsRepo = "https://github.com/james-w/specta"
-    docsRepoBranch = "main"
-    docsRepoSubPath = "docs"
-    editPage = true
-    search = true
+  [params.footer]
+    copyright = "© 2024 specta"
+
+  [[params.social.list]]
+    icon = "github"
+    uri = "https://github.com/james-w/specta"
+    title = "GitHub"
 
 [module]
   [[module.imports]]
-    path = "github.com/h-enk/doks-core"
+    path = "github.com/alex-shpak/hugo-book"
 
 [markup]
   [markup.goldmark]
     [markup.goldmark.renderer]
-      unsafe = true
+      unsafe = false
   [markup.highlight]
     noClasses = false
   [markup.tableOfContents]
