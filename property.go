@@ -56,6 +56,16 @@ func (t *T) IsDeterministic() bool {
 	return t.Source.IsDeterministic()
 }
 
+// StartInterval implements Source by delegating to T.Source.
+func (t *T) StartInterval(label string) {
+	t.Source.StartInterval(label)
+}
+
+// EndInterval implements Source by delegating to T.Source.
+func (t *T) EndInterval() {
+	t.Source.EndInterval()
+}
+
 // Assume skips the current property test iteration if the condition is false.
 // This is useful for filtering generated values that don't meet preconditions.
 // Property will track how many tests were skipped and warn if the skip rate is high.
@@ -152,16 +162,23 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 		tested++
 
 		if failed {
-			// Property failed - shrink it
+			// Property failed - shrink it using Hypothesis-style multi-pass shrinking
 			// We know pt.Source is a *randomSource since we created it with NewSource
 			rs := pt.Source.(*randomSource)
-			shrunkData := shrink(rs.Data(), func(data []byte) bool {
+
+			// Create test function for the shrinker
+			testFunc := func(data []byte) bool {
 				shrinkT := &T{
 					Source: NewSourceFromData(data),
 				}
 				failed, _ := runCheck(check, shrinkT)
 				return failed
-			}, cfg.maxShrinks)
+			}
+
+			// Create shrinker with intervals from the original failing run
+			shrinker := NewShrinker(rs.Data(), rs.Intervals(), testFunc)
+			shrinker.maxCalls = cfg.maxShrinks
+			shrunkData := shrinker.Shrink()
 
 			// Report failure
 			reportFailure(t, shrunkData, check, i+1, cfg.maxTests, cfg.seed+int64(i), tested, skipped)
@@ -203,61 +220,6 @@ func runCheck(check func(*T), pt *T) (failed bool, skipped bool) {
 	return
 }
 
-// shrink attempts to find a minimal failing test case by trying progressively smaller byte streams.
-// It uses a greedy approach with two strategies:
-// 1. Binary search on byte stream length
-// 2. Zero out individual bytes
-func shrink(original []byte, test func([]byte) bool, maxTries int) []byte {
-	if len(original) == 0 {
-		return original
-	}
-
-	best := make([]byte, len(original))
-	copy(best, original)
-	tries := 0
-
-	// Strategy 1: Binary search on length
-	// Try progressively shorter prefixes of the byte stream
-	for length := len(best) / 2; length > 0; length /= 2 {
-		if tries >= maxTries {
-			break
-		}
-		candidate := best[:length]
-		if test(candidate) {
-			// Still fails with shorter stream - keep it
-			newBest := make([]byte, length)
-			copy(newBest, candidate)
-			best = newBest
-			tries++
-			continue
-		}
-		tries++
-	}
-
-	// Strategy 2: Zero out bytes
-	// Try replacing individual bytes with 0x00
-	for i := len(best) - 1; i >= 0; i-- {
-		if tries >= maxTries {
-			break
-		}
-		if best[i] == 0 {
-			continue // Already zero
-		}
-
-		candidate := make([]byte, len(best))
-		copy(candidate, best)
-		candidate[i] = 0
-
-		if test(candidate) {
-			// Still fails with this byte zeroed - keep it
-			best = candidate
-		}
-		tries++
-	}
-
-	return best
-}
-
 // reportFailure creates a detailed error message and fails the test.
 func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxTests int, seed int64, tested, skipped int) {
 	// Only call Helper() if t is a real *testing.T
@@ -295,9 +257,15 @@ func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxT
 	if len(finalT.errors) > 0 {
 		msg.WriteString("\nFailure:\n")
 		for _, err := range finalT.errors {
-			msg.WriteString("  ")
-			msg.WriteString(err)
-			msg.WriteString("\n")
+			// For multiline errors, indent each line
+			lines := strings.Split(err, "\n")
+			for _, line := range lines {
+				if line != "" {
+					msg.WriteString("  ")
+					msg.WriteString(line)
+				}
+				msg.WriteString("\n")
+			}
 		}
 	}
 

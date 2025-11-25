@@ -124,9 +124,6 @@ func (g *IntGenerator) Filter(fn func(int64) bool) *IntGenerator {
 // Draw generates an int64 value from the source and records it in the log.
 // The label is used to identify this value in error messages.
 func (g *IntGenerator) Draw(s Source, label string) int64 {
-	// Draw bits from source
-	bits := s.DrawBits(64)
-
 	// Determine effective min and max
 	min := int64(math.MinInt64)
 	max := int64(math.MaxInt64)
@@ -142,6 +139,7 @@ func (g *IntGenerator) Draw(s Source, label string) int64 {
 	if s.IsDeterministic() {
 		// Deterministic mode: use counter directly for small, predictable values
 		// This gives us 0, 1, 2, 3... which is friendly for debugging
+		bits := s.DrawBits(64)
 		value = int64(bits)
 
 		// Apply constraints
@@ -161,84 +159,174 @@ func (g *IntGenerator) Draw(s Source, label string) int64 {
 		// Log and return the value
 		s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
 		return value
-	} else {
-		maxAttempts := 1
-		if g.filterFn != nil {
-			maxAttempts = g.maxFilterAttempts
+	}
+
+	// Random mode: range-stratified generation with monotonic values
+	// This approach maintains shrink-friendliness while biasing toward edge cases
+	maxAttempts := 1
+	if g.filterFn != nil {
+		maxAttempts = g.maxFilterAttempts
+	}
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		value = g.drawRandomMonotonic(s, min, max)
+
+		// Check filter predicate if present
+		if g.filterFn != nil && !g.filterFn(value) {
+			continue // Try again
 		}
 
-		// Build edge case pool once (same for all attempts)
-		edgeCases := make([]int64, 0, 20)
-
-		// Add special values if in range
-		for _, special := range []int64{0, 1, -1} {
-			if special >= min && special <= max {
-				edgeCases = append(edgeCases, special)
-			}
-		}
-
-		// Add boundaries
-		edgeCases = append(edgeCases, min, max)
-		// Add near-boundaries if they're in range
-		if min+1 <= max && min < math.MaxInt64 {
-			edgeCases = append(edgeCases, min+1)
-		}
-		if max-1 >= min && max > math.MinInt64 {
-			edgeCases = append(edgeCases, max-1)
-		}
-
-		// Add powers of 2 within range
-		for p := int64(1); p > 0 && p <= max; p *= 2 {
-			if p >= min && p <= max {
-				edgeCases = append(edgeCases, p)
-			}
-		}
-		// Negative powers of 2
-		for p := int64(-1); p < 0 && p >= min; p *= 2 {
-			if p >= min && p <= max {
-				edgeCases = append(edgeCases, p)
-			}
-		}
-
-		for attempt := 0; attempt < maxAttempts; attempt++ {
-			// Random mode with edge case biasing
-			// 30% of the time, pick from edge cases; 70% uniform random
-
-			// Decide: edge case (30%) or uniform (70%)
-			biasDecision := s.DrawBits(8) // 0-255
-			useBias := biasDecision < 77  // 77/255 ≈ 30%
-
-			if useBias && len(edgeCases) > 0 {
-				// Pick randomly from edge cases
-				idx := s.DrawBits(32) % uint64(len(edgeCases))
-				value = edgeCases[idx]
-			} else {
-				// Uniform random across full range
-				rangeSize := uint64(max - min + 1)
-				if rangeSize == 0 {
-					// Special case: range wraps around
-					value = int64(s.DrawBits(64))
-				} else {
-					// Map bits to [0, rangeSize) then add min
-					offset := s.DrawBits(64) % rangeSize
-					value = min + int64(offset)
-				}
-			}
-
-			// Check filter predicate if present
-			if g.filterFn != nil && !g.filterFn(value) {
-				continue // Try again
-			}
-
-			// Log the generated value
-			s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
-
-			return value
-		}
+		// Log the generated value
+		s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
+		return value
 	}
 
 	// Filter exhausted max attempts - skip this test iteration
 	panic(skipTest{})
+}
+
+// drawRandomMonotonic generates values using range stratification with monotonic generation.
+// Smaller byte values lead to simpler values (shrink-compatible).
+func (g *IntGenerator) drawRandomMonotonic(s Source, min, max int64) int64 {
+	// Select which sub-range to draw from
+	// Smaller rangeChoice values → more focused/simpler ranges (good for shrinking!)
+	rangeChoice := s.DrawBits(3) // 0-7
+
+	var effectiveMin, effectiveMax int64
+	switch rangeChoice {
+	case 0: // ~12.5% - small range around zero (simplest) - only if range contains zero
+		if min <= 0 && max >= 0 {
+			effectiveMin = max64(min, -10)
+			effectiveMax = min64(max, 10)
+		} else {
+			// Range doesn't contain zero, use small range around min
+			effectiveMin = min
+			effectiveMax = min64(min+20, max)
+		}
+	case 1: // ~12.5% - boundary regions
+		if s.DrawBits(1) == 0 {
+			// Lower boundary
+			effectiveMin = min
+			effectiveMax = min64(min+20, max)
+		} else {
+			// Upper boundary
+			effectiveMin = max64(max-20, min)
+			effectiveMax = max
+		}
+	default: // ~75% - full range
+		effectiveMin = min
+		effectiveMax = max
+	}
+
+	// Draw monotonically within the selected range
+	return drawZigZagInRange(s, effectiveMin, effectiveMax)
+}
+
+// drawZigZagInRange generates values in [min, max] with monotonic shrinking behavior.
+// Strategy: Draw bits for range size, map to offset in range.
+// For ranges containing 0: zig-zag around 0 (0, -1, 1, -2, 2...)
+// For other ranges: map linearly (smaller bits → smaller values in range)
+func drawZigZagInRange(s Source, min, max int64) int64 {
+	if min > max {
+		min, max = max, min
+	}
+
+	// Special case: single value
+	if min == max {
+		return min
+	}
+
+	rangeSize := uint64(max - min + 1)
+	bitsNeeded := bitsNeededForRange(rangeSize)
+
+	// Use rejection sampling to avoid modulo bias
+	for attempt := 0; attempt < 100; attempt++ {
+		bits := s.DrawBits(bitsNeeded)
+
+		// Reject if outside range
+		if bits >= rangeSize {
+			continue
+		}
+
+		// If range contains zero, use zig-zag around zero
+		if min <= 0 && max >= 0 {
+			// Apply zig-zag: 0→0, 1→1, 2→-1, 3→2, 4→-2, 5→3, 6→-3...
+			// (slightly different encoding for better shrinking to positive first)
+			var value int64
+			if bits == 0 {
+				value = 0
+			} else if bits%2 == 1 {
+				value = int64((bits + 1) / 2)
+			} else {
+				value = -int64(bits / 2)
+			}
+
+			// Check if in bounds
+			if value >= min && value <= max {
+				return value
+			}
+			// If out of bounds, fall through to retry
+			continue
+		}
+
+		// For ranges not containing zero, map linearly
+		// Smaller bits → values closer to min (or closer to zero if min/max both same sign)
+		if min >= 0 {
+			// Positive range: smaller bits → smaller positive values
+			value := min + int64(bits)
+			return value
+		} else {
+			// Negative range: smaller bits → values closer to zero (less negative)
+			// Map 0 → max (closest to zero), larger bits → more negative
+			value := max - int64(bits)
+			return value
+		}
+	}
+
+	// Fallback: return value closest to zero
+	if min >= 0 {
+		return min
+	} else if max <= 0 {
+		return max
+	}
+	return 0
+}
+
+// bitsNeededForRange returns the minimum bits needed to represent all values in [0, n).
+func bitsNeededForRange(n uint64) int {
+	if n <= 1 {
+		return 1
+	}
+	// Find position of highest bit
+	bits := 0
+	for n > 1 {
+		n >>= 1
+		bits++
+	}
+	return bits + 1
+}
+
+// Helper functions for int64 min/max
+func min64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Helper function for int min
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // StringGenerator generates string values with optional constraints.
@@ -466,35 +554,43 @@ func (g *StringGenerator) drawRandom(s Source, label string) string {
 			continue // Try again with filter
 		}
 
-		// Generate random length for the middle part with edge case biasing
+		// Generate random length with range stratification (shrink-compatible biasing)
 		var randomLen int
 		if randomMaxLen == randomMinLen {
 			randomLen = randomMinLen
 		} else {
-			// Build edge case pool: 0 (empty), 1 (single char), max, max-1
-			edgeCases := make([]int, 0, 4)
-			for _, special := range []int{0, 1} {
-				if special >= randomMinLen && special <= randomMaxLen {
-					edgeCases = append(edgeCases, special)
+			// Range stratification: bias toward shorter strings
+			// Smaller rangeChoice → shorter effective range (better for shrinking!)
+			rangeChoice := s.DrawBits(3) // 0-7
+
+			var effectiveMin, effectiveMax int
+			switch rangeChoice {
+			case 0: // ~12.5% - very short strings (0-5 chars)
+				effectiveMin = randomMinLen
+				effectiveMax = minInt(randomMinLen+5, randomMaxLen)
+			case 1: // ~12.5% - short strings (0-10 chars)
+				effectiveMin = randomMinLen
+				effectiveMax = minInt(randomMinLen+10, randomMaxLen)
+			default: // ~75% - full range
+				effectiveMin = randomMinLen
+				effectiveMax = randomMaxLen
+			}
+
+			// Draw monotonically within effective range using rejection sampling
+			lengthRange := uint64(effectiveMax - effectiveMin + 1)
+			bitsNeeded := bitsNeededForRange(lengthRange)
+
+			for attempt := 0; attempt < 100; attempt++ {
+				bits := s.DrawBits(bitsNeeded)
+				if bits < lengthRange {
+					randomLen = effectiveMin + int(bits)
+					break
 				}
 			}
-			edgeCases = append(edgeCases, randomMaxLen)
-			if randomMaxLen-1 >= randomMinLen && randomMaxLen > 0 {
-				edgeCases = append(edgeCases, randomMaxLen-1)
-			}
 
-			// 30% edge cases, 70% uniform
-			biasDecision := s.DrawBits(8) // 0-255
-			useBias := biasDecision < 77  // 77/255 ≈ 30%
-
-			if useBias && len(edgeCases) > 0 {
-				// Pick from edge cases
-				idx := s.DrawBits(32) % uint64(len(edgeCases))
-				randomLen = edgeCases[idx]
-			} else {
-				// Uniform random
-				lengthRange := randomMaxLen - randomMinLen + 1
-				randomLen = randomMinLen + int(s.DrawBits(32)%uint64(lengthRange))
+			// Fallback if rejection sampling failed (shouldn't happen)
+			if randomLen < randomMinLen || randomLen > randomMaxLen {
+				randomLen = randomMinLen
 			}
 		}
 
@@ -525,31 +621,117 @@ func (g *StringGenerator) drawRandom(s Source, label string) string {
 func (g *StringGenerator) generateByte(s Source) byte {
 	switch g.charset {
 	case charsetAny:
-		// Any byte value
-		return byte(s.DrawBits(8))
+		// Any byte value, but stratified to prefer simpler chars
+		// Smaller rangeChoice → simpler characters (better for shrinking)
+		rangeChoice := s.DrawBits(2) // 0-3
+		switch rangeChoice {
+		case 0: // 25%: lowercase letters (simplest)
+			for attempt := 0; attempt < 100; attempt++ {
+				bits := s.DrawBits(5) // 0-31
+				if bits < 26 {
+					return byte('a' + bits)
+				}
+			}
+			return 'a'
+		case 1: // 25%: printable ASCII (simple, readable)
+			return g.generatePrintableByte(s)
+		default: // 50%: any byte (full exploration)
+			return byte(s.DrawBits(8))
+		}
 
 	case charsetASCII:
-		// ASCII: 0x00-0x7F
+		// ASCII: 0x00-0x7F, prefer printable over control chars
+		rangeChoice := s.DrawBits(2) // 0-3
+		if rangeChoice == 0 {
+			// 25%: printable ASCII (preferred for shrinking)
+			return g.generatePrintableByte(s)
+		}
+		// 75%: full ASCII range
 		return byte(s.DrawBits(7))
 
 	case charsetPrintable:
-		// Printable ASCII: 0x20 (' ') to 0x7E ('~')
-		return byte(0x20 + s.DrawBits(7)%(0x7F-0x20))
+		return g.generatePrintableByte(s)
 
 	case charsetAlphaNum:
-		// Alphanumeric: a-z, A-Z, 0-9 (62 characters)
-		const alphaNum = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-		idx := s.DrawBits(6) % 62
-		return alphaNum[idx]
+		// Alphanumeric: a-z, 0-9, A-Z (62 characters)
+		// Use rejection sampling for monotonicity
+		for attempt := 0; attempt < 100; attempt++ {
+			bits := s.DrawBits(6) // 0-63
+			if bits < 62 {
+				return charFromAlphaNumOrder(bits)
+			}
+		}
+		return 'a' // fallback
 
 	case charsetAlpha:
 		// Alphabetic: a-z, A-Z (52 characters)
-		const alpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-		idx := s.DrawBits(6) % 52
-		return alpha[idx]
+		// Use rejection sampling for monotonicity
+		for attempt := 0; attempt < 100; attempt++ {
+			bits := s.DrawBits(6) // 0-63
+			if bits < 52 {
+				return charFromAlphaOrder(bits)
+			}
+		}
+		return 'a' // fallback
 
 	default:
 		return byte(s.DrawBits(8))
+	}
+}
+
+// generatePrintableByte generates a printable ASCII character with monotonic mapping.
+// Maps byte values 0-94 to characters ordered by simplicity: a-z, 0-9, A-Z, space, punctuation.
+func (g *StringGenerator) generatePrintableByte(s Source) byte {
+	// 95 printable ASCII chars [0x20-0x7E]
+	// Use rejection sampling for true monotonicity
+	for attempt := 0; attempt < 100; attempt++ {
+		bits := s.DrawBits(7) // 0-127
+		if bits < 95 {
+			return charFromSimplicityOrder(bits)
+		}
+	}
+	return 'a' // fallback
+}
+
+// charFromSimplicityOrder maps values 0-94 to printable ASCII in order of simplicity.
+// 0-25: a-z (lowercase letters - simplest)
+// 26-35: 0-9 (digits)
+// 36-61: A-Z (uppercase letters)
+// 62-94: space + punctuation
+func charFromSimplicityOrder(n uint64) byte {
+	if n < 26 {
+		return byte('a' + n)
+	} else if n < 36 {
+		return byte('0' + (n - 26))
+	} else if n < 62 {
+		return byte('A' + (n - 36))
+	} else {
+		// Remaining 33 chars: space + punctuation in ASCII order
+		// Space, !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
+		punctuation := " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+		return punctuation[n-62]
+	}
+}
+
+// charFromAlphaNumOrder maps values 0-61 to alphanumeric chars by simplicity.
+// 0-25: a-z, 26-35: 0-9, 36-61: A-Z
+func charFromAlphaNumOrder(n uint64) byte {
+	if n < 26 {
+		return byte('a' + n)
+	} else if n < 36 {
+		return byte('0' + (n - 26))
+	} else {
+		return byte('A' + (n - 36))
+	}
+}
+
+// charFromAlphaOrder maps values 0-51 to alphabetic chars by simplicity.
+// 0-25: a-z, 26-51: A-Z
+func charFromAlphaOrder(n uint64) byte {
+	if n < 26 {
+		return byte('a' + n)
+	} else {
+		return byte('A' + (n - 26))
 	}
 }
 
@@ -920,118 +1102,68 @@ func (g *SliceGenerator[T]) Draw(s Source, label string) []T {
 				length = minLen + int(counter%uint64(rangeSize))
 			}
 		} else {
-			// Random mode with size biasing toward edge cases
-			// Use weighted distribution:
-			// 20%: 0 (empty)
-			// 25%: 1 (single element)
-			// 35%: 2-5 (small)
-			// 12%: 6-20 (medium)
-			// 5%: 21-50 (large)
-			// 3%: 51-maxLen (very large)
-
+			// Random mode with range stratification (shrink-compatible)
+			// Smaller rangeChoice → smaller slices (better for shrinking!)
 			if minLen == maxLen {
 				length = minLen
 			} else {
-				// Draw random 0-99 for weighted choice
-				// Use rejection sampling to avoid modulo bias
-				var choice uint64
-				for {
-					choice = s.DrawBits(7) // 0-127
-					if choice < 100 {
+				rangeChoice := s.DrawBits(3) // 0-7
+
+				var effectiveMin, effectiveMax int
+				switch rangeChoice {
+				case 0: // ~12.5% - very small (0-3 elements)
+					effectiveMin = minLen
+					effectiveMax = minInt(minLen+3, maxLen)
+				case 1: // ~12.5% - small (0-10 elements)
+					effectiveMin = minLen
+					effectiveMax = minInt(minLen+10, maxLen)
+				default: // ~75% - full range
+					effectiveMin = minLen
+					effectiveMax = maxLen
+				}
+
+				// Draw monotonically within effective range using rejection sampling
+				lengthRange := uint64(effectiveMax - effectiveMin + 1)
+				bitsNeeded := bitsNeededForRange(lengthRange)
+
+				for retry := 0; retry < 100; retry++ {
+					bits := s.DrawBits(bitsNeeded)
+					if bits < lengthRange {
+						length = effectiveMin + int(bits)
 						break
 					}
 				}
 
-				switch {
-				case choice < 20:
-					// 20%: empty (0) - if allowed
-					if minLen == 0 {
-						length = 0
-					} else {
-						length = minLen
-					}
-				case choice < 45:
-					// 25%: single element (1) - if allowed
-					if minLen <= 1 && maxLen >= 1 {
-						length = 1
-					} else {
-						length = minLen
-					}
-				case choice < 80:
-					// 35%: small (2-5)
-					smallMin := max(minLen, 2)
-					smallMax := min(maxLen, 5)
-					if smallMin <= smallMax {
-						if smallMin == smallMax {
-							length = smallMin
-						} else {
-							length = smallMin + int(s.DrawBits(16)%uint64(smallMax-smallMin+1))
-						}
-					} else {
-						length = minLen
-					}
-				case choice < 92:
-					// 12%: medium (6-20)
-					medMin := max(minLen, 6)
-					medMax := min(maxLen, 20)
-					if medMin <= medMax {
-						if medMin == medMax {
-							length = medMin
-						} else {
-							length = medMin + int(s.DrawBits(16)%uint64(medMax-medMin+1))
-						}
-					} else {
-						length = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
-					}
-				case choice < 97:
-					// 5%: large (21-50)
-					largeMin := max(minLen, 21)
-					largeMax := min(maxLen, 50)
-					if largeMin <= largeMax {
-						if largeMin == largeMax {
-							length = largeMin
-						} else {
-							length = largeMin + int(s.DrawBits(16)%uint64(largeMax-largeMin+1))
-						}
-					} else {
-						length = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
-					}
-				default:
-					// 3%: very large (51-maxLen)
-					veryLargeMin := max(minLen, 51)
-					if veryLargeMin <= maxLen {
-						if veryLargeMin == maxLen {
-							length = veryLargeMin
-						} else {
-							length = veryLargeMin + int(s.DrawBits(32)%uint64(maxLen-veryLargeMin+1))
-						}
-					} else {
-						length = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
-					}
+				// Fallback
+				if length < minLen || length > maxLen {
+					length = minLen
 				}
 			}
 		}
 
 		// Generate elements
-		result := make([]T, length)
-		for i := 0; i < length; i++ {
-			result[i] = g.elementGen.Draw(s, fmt.Sprintf("%s[%d]", label, i))
+		var result []T
+		if length > 0 {
+			result = make([]T, length)
+			for i := 0; i < length; i++ {
+				result[i] = g.elementGen.Draw(s, fmt.Sprintf("%s[%d]", label, i))
+			}
 		}
 
-		// Check filter predicate if present
+		// Check filter
 		if g.filterFn != nil && !g.filterFn(result) {
-			continue // Try again
+			continue
 		}
 
 		s.WriteLog(fmt.Sprintf("Slice(%s)=[%d elements] ", label, length))
 		return result
 	}
 
-	// Filter exhausted max attempts - skip this test iteration
+	// Filter exhausted
 	panic(skipTest{})
 }
 
-// MapGenerator generates maps with key-value pairs using generators for keys and values.
+// MapGenerator generates maps with key and value generators.
 type MapGenerator[K comparable, V any] struct {
 	keyGen            Generator[K]
 	valueGen          Generator[V]
@@ -1043,12 +1175,6 @@ type MapGenerator[K comparable, V any] struct {
 
 // Map creates a new map generator using the given key and value generators.
 // By default it generates maps with 0-100 entries.
-// Use MinLen/MaxLen/Len to constrain the size.
-//
-// Example:
-//
-//	// Generate maps from string keys to int values
-//	m := Map(String().AlphaNum(), Int().Range(0, 100)).MinLen(1).MaxLen(10)
 func Map[K comparable, V any](keyGen Generator[K], valueGen Generator[V]) *MapGenerator[K, V] {
 	return &MapGenerator[K, V]{
 		keyGen:   keyGen,
@@ -1056,67 +1182,38 @@ func Map[K comparable, V any](keyGen Generator[K], valueGen Generator[V]) *MapGe
 	}
 }
 
-// validate checks that the generator's constraints are consistent.
-func (g *MapGenerator[K, V]) validate() {
-	if g.minLen != nil && g.maxLen != nil && *g.minLen > *g.maxLen {
-		panic(fmt.Sprintf("MapGenerator: MinLen(%d) > MaxLen(%d)", *g.minLen, *g.maxLen))
-	}
-}
-
-// MinLen constrains the generator to produce maps with at least minLen entries.
-func (g *MapGenerator[K, V]) MinLen(minLen int) *MapGenerator[K, V] {
-	if minLen < 0 {
-		panic(fmt.Sprintf("MapGenerator.MinLen: minLen (%d) must be >= 0", minLen))
-	}
-	g.minLen = &minLen
-	g.validate()
+// MinLen sets the minimum number of entries.
+func (g *MapGenerator[K, V]) MinLen(n int) *MapGenerator[K, V] {
+	g.minLen = &n
 	return g
 }
 
-// MaxLen constrains the generator to produce maps with at most maxLen entries.
-func (g *MapGenerator[K, V]) MaxLen(maxLen int) *MapGenerator[K, V] {
-	if maxLen < 0 {
-		panic(fmt.Sprintf("MapGenerator.MaxLen: maxLen (%d) must be >= 0", maxLen))
-	}
-	g.maxLen = &maxLen
-	g.validate()
+// MaxLen sets the maximum number of entries.
+func (g *MapGenerator[K, V]) MaxLen(n int) *MapGenerator[K, V] {
+	g.maxLen = &n
 	return g
 }
 
-// Len constrains the generator to produce maps with exactly len entries.
-func (g *MapGenerator[K, V]) Len(len int) *MapGenerator[K, V] {
-	if len < 0 {
-		panic(fmt.Sprintf("MapGenerator.Len: len (%d) must be >= 0", len))
-	}
-	g.minLen = &len
-	g.maxLen = &len
-	g.validate()
+// Len sets the exact number of entries (both min and max).
+func (g *MapGenerator[K, V]) Len(n int) *MapGenerator[K, V] {
+	g.minLen = &n
+	g.maxLen = &n
 	return g
 }
 
-// NonEmpty constrains the generator to produce non-empty maps.
+// NonEmpty ensures the map always has at least one entry.
 func (g *MapGenerator[K, V]) NonEmpty() *MapGenerator[K, V] {
 	one := 1
 	g.minLen = &one
-	g.validate()
 	return g
 }
 
-// Filter constrains the generator to only produce maps that satisfy the predicate.
-// The generator will retry up to 100 times (by default) to find a matching value.
-// If no matching value is found after max attempts, the test iteration is skipped.
+// Filter adds a predicate that generated maps must satisfy.
+// The generator will retry up to 100 times (by default) to find a matching map.
+// If no matching map is found after max attempts, the test iteration is skipped (via t.Assume).
 //
 // Use Filter for predicates that pass frequently (>50% of values).
 // For rare conditions, use t.Assume() instead to skip test iterations directly.
-//
-// Example:
-//
-//	nonEmptyValues := Map(String(), Int()).Filter(func(m map[string]int) bool {
-//	    for _, v := range m {
-//	        if v == 0 { return false }
-//	    }
-//	    return true
-//	})
 func (g *MapGenerator[K, V]) Filter(fn func(map[K]V) bool) *MapGenerator[K, V] {
 	g.filterFn = fn
 	if g.maxFilterAttempts == 0 {
@@ -1143,135 +1240,74 @@ func (g *MapGenerator[K, V]) Draw(s Source, label string) map[K]V {
 	}
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		// Generate a target size
-		var targetSize int
+		// Generate a length (same strategy as SliceGenerator)
+		var length int
 		if s.IsDeterministic() {
-			// Deterministic mode: use counter for predictable sizes
+			// Deterministic mode: use counter for predictable lengths
 			counter := s.DrawBits(64)
 			if minLen == maxLen {
-				targetSize = minLen
+				length = minLen
 			} else {
 				rangeSize := maxLen - minLen + 1
-				targetSize = minLen + int(counter%uint64(rangeSize))
+				length = minLen + int(counter%uint64(rangeSize))
 			}
 		} else {
-			// Random mode with size biasing toward edge cases
-			// Use same weighted distribution as Slice:
-			// 20%: 0 (empty)
-			// 25%: 1 (single entry)
-			// 35%: 2-5 (small)
-			// 12%: 6-20 (medium)
-			// 5%: 21-50 (large)
-			// 3%: 51-maxLen (very large)
-
+			// Random mode with range stratification (shrink-compatible)
+			// Smaller rangeChoice → smaller maps (better for shrinking!)
 			if minLen == maxLen {
-				targetSize = minLen
+				length = minLen
 			} else {
-				// Draw random 0-99 for weighted choice
-				// Use rejection sampling to avoid modulo bias
-				var choice uint64
-				for {
-					choice = s.DrawBits(7) // 0-127
-					if choice < 100 {
+				rangeChoice := s.DrawBits(3) // 0-7
+
+				var effectiveMin, effectiveMax int
+				switch rangeChoice {
+				case 0: // ~12.5% - very small (0-3 entries)
+					effectiveMin = minLen
+					effectiveMax = minInt(minLen+3, maxLen)
+				case 1: // ~12.5% - small (0-10 entries)
+					effectiveMin = minLen
+					effectiveMax = minInt(minLen+10, maxLen)
+				default: // ~75% - full range
+					effectiveMin = minLen
+					effectiveMax = maxLen
+				}
+
+				// Draw monotonically within effective range using rejection sampling
+				lengthRange := uint64(effectiveMax - effectiveMin + 1)
+				bitsNeeded := bitsNeededForRange(lengthRange)
+
+				for retry := 0; retry < 100; retry++ {
+					bits := s.DrawBits(bitsNeeded)
+					if bits < lengthRange {
+						length = effectiveMin + int(bits)
 						break
 					}
 				}
 
-				switch {
-				case choice < 20:
-					// 20%: empty (0) - if allowed
-					if minLen == 0 {
-						targetSize = 0
-					} else {
-						targetSize = minLen
-					}
-				case choice < 45:
-					// 25%: single entry (1) - if allowed
-					if minLen <= 1 && maxLen >= 1 {
-						targetSize = 1
-					} else {
-						targetSize = minLen
-					}
-				case choice < 80:
-					// 35%: small (2-5)
-					smallMin := max(minLen, 2)
-					smallMax := min(maxLen, 5)
-					if smallMin <= smallMax {
-						if smallMin == smallMax {
-							targetSize = smallMin
-						} else {
-							targetSize = smallMin + int(s.DrawBits(16)%uint64(smallMax-smallMin+1))
-						}
-					} else {
-						targetSize = minLen
-					}
-				case choice < 92:
-					// 12%: medium (6-20)
-					medMin := max(minLen, 6)
-					medMax := min(maxLen, 20)
-					if medMin <= medMax {
-						if medMin == medMax {
-							targetSize = medMin
-						} else {
-							targetSize = medMin + int(s.DrawBits(16)%uint64(medMax-medMin+1))
-						}
-					} else {
-						targetSize = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
-					}
-				case choice < 97:
-					// 5%: large (21-50)
-					largeMin := max(minLen, 21)
-					largeMax := min(maxLen, 50)
-					if largeMin <= largeMax {
-						if largeMin == largeMax {
-							targetSize = largeMin
-						} else {
-							targetSize = largeMin + int(s.DrawBits(16)%uint64(largeMax-largeMin+1))
-						}
-					} else {
-						targetSize = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
-					}
-				default:
-					// 3%: very large (51-maxLen)
-					veryLargeMin := max(minLen, 51)
-					if veryLargeMin <= maxLen {
-						if veryLargeMin == maxLen {
-							targetSize = veryLargeMin
-						} else {
-							targetSize = veryLargeMin + int(s.DrawBits(32)%uint64(maxLen-veryLargeMin+1))
-						}
-					} else {
-						targetSize = minLen + int(s.DrawBits(32)%uint64(maxLen-minLen+1))
-					}
+				// Fallback
+				if length < minLen || length > maxLen {
+					length = minLen
 				}
 			}
 		}
 
-		// Generate entries until we have targetSize unique keys
-		// Note: We may need to generate more than targetSize entries if keys collide
-		result := make(map[K]V, targetSize)
-		attempts := 0
-		maxKeyAttempts := targetSize * 10 // Allow some retries for key collisions
-
-		for len(result) < targetSize && attempts < maxKeyAttempts {
-			key := g.keyGen.Draw(s, fmt.Sprintf("%s[key-%d]", label, len(result)))
-			value := g.valueGen.Draw(s, fmt.Sprintf("%s[val-%d]", label, len(result)))
-			result[key] = value // Overwrites if key already exists
-			attempts++
+		// Generate entries
+		result := make(map[K]V)
+		for i := 0; i < length; i++ {
+			key := g.keyGen.Draw(s, fmt.Sprintf("%s.key[%d]", label, i))
+			value := g.valueGen.Draw(s, fmt.Sprintf("%s.value[%d]", label, i))
+			result[key] = value // Note: duplicate keys will overwrite
 		}
 
-		// If we couldn't generate enough unique keys, we have what we have
-		// This is acceptable behavior - maps naturally deduplicate keys
-
-		// Check filter predicate if present
+		// Check filter
 		if g.filterFn != nil && !g.filterFn(result) {
-			continue // Try again
+			continue
 		}
 
 		s.WriteLog(fmt.Sprintf("Map(%s)=[%d entries] ", label, len(result)))
 		return result
 	}
 
-	// Filter exhausted max attempts - skip this test iteration
+	// Filter exhausted
 	panic(skipTest{})
 }
