@@ -53,7 +53,7 @@ func (r OrderItemRecipe) ProductFromGenerator(gen specta.Generator[showcase.Prod
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrderItemRecipe) ProductFromRecipe(v ProductRecipe) OrderItemRecipe {
-	r.opts = append(r.opts, spec.WithOrderItemProductFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithOrderItemProductFromGenerator(v.Gen()))
 	r.productRecipe = &v
 	return r
 }
@@ -82,9 +82,9 @@ func (r OrderItemRecipe) PriceFromGenerator(gen specta.Generator[float64]) Order
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r OrderItemRecipe) Provider() specta.Provider[showcase.OrderItem] {
-	return specta.FromSpec(spec.BuildOrderItem, spec.NewOrderItemSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r OrderItemRecipe) Gen() specta.Gen[showcase.OrderItem] {
+	return specta.FromSpecGen(spec.BuildOrderItem, spec.NewOrderItemSpec, r.opts...)
 }
 
 // Build creates a single OrderItem instance.
@@ -119,14 +119,14 @@ func (r OrderItemRecipe) AsEqualMatcher() specta.Matcher[showcase.OrderItem] {
 		if r.productRecipe != nil {
 			m = m.Product(r.productRecipe.AsEqualMatcher())
 		} else {
-			m = m.Product(specta.DeepEqual(s.Product.Value(p)))
+			m = m.Product(specta.DeepEqual(s.Product.GetValue(p, "Product")))
 		}
 	}
 	if s.Quantity.IsSet() {
-		m = m.Quantity(specta.DeepEqual(s.Quantity.Value(p)))
+		m = m.Quantity(specta.DeepEqual(s.Quantity.GetValue(p, "Quantity")))
 	}
 	if s.Price.IsSet() {
-		m = m.Price(specta.DeepEqual(s.Price.Value(p)))
+		m = m.Price(specta.DeepEqual(s.Price.GetValue(p, "Price")))
 	}
 
 	return m.Matcher()

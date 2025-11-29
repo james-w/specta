@@ -1,7 +1,6 @@
 package showcase_test
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -23,13 +22,7 @@ func TestUserMatcher(t *testing.T) {
 			FirstName(specta.Equal("Alice")).
 			Active(specta.IsTrue())
 
-		result := matcher.Matcher().Matches(user)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
+		specta.AssertThat(t, user, matcher.Matcher())
 	})
 
 	t.Run("fails when field doesn't match", func(t *testing.T) {
@@ -38,10 +31,7 @@ func TestUserMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Email(specta.Equal("bob@example.com"))
 
-		result := matcher.Matcher().Matches(user)
-		if result.Matched {
-			t.Error("Expected mismatch but got match")
-		}
+		specta.AssertThat(t, user, specta.Not(matcher.Matcher()))
 	})
 
 	t.Run("only checks specified fields", func(t *testing.T) {
@@ -54,10 +44,7 @@ func TestUserMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Email(specta.Equal("alice@example.com"))
 
-		result := matcher.Matcher().Matches(user)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, user, matcher.Matcher())
 	})
 
 	t.Run("works with string matchers", func(t *testing.T) {
@@ -66,10 +53,7 @@ func TestUserMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Email(specta.Contains("@example.com"))
 
-		result := matcher.Matcher().Matches(user)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, user, matcher.Matcher())
 	})
 
 	t.Run("works with nested matchers", func(t *testing.T) {
@@ -85,13 +69,7 @@ func TestUserMatcher(t *testing.T) {
 				factory.AddressMatches().City(specta.Equal("Boston")),
 			)
 
-		result := matcher.Matcher().Matches(user)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
+		specta.AssertThat(t, user, matcher.Matcher())
 	})
 }
 
@@ -108,10 +86,7 @@ func TestAddressMatcher(t *testing.T) {
 			City(specta.Equal("Springfield")).
 			State(specta.Equal("IL"))
 
-		result := matcher.Matcher().Matches(addr)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, addr, matcher.Matcher())
 	})
 
 	t.Run("works with partial matching", func(t *testing.T) {
@@ -125,10 +100,7 @@ func TestAddressMatcher(t *testing.T) {
 		matcher := factory.AddressMatches().
 			City(specta.Equal("Boston"))
 
-		result := matcher.Matcher().Matches(addr)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, addr, matcher.Matcher())
 	})
 }
 
@@ -145,10 +117,7 @@ func TestProductMatcher(t *testing.T) {
 			Price(specta.GreaterThan(10.0)).
 			InStock(specta.IsTrue())
 
-		result := matcher.Matcher().Matches(product)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, product, matcher.Matcher())
 	})
 
 	t.Run("fails with wrong price", func(t *testing.T) {
@@ -157,10 +126,7 @@ func TestProductMatcher(t *testing.T) {
 		matcher := factory.ProductMatches().
 			Price(specta.GreaterThan(10.0))
 
-		result := matcher.Matcher().Matches(product)
-		if result.Matched {
-			t.Error("Expected mismatch for price < 10")
-		}
+		specta.AssertThat(t, product, specta.Not(matcher.Matcher()))
 	})
 }
 
@@ -182,13 +148,7 @@ func TestOrderMatcher(t *testing.T) {
 			Status(specta.Equal("pending")).
 			Total(specta.GreaterThan(100.0))
 
-		result := matcher.Matcher().Matches(order)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
+		specta.AssertThat(t, order, matcher.Matcher())
 	})
 
 	t.Run("provides detailed error on nested mismatch", func(t *testing.T) {
@@ -204,10 +164,7 @@ func TestOrderMatcher(t *testing.T) {
 					Email(specta.Equal("right@example.com")),
 			)
 
-		result := matcher.Matcher().Matches(order)
-		if result.Matched {
-			t.Error("Expected mismatch")
-		}
+		specta.AssertThat(t, order, specta.Not(matcher.Matcher()))
 	})
 }
 
@@ -227,10 +184,7 @@ func TestMatcherCombinations(t *testing.T) {
 				Matcher(),
 		)
 
-		result := matcher.Matches(user)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, user, matcher)
 	})
 
 	t.Run("AnyOf with matchers", func(t *testing.T) {
@@ -245,10 +199,7 @@ func TestMatcherCombinations(t *testing.T) {
 				Matcher(),
 		)
 
-		result := matcher.Matches(user)
-		if !result.Matched {
-			t.Error("Expected match with AnyOf")
-		}
+		specta.AssertThat(t, user, matcher)
 	})
 }
 
@@ -260,10 +211,7 @@ func TestNotMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Active(specta.Not(specta.IsTrue()))
 
-		result := matcher.Matcher().Matches(user)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, user, matcher.Matcher())
 	})
 }
 
@@ -278,10 +226,7 @@ func TestTimeMatcher(t *testing.T) {
 		matcher := factory.ProductMatches().
 			CreatedAt(specta.Equal(now))
 
-		result := matcher.Matcher().Matches(product)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, product, matcher.Matcher())
 	})
 }
 
@@ -295,13 +240,7 @@ func TestBankAccountMatcher(t *testing.T) {
 			Name(specta.Equal("Alice")).
 			Balance(specta.Equal(1000))
 
-		result := matcher.Matcher().Matches(account)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
+		specta.AssertThat(t, account, matcher.Matcher())
 	})
 
 	t.Run("fails when getter value doesn't match", func(t *testing.T) {
@@ -310,10 +249,7 @@ func TestBankAccountMatcher(t *testing.T) {
 		matcher := factory.BankAccountMatches().
 			Name(specta.Equal("Bob"))
 
-		result := matcher.Matcher().Matches(account)
-		if result.Matched {
-			t.Error("Expected no match but got match")
-		}
+		specta.AssertThat(t, account, specta.Not(matcher.Matcher()))
 	})
 
 	t.Run("partial matching - only checks specified getters", func(t *testing.T) {
@@ -323,10 +259,7 @@ func TestBankAccountMatcher(t *testing.T) {
 		matcher := factory.BankAccountMatches().
 			Name(specta.Equal("Alice"))
 
-		result := matcher.Matcher().Matches(account)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, account, matcher.Matcher())
 	})
 
 	t.Run("works with numeric matchers", func(t *testing.T) {
@@ -335,45 +268,29 @@ func TestBankAccountMatcher(t *testing.T) {
 		matcher := factory.BankAccountMatches().
 			Balance(specta.GreaterThan(1000))
 
-		result := matcher.Matcher().Matches(account)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, account, matcher.Matcher())
 	})
 }
 
 func TestEmailMatcher(t *testing.T) {
 	t.Run("matches via getter methods", func(t *testing.T) {
 		email, err := showcase.NewEmail("alice@example.com")
-		if err != nil {
-			t.Fatalf("Failed to create email: %v", err)
-		}
+		specta.AssertThat(t, err, specta.NoErr())
 
 		matcher := factory.EmailMatches().
 			Address(specta.Equal("alice@example.com"))
 
-		result := matcher.Matcher().Matches(email)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
+		specta.AssertThat(t, email, matcher.Matcher())
 	})
 
 	t.Run("fails when getter value doesn't match", func(t *testing.T) {
 		email, err := showcase.NewEmail("alice@example.com")
-		if err != nil {
-			t.Fatalf("Failed to create email: %v", err)
-		}
+		specta.AssertThat(t, err, specta.NoErr())
 
-		matcher := factory.EmailMatches().
+		addressIsBob := factory.EmailMatches().
 			Address(specta.Equal("bob@example.com"))
 
-		result := matcher.Matcher().Matches(email)
-		if result.Matched {
-			t.Error("Expected no match but got match")
-		}
+		specta.AssertThat(t, email, specta.Not(addressIsBob.Matcher()))
 	})
 }
 
@@ -391,30 +308,23 @@ func TestFieldExtractor(t *testing.T) {
 			specta.Equal(2000),
 		)
 
-		result := matcher.Matches(account)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, account, matcher)
 	})
 
 	t.Run("fails with clear error message", func(t *testing.T) {
 		account := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
 
-		matcher := specta.Field("double balance",
+		doubleBalanceIs3000 := specta.Field("double balance",
 			func(acc showcase.BankAccount) int {
 				return acc.GetBalance() * 2
 			},
 			specta.Equal(3000),
 		)
 
-		result := matcher.Matches(account)
-		if result.Matched {
-			t.Error("Expected no match but got match")
-		}
+		result := doubleBalanceIs3000.Matches(account)
+		specta.AssertThat(t, result.Matched, specta.IsFalse())
 		// Error message should include field name
-		if !strings.Contains(result.Message, "double balance") {
-			t.Errorf("Expected error to mention 'double balance', got: %s", result.Message)
-		}
+		specta.AssertThat(t, result.Message, specta.Contains("double balance"))
 	})
 
 	t.Run("combines with generated matchers", func(t *testing.T) {
@@ -436,13 +346,7 @@ func TestFieldExtractor(t *testing.T) {
 			fieldMatcher,
 		)
 
-		result := combined.Matches(account)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
+		specta.AssertThat(t, account, combined)
 	})
 
 	t.Run("multiple field extractors with AllOf", func(t *testing.T) {
@@ -469,13 +373,7 @@ func TestFieldExtractor(t *testing.T) {
 			),
 		)
 
-		result := matcher.Matches(account)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-			for _, detail := range result.Details {
-				t.Errorf("  %s", detail)
-			}
-		}
+		specta.AssertThat(t, account, matcher)
 	})
 
 	t.Run("works with nested matchers", func(t *testing.T) {
@@ -493,10 +391,7 @@ func TestFieldExtractor(t *testing.T) {
 			specta.Equal("NYC"),
 		)
 
-		result := matcher.Matches(user)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, user, matcher)
 	})
 }
 
@@ -511,71 +406,44 @@ func TestConstructorTypeAsEqualMatcher(t *testing.T) {
 		account1 := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
 		account2 := factory.BankAccount().Name("Alice").Balance(2000).Build(p)
 
-		result1 := matcher.Matches(account1)
-		if !result1.Matched {
-			t.Errorf("Expected match for account1 but got: %s", result1.Message)
-		}
-
-		result2 := matcher.Matches(account2)
-		if !result2.Matched {
-			t.Errorf("Expected match for account2 but got: %s", result2.Message)
-		}
+		specta.AssertThat(t, account1, matcher)
+		specta.AssertThat(t, account2, matcher)
 	})
 
 	t.Run("BankAccount matcher checks multiple fields", func(t *testing.T) {
 		// Create a matcher that checks both Name and Balance
-		matcher := factory.BankAccount().
+		namedBobWith500 := factory.BankAccount().
 			Name("Bob").
 			Balance(500).
 			AsEqualMatcher()
 
 		// Should match account with both fields
 		account := factory.BankAccount().Name("Bob").Balance(500).Build(p)
-		result := matcher.Matches(account)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, account, namedBobWith500)
 
 		// Should fail if Name is different
 		wrongName := factory.BankAccount().Name("Alice").Balance(500).Build(p)
-		result = matcher.Matches(wrongName)
-		if result.Matched {
-			t.Error("Expected no match when Name differs")
-		}
+		specta.AssertThat(t, wrongName, specta.Not(namedBobWith500))
 
 		// Should fail if Balance is different
 		wrongBalance := factory.BankAccount().Name("Bob").Balance(1000).Build(p)
-		result = matcher.Matches(wrongBalance)
-		if result.Matched {
-			t.Error("Expected no match when Balance differs")
-		}
+		specta.AssertThat(t, wrongBalance, specta.Not(namedBobWith500))
 	})
 
 	t.Run("Email recipe converts to partial matcher", func(t *testing.T) {
 		// Create a matcher from a recipe
-		matcher := factory.Email().Address("test@example.com").AsEqualMatcher()
+		addressIsTest := factory.Email().Address("test@example.com").AsEqualMatcher()
 
 		// This should match any email with the same address
 		email, err := factory.Email().Address("test@example.com").Build(p)
-		if err != nil {
-			t.Fatalf("Failed to create email: %v", err)
-		}
-
-		result := matcher.Matches(email)
-		if !result.Matched {
-			t.Errorf("Expected match but got: %s", result.Message)
-		}
+		specta.AssertThat(t, err, specta.NoErr())
+		specta.AssertThat(t, email, addressIsTest)
 
 		// Should fail for different address
 		otherEmail, err := factory.Email().Address("other@example.com").Build(p)
-		if err != nil {
-			t.Fatalf("Failed to create email: %v", err)
-		}
+		specta.AssertThat(t, err, specta.NoErr())
 
-		result = matcher.Matches(otherEmail)
-		if result.Matched {
-			t.Error("Expected no match when Address differs")
-		}
+		specta.AssertThat(t, otherEmail, specta.Not(addressIsTest))
 	})
 
 	t.Run("Empty recipe creates matcher that matches anything", func(t *testing.T) {
@@ -585,15 +453,8 @@ func TestConstructorTypeAsEqualMatcher(t *testing.T) {
 		account1 := factory.BankAccount().Name("Alice").Balance(1000).Build(p)
 		account2 := factory.BankAccount().Name("Bob").Balance(2000).Build(p)
 
-		result1 := matcher.Matches(account1)
-		if !result1.Matched {
-			t.Errorf("Expected match for account1 but got: %s", result1.Message)
-		}
-
-		result2 := matcher.Matches(account2)
-		if !result2.Matched {
-			t.Errorf("Expected match for account2 but got: %s", result2.Message)
-		}
+		specta.AssertThat(t, account1, matcher)
+		specta.AssertThat(t, account2, matcher)
 	})
 
 	t.Run("Matcher provides structured diff on failure", func(t *testing.T) {
@@ -605,17 +466,11 @@ func TestConstructorTypeAsEqualMatcher(t *testing.T) {
 		account := factory.BankAccount().Name("Bob").Balance(500).Build(p)
 
 		result := matcher.Matches(account)
-		if result.Matched {
-			t.Error("Expected no match")
-		}
+		specta.AssertThat(t, result.Matched, specta.IsFalse())
 
 		// Message should include field names and values
-		if !strings.Contains(result.Message, "Name") {
-			t.Errorf("Expected error message to mention 'Name', got: %s", result.Message)
-		}
-		if !strings.Contains(result.Message, "Balance") {
-			t.Errorf("Expected error message to mention 'Balance', got: %s", result.Message)
-		}
+		specta.AssertThat(t, result.Message, specta.Contains("Name"))
+		specta.AssertThat(t, result.Message, specta.Contains("Balance"))
 	})
 }
 
@@ -628,16 +483,10 @@ func TestCustomUserMatchers(t *testing.T) {
 		guest := factory.GuestUser().Build(p)
 
 		// Should match admin user
-		result := factory.IsAdmin().Matches(admin)
-		if !result.Matched {
-			t.Errorf("expected IsAdmin to match admin user, got: %s", result.Message)
-		}
+		specta.AssertThat(t, admin, factory.IsAdmin())
 
 		// Should not match guest user
-		result = factory.IsAdmin().Matches(guest)
-		if result.Matched {
-			t.Error("expected IsAdmin to not match guest user")
-		}
+		specta.AssertThat(t, guest, specta.Not(factory.IsAdmin()))
 	})
 
 	t.Run("IsActive matcher", func(t *testing.T) {
@@ -645,16 +494,10 @@ func TestCustomUserMatchers(t *testing.T) {
 		inactiveUser := factory.User().Active(false).Build(p)
 
 		// Should match active user
-		result := factory.IsActive().Matches(activeUser)
-		if !result.Matched {
-			t.Errorf("expected IsActive to match active user, got: %s", result.Message)
-		}
+		specta.AssertThat(t, activeUser, factory.IsActive())
 
 		// Should not match inactive user
-		result = factory.IsActive().Matches(inactiveUser)
-		if result.Matched {
-			t.Error("expected IsActive to not match inactive user")
-		}
+		specta.AssertThat(t, inactiveUser, specta.Not(factory.IsActive()))
 	})
 
 	t.Run("IsGuest matcher", func(t *testing.T) {
@@ -662,16 +505,10 @@ func TestCustomUserMatchers(t *testing.T) {
 		admin := factory.AdminUser().Build(p)
 
 		// Should match guest user
-		result := factory.IsGuest().Matches(guest)
-		if !result.Matched {
-			t.Errorf("expected IsGuest to match guest user, got: %s", result.Message)
-		}
+		specta.AssertThat(t, guest, factory.IsGuest())
 
 		// Should not match admin user
-		result = factory.IsGuest().Matches(admin)
-		if result.Matched {
-			t.Error("expected IsGuest to not match admin user")
-		}
+		specta.AssertThat(t, admin, specta.Not(factory.IsGuest()))
 	})
 
 	t.Run("HasTestEmail matcher", func(t *testing.T) {
@@ -679,19 +516,12 @@ func TestCustomUserMatchers(t *testing.T) {
 		prodUser := factory.User().Email("user@production.com").Build(p)
 
 		// Should match test email
-		result := factory.HasTestEmail().Matches(testUser)
-		if !result.Matched {
-			t.Errorf("expected HasTestEmail to match test user, got: %s", result.Message)
-		}
+		specta.AssertThat(t, testUser, factory.HasTestEmail())
 
-		// Should not match production email
-		result = factory.HasTestEmail().Matches(prodUser)
-		if result.Matched {
-			t.Error("expected HasTestEmail to not match production email")
-		}
-		if !strings.Contains(result.Message, "@test.example.com") {
-			t.Errorf("expected error message to mention @test.example.com, got: %s", result.Message)
-		}
+		// Should not match production email - check error message includes expected domain
+		result := factory.HasTestEmail().Matches(prodUser)
+		specta.AssertThat(t, result.Matched, specta.IsFalse())
+		specta.AssertThat(t, result.Message, specta.Contains("@test.example.com"))
 	})
 
 	t.Run("composing custom matchers with AllOf", func(t *testing.T) {
@@ -706,10 +536,7 @@ func TestCustomUserMatchers(t *testing.T) {
 			factory.HasTestEmail(),
 		)
 
-		result := matcher.Matches(user)
-		if !result.Matched {
-			t.Errorf("expected user to match both IsActive and HasTestEmail, got: %s", result.Message)
-		}
+		specta.AssertThat(t, user, matcher)
 	})
 
 	t.Run("using with AssertThat", func(t *testing.T) {

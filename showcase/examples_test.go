@@ -145,7 +145,7 @@ func TestAsEqualMatcher(t *testing.T) {
 		// Equivalent explicit matcher
 		explicitMatcher := factory.UserMatches().
 			FirstName(specta.Equal("Alice")).
-			Active(specta.Equal(true)).
+			Active(specta.IsTrue()).
 			Matcher()
 
 		// Both should behave the same way

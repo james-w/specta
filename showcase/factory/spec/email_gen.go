@@ -56,20 +56,25 @@ func NewEmailFactory(s specta.Source) *specta.SpecFactory[showcase.Email, EmailS
 	return specta.NewSpecFactory(s, NewEmailSpec, wrappedBuild)
 }
 
-// Default parameter providers.
+// Default parameter generators.
 var (
-	EmailDefaultAddress = func(s specta.Source) string {
-		return specta.String().ExampleHint("user_").Draw(s, "user") + "@example.com"
-	}
+	EmailAddressGenerator = specta.Email()
 )
 
 // BuildEmail constructs a Email from a EmailSpec.
 func BuildEmail(s specta.Source, spec EmailSpec) (showcase.Email, error) {
-	address := spec.Address.Get(s, EmailDefaultAddress)
+	address := spec.Address.GetWithGenerator(s, "Address", EmailAddressGenerator)
 	return showcase.NewEmail(address)
 }
 
 // WithEmailAddress sets the Address parameter to a literal value.
 func WithEmailAddress(v string) specta.Opt[EmailSpec] {
 	return specta.SetLit(func(s *EmailSpec, m specta.Maybe[string]) { s.Address = m }, v)
+}
+
+// WithEmailAddressFromGenerator sets the Address parameter using a Generator.
+func WithEmailAddressFromGenerator(gen specta.Generator[string]) specta.Opt[EmailSpec] {
+	return func(s *EmailSpec) {
+		s.Address = specta.Some(gen)
+	}
 }

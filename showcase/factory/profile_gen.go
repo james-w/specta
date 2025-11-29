@@ -91,7 +91,7 @@ func (r ProfileRecipe) ManagerFromGenerator(gen specta.Generator[*showcase.User]
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r ProfileRecipe) ManagerFromRecipe(v UserRecipe) ProfileRecipe {
-	r.opts = append(r.opts, spec.WithProfileManagerFromProvider(specta.PtrOf(v.Provider())))
+	r.opts = append(r.opts, spec.WithProfileManagerFromGenerator(specta.PtrOfGen(v.Gen())))
 	r.managerRecipe = &v
 	return r
 }
@@ -108,9 +108,9 @@ func (r ProfileRecipe) IsPublicFromGenerator(gen specta.Generator[bool]) Profile
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r ProfileRecipe) Provider() specta.Provider[showcase.Profile] {
-	return specta.FromSpec(spec.BuildProfile, spec.NewProfileSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r ProfileRecipe) Gen() specta.Gen[showcase.Profile] {
+	return specta.FromSpecGen(spec.BuildProfile, spec.NewProfileSpec, r.opts...)
 }
 
 // Build creates a single Profile instance.
@@ -141,24 +141,24 @@ func (r ProfileRecipe) AsEqualMatcher() specta.Matcher[showcase.Profile] {
 	// Build matcher only for set fields
 	m := ProfileMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Description.IsSet() {
-		m = m.Description(specta.DeepEqual(s.Description.Value(p)))
+		m = m.Description(specta.DeepEqual(s.Description.GetValue(p, "Description")))
 	}
 	if s.Manager.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.managerRecipe != nil {
 			m = m.Manager(specta.PointsTo(r.managerRecipe.AsEqualMatcher()))
 		} else {
-			m = m.Manager(specta.DeepEqual(s.Manager.Value(p)))
+			m = m.Manager(specta.DeepEqual(s.Manager.GetValue(p, "Manager")))
 		}
 	}
 	if s.IsPublic.IsSet() {
-		m = m.IsPublic(specta.DeepEqual(s.IsPublic.Value(p)))
+		m = m.IsPublic(specta.DeepEqual(s.IsPublic.GetValue(p, "IsPublic")))
 	}
 
 	return m.Matcher()

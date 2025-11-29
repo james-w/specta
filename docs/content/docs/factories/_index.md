@@ -28,7 +28,7 @@ type User struct {
 type factoryType struct{}
 
 type userBuilder struct {
-	p    *specta.Gen
+	p    specta.Source
 	name string
 	role string
 }
@@ -63,7 +63,7 @@ func (b *userBuilder) Build() User {
 	}
 }
 
-func (f factoryType) NewUser(p *specta.Gen) *userBuilder {
+func (f factoryType) NewUser(p specta.Source) *userBuilder {
 	return &userBuilder{p: p}
 }
 

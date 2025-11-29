@@ -58,11 +58,11 @@ func NewOrderFactory(s specta.Source) *specta.SpecFactory[showcase.Order, OrderS
 
 // Default field generators.
 var (
-	OrderIDGenerator        specta.Generator[string]               = specta.String().ExampleHint("id_")
-	OrderUserGenerator      specta.Generator[showcase.User]        = specta.GeneratorFromProvider(specta.FromSpec(BuildUser, NewUserSpec))
-	OrderItemsGenerator     specta.Generator[[]showcase.OrderItem] = specta.GeneratorFromProvider(func(s specta.Source) []showcase.OrderItem { var zero []showcase.OrderItem; return zero })
-	OrderTotalGenerator     specta.Generator[float64]              = specta.Float64()
-	OrderStatusGenerator    specta.Generator[string]               = specta.String().ExampleHint("status_")
+	OrderIDGenerator        specta.Generator[string]               = specta.String().ExampleHint("id_").NonEmpty()
+	OrderUserGenerator      specta.Generator[showcase.User]        = specta.FromSpecGen(BuildUser, NewUserSpec)
+	OrderItemsGenerator     specta.Generator[[]showcase.OrderItem] = specta.Just([]showcase.OrderItem{})
+	OrderTotalGenerator     specta.Generator[float64]              = specta.Float64(0.0, 1000.0)
+	OrderStatusGenerator    specta.Generator[string]               = specta.String().ExampleHint("status_").NonEmpty()
 	OrderCreatedAtGenerator specta.Generator[time.Time]            = specta.Time()
 	OrderUpdatedAtGenerator specta.Generator[time.Time]            = specta.Time()
 )
@@ -94,11 +94,9 @@ func WithOrderID(v string) specta.Opt[OrderSpec] {
 
 // WithOrderIDFromGenerator sets the ID field using a Generator.
 func WithOrderIDFromGenerator(gen specta.Generator[string]) specta.Opt[OrderSpec] {
-	prov := specta.ProviderFromGenerator(gen, "ID")
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[string]) { s.ID = m },
-		prov,
-	)
+	return func(s *OrderSpec) {
+		s.ID = specta.Some(gen)
+	}
 }
 
 // WithOrderUser sets the User field to a literal value.
@@ -108,19 +106,9 @@ func WithOrderUser(v showcase.User) specta.Opt[OrderSpec] {
 
 // WithOrderUserFromGenerator sets the User field using a Generator.
 func WithOrderUserFromGenerator(gen specta.Generator[showcase.User]) specta.Opt[OrderSpec] {
-	prov := specta.ProviderFromGenerator(gen, "User")
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[showcase.User]) { s.User = m },
-		prov,
-	)
-}
-
-// WithOrderUserFromProvider sets the User field using a Provider (evaluated lazily).
-func WithOrderUserFromProvider(prov specta.Provider[showcase.User]) specta.Opt[OrderSpec] {
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[showcase.User]) { s.User = m },
-		prov,
-	)
+	return func(s *OrderSpec) {
+		s.User = specta.Some(gen)
+	}
 }
 
 // WithOrderItems sets the Items field to a literal value.
@@ -130,19 +118,9 @@ func WithOrderItems(v []showcase.OrderItem) specta.Opt[OrderSpec] {
 
 // WithOrderItemsFromGenerator sets the Items field using a Generator.
 func WithOrderItemsFromGenerator(gen specta.Generator[[]showcase.OrderItem]) specta.Opt[OrderSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Items")
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[[]showcase.OrderItem]) { s.Items = m },
-		prov,
-	)
-}
-
-// WithOrderItemsFromProvider sets the Items field using a Provider (evaluated lazily).
-func WithOrderItemsFromProvider(prov specta.Provider[[]showcase.OrderItem]) specta.Opt[OrderSpec] {
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[[]showcase.OrderItem]) { s.Items = m },
-		prov,
-	)
+	return func(s *OrderSpec) {
+		s.Items = specta.Some(gen)
+	}
 }
 
 // WithOrderTotal sets the Total field to a literal value.
@@ -152,11 +130,9 @@ func WithOrderTotal(v float64) specta.Opt[OrderSpec] {
 
 // WithOrderTotalFromGenerator sets the Total field using a Generator.
 func WithOrderTotalFromGenerator(gen specta.Generator[float64]) specta.Opt[OrderSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Total")
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[float64]) { s.Total = m },
-		prov,
-	)
+	return func(s *OrderSpec) {
+		s.Total = specta.Some(gen)
+	}
 }
 
 // WithOrderStatus sets the Status field to a literal value.
@@ -166,11 +142,9 @@ func WithOrderStatus(v string) specta.Opt[OrderSpec] {
 
 // WithOrderStatusFromGenerator sets the Status field using a Generator.
 func WithOrderStatusFromGenerator(gen specta.Generator[string]) specta.Opt[OrderSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Status")
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[string]) { s.Status = m },
-		prov,
-	)
+	return func(s *OrderSpec) {
+		s.Status = specta.Some(gen)
+	}
 }
 
 // WithOrderCreatedAt sets the CreatedAt field to a literal value.
@@ -180,11 +154,9 @@ func WithOrderCreatedAt(v time.Time) specta.Opt[OrderSpec] {
 
 // WithOrderCreatedAtFromGenerator sets the CreatedAt field using a Generator.
 func WithOrderCreatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[OrderSpec] {
-	prov := specta.ProviderFromGenerator(gen, "CreatedAt")
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m },
-		prov,
-	)
+	return func(s *OrderSpec) {
+		s.CreatedAt = specta.Some(gen)
+	}
 }
 
 // WithOrderUpdatedAt sets the UpdatedAt field to a literal value.
@@ -194,9 +166,7 @@ func WithOrderUpdatedAt(v time.Time) specta.Opt[OrderSpec] {
 
 // WithOrderUpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
 func WithOrderUpdatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[OrderSpec] {
-	prov := specta.ProviderFromGenerator(gen, "UpdatedAt")
-	return specta.SetWith(
-		func(s *OrderSpec, m specta.Maybe[time.Time]) { s.UpdatedAt = m },
-		prov,
-	)
+	return func(s *OrderSpec) {
+		s.UpdatedAt = specta.Some(gen)
+	}
 }

@@ -29,7 +29,8 @@ type Primitives interface {
 	UUID() uuid.UUID
 }
 
-type Gen struct {
+// PrimitivesGen is a deterministic generator for factory test data
+type PrimitivesGen struct {
 	ctr      atomic.Uint64
 	baseTime time.Time
 	step     time.Duration
@@ -38,58 +39,60 @@ type Gen struct {
 	log      strings.Builder
 }
 
-type Option func(*Gen)
+type PrimitivesOption func(*PrimitivesGen)
 
-func WithStart(start uint64) Option          { return func(g *Gen) { g.ctr.Store(start) } }
-func WithBaseTime(t time.Time) Option        { return func(g *Gen) { g.baseTime = t } }
-func WithTimeStep(step time.Duration) Option { return func(g *Gen) { g.step = step } }
-func WithPrefix(p string) Option             { return func(g *Gen) { g.prefix = p } }
+func WithStart(start uint64) PrimitivesOption   { return func(g *PrimitivesGen) { g.ctr.Store(start) } }
+func WithBaseTime(t time.Time) PrimitivesOption { return func(g *PrimitivesGen) { g.baseTime = t } }
+func WithTimeStep(step time.Duration) PrimitivesOption {
+	return func(g *PrimitivesGen) { g.step = step }
+}
+func WithPrefix(p string) PrimitivesOption { return func(g *PrimitivesGen) { g.prefix = p } }
 
-func New(opts ...Option) *Gen {
-	g := &Gen{baseTime: time.Unix(0, 0).UTC(), step: time.Second}
+func New(opts ...PrimitivesOption) *PrimitivesGen {
+	g := &PrimitivesGen{baseTime: time.Unix(0, 0).UTC(), step: time.Second}
 	for _, opt := range opts {
 		opt(g)
 	}
 	return g
 }
 
-func (g *Gen) Next() uint64 { return g.ctr.Add(1) }
+func (g *PrimitivesGen) Next() uint64 { return g.ctr.Add(1) }
 
 // Bool always returns false for deterministic, minimal test data generation.
 // This is intentional - Gen is for factories, not property testing.
 // For random booleans, use PropertyPrimitives.
-func (g *Gen) Bool() bool { return false }
-func (g *Gen) Int() int {
+func (g *PrimitivesGen) Bool() bool { return false }
+func (g *PrimitivesGen) Int() int {
 	n := g.Next()
 	if n > uint64(math.MaxInt) {
 		n %= uint64(math.MaxInt)
 	}
 	return int(n)
 }
-func (g *Gen) IntN(max int) int {
+func (g *PrimitivesGen) IntN(max int) int {
 	if max <= 0 {
 		return 0
 	}
 	return int(g.Next() % uint64(max))
 }
-func (g *Gen) Int64() int64 {
+func (g *PrimitivesGen) Int64() int64 {
 	n := g.Next()
 	if n > uint64(math.MaxInt64) {
 		n %= uint64(math.MaxInt64)
 	}
 	return int64(n)
 }
-func (g *Gen) Uint64() uint64   { return g.Next() }
-func (g *Gen) Float64() float64 { n := g.Next(); return float64(n) + 0.123 }
-func (g *Gen) String() string   { return g.StringWith("str_") }
-func (g *Gen) StringWith(prefix string) string {
+func (g *PrimitivesGen) Uint64() uint64   { return g.Next() }
+func (g *PrimitivesGen) Float64() float64 { n := g.Next(); return float64(n) + 0.123 }
+func (g *PrimitivesGen) String() string   { return g.StringWith("str_") }
+func (g *PrimitivesGen) StringWith(prefix string) string {
 	return fmt.Sprintf("%s%s%d", g.prefix, prefix, g.Next())
 }
-func (g *Gen) Bytes() []byte {
+func (g *PrimitivesGen) Bytes() []byte {
 	// Default to 16 bytes for deterministic generation
 	return g.BytesN(16)
 }
-func (g *Gen) BytesN(n int) []byte {
+func (g *PrimitivesGen) BytesN(n int) []byte {
 	if n <= 0 {
 		return nil
 	}
@@ -100,16 +103,16 @@ func (g *Gen) BytesN(n int) []byte {
 	}
 	return b
 }
-func (g *Gen) Time() time.Time                        { return g.baseTime.Add(time.Duration(g.Next()) * g.step) }
-func (g *Gen) TimeAtOffset(d time.Duration) time.Time { return g.baseTime.Add(d) }
-func (g *Gen) Duration() time.Duration                { return time.Duration(g.Next()) * g.step }
-func (g *Gen) ID() string                             { return fmt.Sprintf("%sid_%d", g.prefix, g.Next()) }
+func (g *PrimitivesGen) Time() time.Time                        { return g.baseTime.Add(time.Duration(g.Next()) * g.step) }
+func (g *PrimitivesGen) TimeAtOffset(d time.Duration) time.Time { return g.baseTime.Add(d) }
+func (g *PrimitivesGen) Duration() time.Duration                { return time.Duration(g.Next()) * g.step }
+func (g *PrimitivesGen) ID() string                             { return fmt.Sprintf("%sid_%d", g.prefix, g.Next()) }
 
-func (g *Gen) UUID() uuid.UUID { return DeterministicUUIDFromInt(g.Next()) }
+func (g *PrimitivesGen) UUID() uuid.UUID { return DeterministicUUIDFromInt(g.Next()) }
 
 // DrawBits implements Source interface.
 // Returns bits from the counter for deterministic, predictable generation.
-func (g *Gen) DrawBits(n int) uint64 {
+func (g *PrimitivesGen) DrawBits(n int) uint64 {
 	if n <= 0 || n > 64 {
 		panic("DrawBits: n must be between 1 and 64")
 	}
@@ -120,7 +123,7 @@ func (g *Gen) DrawBits(n int) uint64 {
 
 // WriteLog implements Source interface.
 // Appends to the log if logging is enabled.
-func (g *Gen) WriteLog(msg string) {
+func (g *PrimitivesGen) WriteLog(msg string) {
 	if g.logging {
 		g.log.WriteString(msg)
 	}
@@ -128,9 +131,17 @@ func (g *Gen) WriteLog(msg string) {
 
 // IsDeterministic implements Source interface.
 // Returns true because Gen produces predictable, friendly values.
-func (g *Gen) IsDeterministic() bool {
+func (g *PrimitivesGen) IsDeterministic() bool {
 	return true
 }
+
+// StartInterval implements Source interface.
+// No-op for Gen since it doesn't track intervals (only used for property testing).
+func (g *PrimitivesGen) StartInterval(label string) {}
+
+// EndInterval implements Source interface.
+// No-op for Gen since it doesn't track intervals (only used for property testing).
+func (g *PrimitivesGen) EndInterval() {}
 
 var ns = uuid.MustParse("00000000-0000-0000-0000-000000000000")
 

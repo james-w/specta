@@ -49,16 +49,16 @@ func NewAccountFactory(s specta.Source) *specta.SpecFactory[showcase.Account, Ac
 	return specta.NewSpecFactory(s, NewAccountSpec, BuildAccount)
 }
 
-// Default parameter providers.
+// Default parameter generators.
 var (
-	AccountDefaultUser   = specta.FromSpec(BuildUser, NewUserSpec)
-	AccountDefaultStatus = func(s specta.Source) string { return specta.String().ExampleHint("status_").Draw(s, "Status") }
+	AccountUserGenerator   = specta.FromSpecGen(BuildUser, NewUserSpec)
+	AccountStatusGenerator = specta.String().ExampleHint("status_").NonEmpty()
 )
 
 // BuildAccount constructs a Account from a AccountSpec.
 func BuildAccount(s specta.Source, spec AccountSpec) showcase.Account {
-	user := spec.User.Get(s, AccountDefaultUser)
-	status := spec.Status.Get(s, AccountDefaultStatus)
+	user := spec.User.GetWithGenerator(s, "User", AccountUserGenerator)
+	status := spec.Status.GetWithGenerator(s, "Status", AccountStatusGenerator)
 	return showcase.NewAccount(user, status)
 }
 
@@ -67,15 +67,21 @@ func WithAccountUser(v showcase.User) specta.Opt[AccountSpec] {
 	return specta.SetLit(func(s *AccountSpec, m specta.Maybe[showcase.User]) { s.User = m }, v)
 }
 
-// WithAccountUserFromProvider sets the User parameter using a Provider (evaluated lazily).
-func WithAccountUserFromProvider(prov specta.Provider[showcase.User]) specta.Opt[AccountSpec] {
-	return specta.SetWith(
-		func(s *AccountSpec, m specta.Maybe[showcase.User]) { s.User = m },
-		prov,
-	)
+// WithAccountUserFromGenerator sets the User parameter using a Generator.
+func WithAccountUserFromGenerator(gen specta.Generator[showcase.User]) specta.Opt[AccountSpec] {
+	return func(s *AccountSpec) {
+		s.User = specta.Some(gen)
+	}
 }
 
 // WithAccountStatus sets the Status parameter to a literal value.
 func WithAccountStatus(v string) specta.Opt[AccountSpec] {
 	return specta.SetLit(func(s *AccountSpec, m specta.Maybe[string]) { s.Status = m }, v)
+}
+
+// WithAccountStatusFromGenerator sets the Status parameter using a Generator.
+func WithAccountStatusFromGenerator(gen specta.Generator[string]) specta.Opt[AccountSpec] {
+	return func(s *AccountSpec) {
+		s.Status = specta.Some(gen)
+	}
 }

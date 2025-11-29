@@ -52,9 +52,9 @@ func NewTeamFactory(s specta.Source) *specta.SpecFactory[showcase.Team, TeamSpec
 
 // Default field generators.
 var (
-	TeamIDGenerator      specta.Generator[string]            = specta.String().ExampleHint("id_")
-	TeamNameGenerator    specta.Generator[string]            = specta.String().ExampleHint("name_")
-	TeamMembersGenerator specta.Generator[[]showcase.Member] = specta.GeneratorFromProvider(func(s specta.Source) []showcase.Member { var zero []showcase.Member; return zero })
+	TeamIDGenerator      specta.Generator[string]            = specta.String().ExampleHint("id_").NonEmpty()
+	TeamNameGenerator    specta.Generator[string]            = specta.String().ExampleHint("name_").NonEmpty()
+	TeamMembersGenerator specta.Generator[[]showcase.Member] = specta.Just([]showcase.Member{})
 )
 
 // BuildTeam constructs a Team from a TeamSpec.
@@ -76,11 +76,9 @@ func WithTeamID(v string) specta.Opt[TeamSpec] {
 
 // WithTeamIDFromGenerator sets the ID field using a Generator.
 func WithTeamIDFromGenerator(gen specta.Generator[string]) specta.Opt[TeamSpec] {
-	prov := specta.ProviderFromGenerator(gen, "ID")
-	return specta.SetWith(
-		func(s *TeamSpec, m specta.Maybe[string]) { s.ID = m },
-		prov,
-	)
+	return func(s *TeamSpec) {
+		s.ID = specta.Some(gen)
+	}
 }
 
 // WithTeamName sets the Name field to a literal value.
@@ -90,11 +88,9 @@ func WithTeamName(v string) specta.Opt[TeamSpec] {
 
 // WithTeamNameFromGenerator sets the Name field using a Generator.
 func WithTeamNameFromGenerator(gen specta.Generator[string]) specta.Opt[TeamSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Name")
-	return specta.SetWith(
-		func(s *TeamSpec, m specta.Maybe[string]) { s.Name = m },
-		prov,
-	)
+	return func(s *TeamSpec) {
+		s.Name = specta.Some(gen)
+	}
 }
 
 // WithTeamMembers sets the Members field to a literal value.
@@ -104,17 +100,7 @@ func WithTeamMembers(v []showcase.Member) specta.Opt[TeamSpec] {
 
 // WithTeamMembersFromGenerator sets the Members field using a Generator.
 func WithTeamMembersFromGenerator(gen specta.Generator[[]showcase.Member]) specta.Opt[TeamSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Members")
-	return specta.SetWith(
-		func(s *TeamSpec, m specta.Maybe[[]showcase.Member]) { s.Members = m },
-		prov,
-	)
-}
-
-// WithTeamMembersFromProvider sets the Members field using a Provider (evaluated lazily).
-func WithTeamMembersFromProvider(prov specta.Provider[[]showcase.Member]) specta.Opt[TeamSpec] {
-	return specta.SetWith(
-		func(s *TeamSpec, m specta.Maybe[[]showcase.Member]) { s.Members = m },
-		prov,
-	)
+	return func(s *TeamSpec) {
+		s.Members = specta.Some(gen)
+	}
 }

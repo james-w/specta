@@ -87,14 +87,14 @@ func (r ParentRecipe) ChildFromGenerator(gen specta.Generator[example.UserView])
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r ParentRecipe) ChildFromRecipe(v UserViewRecipe) ParentRecipe {
-	r.opts = append(r.opts, spec.WithParentChildFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithParentChildFromGenerator(v.Gen()))
 	r.childRecipe = &v
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r ParentRecipe) Provider() specta.Provider[example.Parent] {
-	return specta.FromSpec(spec.BuildParent, spec.NewParentSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r ParentRecipe) Gen() specta.Gen[example.Parent] {
+	return specta.FromSpecGen(spec.BuildParent, spec.NewParentSpec, r.opts...)
 }
 
 // Build creates a single Parent instance.
@@ -129,7 +129,7 @@ func (r ParentRecipe) AsEqualMatcher() specta.Matcher[example.Parent] {
 		if r.childRecipe != nil {
 			m = m.Child(r.childRecipe.AsEqualMatcher())
 		} else {
-			m = m.Child(specta.DeepEqual(s.Child.Value(p)))
+			m = m.Child(specta.DeepEqual(s.Child.GetValue(p, "Child")))
 		}
 	}
 

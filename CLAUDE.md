@@ -54,6 +54,68 @@ The `{args}` placeholder in pls.toml allows passing extra flags directly to the 
 - Tasks declare dependencies explicitly (no manual ordering required)
 - Consistent commands across the team
 
+## Issue Tracking (Beads)
+
+This project uses **Beads** (github.com/steveyegge/beads) for issue tracking. Issues are stored in `.beads/` directory with SQLite database + JSONL backup.
+
+**Issue prefix:** `gomatchers-` (auto-detected from directory name)
+
+### Common Commands
+
+**Creating issues:**
+```bash
+bd new "Title"                              # Create P2 task (default)
+bd create "Fix bug" -p 1 -t bug -d "Description"
+bd create "Add feature" -l "backend,urgent"
+```
+
+**Listing & querying:**
+```bash
+bd list                    # All issues
+bd ready                   # Issues ready to work (no blockers)
+bd blocked                 # Blocked issues
+bd show <issue-id>        # View details (e.g., bd show gomatchers-abc)
+bd stale                   # Not updated recently
+```
+
+**Updating issues:**
+```bash
+bd update <id> --description "Detailed description"
+bd update <id> --priority 1 --status in_progress
+bd close <id> --reason "Fixed in PR #123"
+bd comment <id> "Progress update"
+```
+
+**Dependencies:**
+```bash
+bd dep add <from-id> <to-id> --type blocks           # Blocking dependency
+bd dep add <from-id> <to-id> --type after            # Sequential order
+bd dep add <from-id> <to-id> --type discovered-from  # Found during work
+bd dep tree <id>                                      # Visualize dependencies
+```
+
+**Priority levels:** P0 (critical), P1 (high), P2 (medium/default), P3 (low), P4 (backlog)
+
+**Status values:** open, in_progress, closed
+
+**Issue types:** bug, feature, task, epic, chore
+
+### When to Create Issues
+
+- Bugs or problems discovered during development
+- Feature requests or enhancements
+- Technical debt that should be tracked
+- Large refactorings that need planning
+- Documentation improvements
+
+Issues are lightweight - create them freely. Use dependencies to show relationships and ordering.
+
+### Integration with Development
+
+The beads database auto-syncs to `.beads/issues.jsonl` which is git-tracked. Issues persist across sessions and can be queried by AI agents for context on ongoing work.
+
+See `bd help` for complete command reference or https://github.com/steveyegge/beads for full documentation.
+
 ## Linting & Testing
 
 **.golangci.yml**: errcheck, govet, ineffassign, staticcheck, unused, misspell, gocyclo, dupl, unconvert. Test files and generated files excluded.

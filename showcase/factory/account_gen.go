@@ -80,7 +80,7 @@ func (r AccountRecipe) User(v showcase.User) AccountRecipe {
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r AccountRecipe) UserFromRecipe(v UserRecipe) AccountRecipe {
-	r.opts = append(r.opts, spec.WithAccountUserFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithAccountUserFromGenerator(v.Gen()))
 	r.userRecipe = &v
 	return r
 }
@@ -91,9 +91,9 @@ func (r AccountRecipe) Status(v string) AccountRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r AccountRecipe) Provider() specta.Provider[showcase.Account] {
-	return specta.FromSpec(spec.BuildAccount, spec.NewAccountSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r AccountRecipe) Gen() specta.Gen[showcase.Account] {
+	return specta.FromSpecGen(spec.BuildAccount, spec.NewAccountSpec, r.opts...)
 }
 
 // Build creates a single Account instance.
@@ -124,11 +124,11 @@ func (r AccountRecipe) AsEqualMatcher() specta.Matcher[showcase.Account] {
 		if r.userRecipe != nil {
 			m = m.User(r.userRecipe.AsEqualMatcher())
 		} else {
-			m = m.User(specta.Equal(s.User.Value(p)))
+			m = m.User(specta.Equal(s.User.GetValue(p, "User")))
 		}
 	}
 	if s.Status.IsSet() {
-		m = m.Status(specta.Equal(s.Status.Value(p)))
+		m = m.Status(specta.Equal(s.Status.GetValue(p, "Status")))
 	}
 	return m.Matcher()
 }

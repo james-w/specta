@@ -1,132 +1,173 @@
 package specta
 
 import (
+	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/sanity-io/litter"
+	"github.com/james-w/specta/conjecture"
 )
 
-// Generator produces values of type Value from a Source.
-// Generators can be composed and constrained to control the distribution of values.
-// They integrate with shrinking - the Source tracks choices for later simplification.
-type Generator[Value any] interface {
-	// Draw generates a value from the source and logs it with the given label.
-	// The label is used to identify this value in error messages and logs.
-	Draw(s Source, label string) Value
+// Gen is an alias for conjecture.Gen for convenience
+type Gen[T any] = conjecture.Gen[T]
+
+// Draw draws a labeled value from a generator and automatically tracks it for error reporting.
+// Using labels improves error messages by showing variable names in failures.
+//
+// Example:
+//
+//	xs := specta.Draw(t, specta.Slice(specta.Int().Range(0, 100)), "xs")
+//
+// The generated value will automatically appear in error messages when the property fails.
+//
+// Error handling:
+// - Programming errors (invalid constraints, frozen data) panic with clear messages
+// - Filtering errors (overrun during replay, assumption failures) trigger skipTest to skip the iteration
+func Draw[V any](t *T, gen Gen[V], label string) V {
+	// Create a span for labeled draws
+	var spanID int
+	if label != "" {
+		spanID = t.Data.StartSpan(label)
+	}
+
+	value, err := gen.Draw(t.Data)
+
+	if label != "" {
+		t.Data.EndSpan(spanID, err != nil)
+	}
+
+	// Handle errors internally
+	if err != nil {
+		switch {
+		case errors.Is(err, conjecture.ErrInvalidDraw):
+			panic(fmt.Sprintf("invalid generator constraints: %v", err))
+		case errors.Is(err, conjecture.ErrFrozen):
+			panic("attempted to draw from frozen data")
+		case errors.Is(err, conjecture.ErrOverrun):
+			// During replay/shrinking, ran out of data - skip this iteration
+			panic(skipTest{})
+		default:
+			// Assumption failure or other filtering - skip this iteration
+			panic(skipTest{})
+		}
+	}
+
+	if t.generatedValues != nil && label != "" {
+		// Track the value for error reporting
+		t.generatedValues[label] = formatGeneratedValue(value)
+		t.generatedValuesOrder = append(t.generatedValuesOrder, label)
+	}
+	return value
 }
 
-// providerGenerator adapts a Provider[T] to a Generator[T].
-type providerGenerator[T any] struct {
-	provider Provider[T]
+// prettyPrinter is configured for clean, readable output in property test error messages
+var prettyPrinter = litter.Options{
+	StripPackageNames: true, // Remove package names for cleaner output
+	HidePrivateFields: false,
+	HideZeroValues:    false,
+	Compact:           false, // Multiline for readability
+	Separator:         " ",
 }
 
-// GeneratorFromProvider converts a Provider[T] into a Generator[T].
-// This is useful for using existing providers with generators that expect Generator[T].
-func GeneratorFromProvider[T any](p Provider[T]) Generator[T] {
-	return &providerGenerator[T]{provider: p}
+// formatGeneratedValue formats a value for display in property test error messages.
+// Uses litter for clean multiline formatting with proper handling of circular references.
+func formatGeneratedValue(value any) string {
+	formatted := strings.TrimSpace(prettyPrinter.Sdump(value))
+
+	// Add indentation to continuation lines for alignment
+	// When we print "label = value", multiline values need extra indent
+	lines := strings.Split(formatted, "\n")
+	if len(lines) <= 1 {
+		return formatted
+	}
+
+	// First line stays as-is, subsequent lines get 2 spaces of indent
+	for i := 1; i < len(lines); i++ {
+		lines[i] = "  " + lines[i]
+	}
+
+	return strings.Join(lines, "\n")
 }
 
-// Draw implements Generator[T] by calling the Provider.
-func (g *providerGenerator[T]) Draw(s Source, label string) T {
-	return g.provider(s)
-}
+// =============================================================================
+// Integer Generators
+// =============================================================================
 
-// IntGenerator generates int64 values with optional range constraints.
+// IntGenerator provides a fluent API for building integer generators
 type IntGenerator struct {
-	min               *int64
-	max               *int64
-	filterFn          func(int64) bool
-	maxFilterAttempts int
+	min *int64
+	max *int64
 }
 
-// Int creates a new integer generator.
-// By default it generates values across the full int64 range.
-// Use Range() to constrain the values.
+// Int creates an integer generator with optional constraints
 func Int() *IntGenerator {
 	return &IntGenerator{}
 }
 
-// validate checks that the generator's constraints are consistent.
-// Panics if constraints are impossible to satisfy.
-func (g *IntGenerator) validate() {
-	if g.min != nil && g.max != nil && *g.min > *g.max {
-		panic(fmt.Sprintf("IntGenerator: Min(%d) > Max(%d)", *g.min, *g.max))
-	}
-}
-
-// Range constrains the generator to produce values between min and max (inclusive).
+// Range constrains the integer to [min, max]
 func (g *IntGenerator) Range(min, max int64) *IntGenerator {
+	if min > max {
+		panic(fmt.Sprintf("IntGenerator: min (%d) > max (%d)", min, max))
+	}
 	g.min = &min
 	g.max = &max
-	g.validate()
 	return g
 }
 
-// Min constrains the generator to produce values >= min.
+// Min sets the minimum value (inclusive)
 func (g *IntGenerator) Min(min int64) *IntGenerator {
+	if g.max != nil && min > *g.max {
+		panic(fmt.Sprintf("IntGenerator: min (%d) > existing max (%d)", min, *g.max))
+	}
 	g.min = &min
-	g.validate()
 	return g
 }
 
-// Max constrains the generator to produce values <= max.
+// Max sets the maximum value (inclusive)
 func (g *IntGenerator) Max(max int64) *IntGenerator {
+	if g.min != nil && max < *g.min {
+		panic(fmt.Sprintf("IntGenerator: max (%d) < existing min (%d)", max, *g.min))
+	}
 	g.max = &max
-	g.validate()
 	return g
 }
 
-// Positive constrains the generator to produce values > 0.
+// Positive constrains to positive integers (> 0)
 func (g *IntGenerator) Positive() *IntGenerator {
+	if g.max != nil && *g.max < 1 {
+		panic(fmt.Sprintf("IntGenerator: Positive() conflicts with existing max (%d)", *g.max))
+	}
 	one := int64(1)
 	g.min = &one
-	g.validate()
 	return g
 }
 
-// NonNegative constrains the generator to produce values >= 0.
+// NonNegative constrains to non-negative integers (>= 0)
 func (g *IntGenerator) NonNegative() *IntGenerator {
+	if g.max != nil && *g.max < 0 {
+		panic(fmt.Sprintf("IntGenerator: NonNegative() conflicts with existing max (%d)", *g.max))
+	}
 	zero := int64(0)
 	g.min = &zero
-	g.validate()
 	return g
 }
 
-// Negative constrains the generator to produce values < 0.
+// Negative constrains to negative integers (< 0)
 func (g *IntGenerator) Negative() *IntGenerator {
+	if g.min != nil && *g.min >= 0 {
+		panic(fmt.Sprintf("IntGenerator: Negative() conflicts with existing min (%d)", *g.min))
+	}
 	negOne := int64(-1)
 	g.max = &negOne
-	g.validate()
 	return g
 }
 
-// Filter constrains the generator to only produce values that satisfy the predicate.
-// The generator will retry up to 100 times (by default) to find a matching value.
-// If no matching value is found after max attempts, the test iteration is skipped (via t.Assume).
-//
-// Use Filter for predicates that pass frequently (>50% of values).
-// For rare conditions, use t.Assume() instead to skip test iterations directly.
-//
-// Example:
-//
-//	primes := Int().Range(1, 100).Filter(isPrime)
-func (g *IntGenerator) Filter(fn func(int64) bool) *IntGenerator {
-	g.filterFn = fn
-	if g.maxFilterAttempts == 0 {
-		g.maxFilterAttempts = 100
-	}
-	return g
-}
-
-// Draw generates an int64 value from the source and records it in the log.
-// The label is used to identify this value in error messages.
-func (g *IntGenerator) Draw(s Source, label string) int64 {
-	// Determine effective min and max
-	min := int64(math.MinInt64)
-	max := int64(math.MaxInt64)
+// Draw implements Gen[int64]
+func (g *IntGenerator) Draw(d conjecture.DataSource) (int64, error) {
+	min := int64(-9223372036854775808) // math.MinInt64
+	max := int64(9223372036854775807)  // math.MaxInt64
 	if g.min != nil {
 		min = *g.min
 	}
@@ -134,948 +175,368 @@ func (g *IntGenerator) Draw(s Source, label string) int64 {
 		max = *g.max
 	}
 
-	var value int64
-
-	if s.IsDeterministic() {
-		// Deterministic mode: use counter directly for small, predictable values
-		// This gives us 0, 1, 2, 3... which is friendly for debugging
-		bits := s.DrawBits(64)
-		value = int64(bits)
-
-		// Apply constraints
-		if g.min != nil || g.max != nil {
-			// Wrap value into [min, max] range
-			rangeSize := uint64(max - min + 1)
-			if rangeSize == 0 {
-				// Full range, value is already good
-				value = int64(bits)
-			} else {
-				// Map counter into constrained range
-				offset := uint64(value) % rangeSize
-				value = min + int64(offset)
-			}
-		}
-
-		// Log and return the value
-		s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
-		return value
+	// Choose shrink target: prefer 0, but use min if 0 is not in range
+	shrinkTarget := int64(0)
+	if min > 0 {
+		shrinkTarget = min
+	} else if max < 0 {
+		shrinkTarget = max
 	}
 
-	// Random mode: range-stratified generation with monotonic values
-	// This approach maintains shrink-friendliness while biasing toward edge cases
-	maxAttempts := 1
-	if g.filterFn != nil {
-		maxAttempts = g.maxFilterAttempts
-	}
-
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		value = g.drawRandomMonotonic(s, min, max)
-
-		// Check filter predicate if present
-		if g.filterFn != nil && !g.filterFn(value) {
-			continue // Try again
-		}
-
-		// Log the generated value
-		s.WriteLog(fmt.Sprintf("Int(%s)=%d ", label, value))
-		return value
-	}
-
-	// Filter exhausted max attempts - skip this test iteration
-	panic(skipTest{})
+	return d.DrawInteger(conjecture.IntegerParams{
+		Min:          min,
+		Max:          max,
+		ShrinkToward: shrinkTarget,
+	})
 }
 
-// drawRandomMonotonic generates values using range stratification with monotonic generation.
-// Smaller byte values lead to simpler values (shrink-compatible).
-func (g *IntGenerator) drawRandomMonotonic(s Source, min, max int64) int64 {
-	// Select which sub-range to draw from
-	// Smaller rangeChoice values → more focused/simpler ranges (good for shrinking!)
-	rangeChoice := s.DrawBits(3) // 0-7
-
-	var effectiveMin, effectiveMax int64
-	switch rangeChoice {
-	case 0: // ~12.5% - small range around zero (simplest) - only if range contains zero
-		if min <= 0 && max >= 0 {
-			effectiveMin = max64(min, -10)
-			effectiveMax = min64(max, 10)
-		} else {
-			// Range doesn't contain zero, use small range around min
-			effectiveMin = min
-			effectiveMax = min64(min+20, max)
-		}
-	case 1: // ~12.5% - boundary regions
-		if s.DrawBits(1) == 0 {
-			// Lower boundary
-			effectiveMin = min
-			effectiveMax = min64(min+20, max)
-		} else {
-			// Upper boundary
-			effectiveMin = max64(max-20, min)
-			effectiveMax = max
-		}
-	default: // ~75% - full range
-		effectiveMin = min
-		effectiveMax = max
-	}
-
-	// Draw monotonically within the selected range
-	return drawZigZagInRange(s, effectiveMin, effectiveMax)
+// String implements Gen[int64]
+func (g *IntGenerator) String() string {
+	return "IntGenerator"
 }
 
-// drawZigZagInRange generates values in [min, max] with monotonic shrinking behavior.
-// Strategy: Draw bits for range size, map to offset in range.
-// For ranges containing 0: zig-zag around 0 (0, -1, 1, -2, 2...)
-// For other ranges: map linearly (smaller bits → smaller values in range)
-func drawZigZagInRange(s Source, min, max int64) int64 {
-	if min > max {
-		min, max = max, min
-	}
+// =============================================================================
+// Boolean Generators
+// =============================================================================
 
-	// Special case: single value
-	if min == max {
-		return min
-	}
-
-	rangeSize := uint64(max - min + 1)
-	bitsNeeded := bitsNeededForRange(rangeSize)
-
-	// Use rejection sampling to avoid modulo bias
-	for attempt := 0; attempt < 100; attempt++ {
-		bits := s.DrawBits(bitsNeeded)
-
-		// Reject if outside range
-		if bits >= rangeSize {
-			continue
-		}
-
-		// If range contains zero, use zig-zag around zero
-		if min <= 0 && max >= 0 {
-			// Apply zig-zag: 0→0, 1→1, 2→-1, 3→2, 4→-2, 5→3, 6→-3...
-			// (slightly different encoding for better shrinking to positive first)
-			var value int64
-			if bits == 0 {
-				value = 0
-			} else if bits%2 == 1 {
-				value = int64((bits + 1) / 2)
-			} else {
-				value = -int64(bits / 2)
-			}
-
-			// Check if in bounds
-			if value >= min && value <= max {
-				return value
-			}
-			// If out of bounds, fall through to retry
-			continue
-		}
-
-		// For ranges not containing zero, map linearly
-		// Smaller bits → values closer to min (or closer to zero if min/max both same sign)
-		if min >= 0 {
-			// Positive range: smaller bits → smaller positive values
-			value := min + int64(bits)
-			return value
-		} else {
-			// Negative range: smaller bits → values closer to zero (less negative)
-			// Map 0 → max (closest to zero), larger bits → more negative
-			value := max - int64(bits)
-			return value
-		}
-	}
-
-	// Fallback: return value closest to zero
-	if min >= 0 {
-		return min
-	} else if max <= 0 {
-		return max
-	}
-	return 0
+// Bool creates a boolean generator
+func Bool() Gen[bool] {
+	return conjecture.Boolean()
 }
 
-// bitsNeededForRange returns the minimum bits needed to represent all values in [0, n).
-func bitsNeededForRange(n uint64) int {
-	if n <= 1 {
-		return 1
-	}
-	// Find position of highest bit
-	bits := 0
-	for n > 1 {
-		n >>= 1
-		bits++
-	}
-	return bits + 1
-}
+// =============================================================================
+// String Generators
+// =============================================================================
 
-// Helper functions for int64 min/max
-func min64(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-// Helper function for int min
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// StringGenerator generates string values with optional constraints.
+// StringGenerator provides a fluent API for building string generators
 type StringGenerator struct {
-	minLen            *int
-	maxLen            *int
-	prefix            string
-	suffix            string
-	charset           stringCharset
-	exampleHint       string
-	filterFn          func(string) bool
-	maxFilterAttempts int
+	minLen      *int
+	maxLen      *int
+	charset     stringCharset
+	prefix      string
+	suffix      string
+	exampleHint string // Used for deterministic generation (e.g., "id_" → "id_1", "id_2")
 }
 
 type stringCharset int
 
 const (
-	charsetAny       stringCharset = iota // Any bytes (including invalid UTF-8)
-	charsetASCII                          // ASCII characters (0x00-0x7F)
-	charsetPrintable                      // Printable ASCII (0x20-0x7E)
-	charsetAlphaNum                       // Alphanumeric (a-z, A-Z, 0-9)
-	charsetAlpha                          // Alphabetic (a-z, A-Z)
+	charsetAny stringCharset = iota
+	charsetASCII
+	charsetPrintable
+	charsetAlphaNum
+	charsetAlpha
 )
 
-// String creates a new string generator.
-// By default it generates any byte sequence (including invalid UTF-8).
+// String creates a string generator
 func String() *StringGenerator {
 	return &StringGenerator{
 		charset: charsetAny,
 	}
 }
 
-// validate checks that the generator's constraints are consistent.
-// Panics if constraints are impossible to satisfy.
-func (g *StringGenerator) validate() {
-	// Check minLen <= maxLen
-	if g.minLen != nil && g.maxLen != nil && *g.minLen > *g.maxLen {
-		panic(fmt.Sprintf("StringGenerator: MinLen(%d) > MaxLen(%d)", *g.minLen, *g.maxLen))
+// MinLen sets the minimum length
+func (g *StringGenerator) MinLen(n int) *StringGenerator {
+	if g.maxLen != nil && n > *g.maxLen {
+		panic(fmt.Sprintf("StringGenerator: MinLen (%d) > existing MaxLen (%d)", n, *g.maxLen))
 	}
-
-	// Check that prefix+suffix doesn't exceed maxLen
-	fixedLen := len(g.prefix) + len(g.suffix)
-	if g.maxLen != nil && fixedLen > *g.maxLen {
-		panic(fmt.Sprintf("StringGenerator: Prefix(%q) + Suffix(%q) = %d bytes > MaxLen(%d)",
-			g.prefix, g.suffix, fixedLen, *g.maxLen))
-	}
-}
-
-// MinLen constrains the generator to produce strings with at least minLen bytes.
-func (g *StringGenerator) MinLen(minLen int) *StringGenerator {
-	if minLen < 0 {
-		panic(fmt.Sprintf("StringGenerator.MinLen: minLen (%d) must be >= 0", minLen))
-	}
-	g.minLen = &minLen
-	g.validate()
+	g.minLen = &n
 	return g
 }
 
-// MaxLen constrains the generator to produce strings with at most maxLen bytes.
-func (g *StringGenerator) MaxLen(maxLen int) *StringGenerator {
-	if maxLen < 0 {
-		panic(fmt.Sprintf("StringGenerator.MaxLen: maxLen (%d) must be >= 0", maxLen))
+// MaxLen sets the maximum length
+func (g *StringGenerator) MaxLen(n int) *StringGenerator {
+	if g.minLen != nil && n < *g.minLen {
+		panic(fmt.Sprintf("StringGenerator: MaxLen (%d) < existing MinLen (%d)", n, *g.minLen))
 	}
-	g.maxLen = &maxLen
-	g.validate()
+	affixLen := len(g.prefix) + len(g.suffix)
+	if affixLen > n {
+		panic(fmt.Sprintf("StringGenerator: MaxLen (%d) < existing prefix (%d) + suffix (%d) = %d",
+			n, len(g.prefix), len(g.suffix), affixLen))
+	}
+	g.maxLen = &n
 	return g
 }
 
-// Len constrains the generator to produce strings with exactly len bytes.
-func (g *StringGenerator) Len(len int) *StringGenerator {
-	if len < 0 {
-		panic(fmt.Sprintf("StringGenerator.Len: len (%d) must be >= 0", len))
+// Len sets exact length
+func (g *StringGenerator) Len(n int) *StringGenerator {
+	affixLen := len(g.prefix) + len(g.suffix)
+	if affixLen > n {
+		panic(fmt.Sprintf("StringGenerator: Len (%d) < existing prefix (%d) + suffix (%d) = %d",
+			n, len(g.prefix), len(g.suffix), affixLen))
 	}
-	g.minLen = &len
-	g.maxLen = &len
-	g.validate()
+	g.minLen = &n
+	g.maxLen = &n
 	return g
 }
 
-// NonEmpty constrains the generator to produce non-empty strings.
+// NonEmpty ensures string is not empty
 func (g *StringGenerator) NonEmpty() *StringGenerator {
 	one := 1
 	g.minLen = &one
-	g.validate()
 	return g
 }
 
-// Prefix constrains the generator to produce strings starting with the given prefix.
-func (g *StringGenerator) Prefix(prefix string) *StringGenerator {
-	g.prefix = prefix
-	g.validate()
+// Prefix adds a prefix to generated strings
+func (g *StringGenerator) Prefix(p string) *StringGenerator {
+	g.prefix = p
+	affixLen := len(g.prefix) + len(g.suffix)
+	if g.maxLen != nil && affixLen > *g.maxLen {
+		panic(fmt.Sprintf("StringGenerator: prefix (%d) + suffix (%d) = %d > existing MaxLen (%d)",
+			len(g.prefix), len(g.suffix), affixLen, *g.maxLen))
+	}
 	return g
 }
 
-// Suffix constrains the generator to produce strings ending with the given suffix.
-func (g *StringGenerator) Suffix(suffix string) *StringGenerator {
-	g.suffix = suffix
-	g.validate()
+// Suffix adds a suffix to generated strings
+func (g *StringGenerator) Suffix(s string) *StringGenerator {
+	g.suffix = s
+	affixLen := len(g.prefix) + len(g.suffix)
+	if g.maxLen != nil && affixLen > *g.maxLen {
+		panic(fmt.Sprintf("StringGenerator: prefix (%d) + suffix (%d) = %d > existing MaxLen (%d)",
+			len(g.prefix), len(g.suffix), affixLen, *g.maxLen))
+	}
 	return g
 }
 
-// ASCII constrains the generator to produce ASCII strings (bytes 0x00-0x7F).
+// ASCII generates only ASCII characters
 func (g *StringGenerator) ASCII() *StringGenerator {
 	g.charset = charsetASCII
 	return g
 }
 
-// Printable constrains the generator to produce printable ASCII strings (bytes 0x20-0x7E).
+// Printable generates only printable ASCII
 func (g *StringGenerator) Printable() *StringGenerator {
 	g.charset = charsetPrintable
 	return g
 }
 
-// AlphaNum constrains the generator to produce alphanumeric strings (a-z, A-Z, 0-9).
+// AlphaNum generates only alphanumeric characters
 func (g *StringGenerator) AlphaNum() *StringGenerator {
 	g.charset = charsetAlphaNum
 	return g
 }
 
-// Alpha constrains the generator to produce alphabetic strings (a-z, A-Z).
+// Alpha generates only alphabetic characters
 func (g *StringGenerator) Alpha() *StringGenerator {
 	g.charset = charsetAlpha
 	return g
 }
 
-// ExampleHint provides a soft prefix hint for deterministic generation.
-// This is used when generating friendly example values with Gen.
-// If a hard Prefix() constraint is set, it takes precedence over the hint.
+// ExampleHint sets a hint for deterministic generation.
+// When using PrimitivesGen (factory mode), generates strings like "id_1", "id_2" instead of "str_1", "str_2".
+// Has no effect in property testing mode (ConjectureData).
 func (g *StringGenerator) ExampleHint(hint string) *StringGenerator {
 	g.exampleHint = hint
 	return g
 }
 
-// Filter constrains the generator to only produce strings that satisfy the predicate.
-// The generator will retry up to 100 times (by default) to find a matching value.
-// If no matching value is found after max attempts, the test iteration is skipped (via t.Assume).
-//
-// Use Filter for predicates that pass frequently (>50% of values).
-// For rare conditions, use t.Assume() instead to skip test iterations directly.
-//
-// Example:
-//
-//	validEmails := String().AlphaNum().Filter(func(s string) bool {
-//	    return strings.Contains(s, "@") && len(s) > 5
-//	})
-func (g *StringGenerator) Filter(fn func(string) bool) *StringGenerator {
-	g.filterFn = fn
-	if g.maxFilterAttempts == 0 {
-		g.maxFilterAttempts = 100
-	}
-	return g
-}
-
-// Draw generates a string value from the source and records it in the log.
-func (g *StringGenerator) Draw(s Source, label string) string {
-	if s.IsDeterministic() {
-		return g.drawDeterministic(s, label)
-	}
-	return g.drawRandom(s, label)
-}
-
-// drawDeterministic generates friendly, predictable strings like "user_1", "user_2"
-func (g *StringGenerator) drawDeterministic(s Source, label string) string {
-	// Get counter value
-	counter := s.DrawBits(64)
-
-	// Determine effective prefix (hard constraint or soft hint)
-	effectivePrefix := g.prefix
-	if effectivePrefix == "" && g.exampleHint != "" {
-		effectivePrefix = g.exampleHint
+// Draw implements Gen[string]
+func (g *StringGenerator) Draw(d conjecture.DataSource) (string, error) {
+	// Mode determined by d.IsDeterministic() - depends on Source type
+	if d.IsDeterministic() {
+		// Deterministic mode: use counter for factory-friendly output
+		counter := d.DrawBits(32)
+		if g.exampleHint != "" {
+			// Use hint if set: "id_1", "name_1", etc.
+			return fmt.Sprintf("%s%d", g.exampleHint, counter), nil
+		}
+		// Fallback to generic: "str_1", "str_2", etc.
+		return fmt.Sprintf("str_%d", counter), nil
 	}
 
-	// Generate content from counter respecting charset
-	content := g.formatCounter(counter, g.charset)
-
-	// Build with prefix + content + suffix
-	result := effectivePrefix + content
-	if g.suffix != "" {
-		result += g.suffix
-	}
-
-	// Enforce length constraints
-	result = g.enforceLength(result, g.charset)
-
-	s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
-	return result
-}
-
-// drawRandom generates adversarial strings exploring full type space
-func (g *StringGenerator) drawRandom(s Source, label string) string {
-	// Determine length
+	// Property testing mode: full random generation
 	minLen := 0
-	if g.minLen != nil {
-		minLen = *g.minLen
-	}
-	maxLen := 100 // Default max length
-	if g.maxLen != nil {
-		maxLen = *g.maxLen
-	}
-
-	maxAttempts := 1
-	if g.filterFn != nil {
-		maxAttempts = g.maxFilterAttempts
-	}
-
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		// Account for prefix/suffix in length calculation
-		prefixLen := len(g.prefix)
-		suffixLen := len(g.suffix)
-		fixedLen := prefixLen + suffixLen
-
-		// Adjust min/max for the random part
-		randomMinLen := minLen - fixedLen
-		if randomMinLen < 0 {
-			randomMinLen = 0
-		}
-		randomMaxLen := maxLen - fixedLen
-		if randomMaxLen < 0 {
-			// Prefix+suffix already exceeds maxLen, just use prefix+suffix
-			result := g.prefix + g.suffix
-			if g.filterFn == nil || g.filterFn(result) {
-				s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
-				return result
-			}
-			continue // Try again with filter
-		}
-
-		// Generate random length with range stratification (shrink-compatible biasing)
-		var randomLen int
-		if randomMaxLen == randomMinLen {
-			randomLen = randomMinLen
-		} else {
-			// Range stratification: bias toward shorter strings
-			// Smaller rangeChoice → shorter effective range (better for shrinking!)
-			rangeChoice := s.DrawBits(3) // 0-7
-
-			var effectiveMin, effectiveMax int
-			switch rangeChoice {
-			case 0: // ~12.5% - very short strings (0-5 chars)
-				effectiveMin = randomMinLen
-				effectiveMax = minInt(randomMinLen+5, randomMaxLen)
-			case 1: // ~12.5% - short strings (0-10 chars)
-				effectiveMin = randomMinLen
-				effectiveMax = minInt(randomMinLen+10, randomMaxLen)
-			default: // ~75% - full range
-				effectiveMin = randomMinLen
-				effectiveMax = randomMaxLen
-			}
-
-			// Draw monotonically within effective range using rejection sampling
-			lengthRange := uint64(effectiveMax - effectiveMin + 1)
-			bitsNeeded := bitsNeededForRange(lengthRange)
-
-			for attempt := 0; attempt < 100; attempt++ {
-				bits := s.DrawBits(bitsNeeded)
-				if bits < lengthRange {
-					randomLen = effectiveMin + int(bits)
-					break
-				}
-			}
-
-			// Fallback if rejection sampling failed (shouldn't happen)
-			if randomLen < randomMinLen || randomLen > randomMaxLen {
-				randomLen = randomMinLen
-			}
-		}
-
-		// Generate random bytes based on charset
-		var randomBytes []byte
-		if randomLen > 0 {
-			randomBytes = make([]byte, randomLen)
-			for i := 0; i < randomLen; i++ {
-				randomBytes[i] = g.generateByte(s)
-			}
-		}
-
-		result := g.prefix + string(randomBytes) + g.suffix
-
-		// Check filter predicate if present
-		if g.filterFn != nil && !g.filterFn(result) {
-			continue // Try again
-		}
-
-		s.WriteLog(fmt.Sprintf("String(%s)=%q ", label, result))
-		return result
-	}
-
-	// Filter exhausted max attempts - skip this test iteration
-	panic(skipTest{})
-}
-
-func (g *StringGenerator) generateByte(s Source) byte {
-	switch g.charset {
-	case charsetAny:
-		// Any byte value, but stratified to prefer simpler chars
-		// Smaller rangeChoice → simpler characters (better for shrinking)
-		rangeChoice := s.DrawBits(2) // 0-3
-		switch rangeChoice {
-		case 0: // 25%: lowercase letters (simplest)
-			for attempt := 0; attempt < 100; attempt++ {
-				bits := s.DrawBits(5) // 0-31
-				if bits < 26 {
-					return byte('a' + bits)
-				}
-			}
-			return 'a'
-		case 1: // 25%: printable ASCII (simple, readable)
-			return g.generatePrintableByte(s)
-		default: // 50%: any byte (full exploration)
-			return byte(s.DrawBits(8))
-		}
-
-	case charsetASCII:
-		// ASCII: 0x00-0x7F, prefer printable over control chars
-		rangeChoice := s.DrawBits(2) // 0-3
-		if rangeChoice == 0 {
-			// 25%: printable ASCII (preferred for shrinking)
-			return g.generatePrintableByte(s)
-		}
-		// 75%: full ASCII range
-		return byte(s.DrawBits(7))
-
-	case charsetPrintable:
-		return g.generatePrintableByte(s)
-
-	case charsetAlphaNum:
-		// Alphanumeric: a-z, 0-9, A-Z (62 characters)
-		// Use rejection sampling for monotonicity
-		for attempt := 0; attempt < 100; attempt++ {
-			bits := s.DrawBits(6) // 0-63
-			if bits < 62 {
-				return charFromAlphaNumOrder(bits)
-			}
-		}
-		return 'a' // fallback
-
-	case charsetAlpha:
-		// Alphabetic: a-z, A-Z (52 characters)
-		// Use rejection sampling for monotonicity
-		for attempt := 0; attempt < 100; attempt++ {
-			bits := s.DrawBits(6) // 0-63
-			if bits < 52 {
-				return charFromAlphaOrder(bits)
-			}
-		}
-		return 'a' // fallback
-
-	default:
-		return byte(s.DrawBits(8))
-	}
-}
-
-// generatePrintableByte generates a printable ASCII character with monotonic mapping.
-// Maps byte values 0-94 to characters ordered by simplicity: a-z, 0-9, A-Z, space, punctuation.
-func (g *StringGenerator) generatePrintableByte(s Source) byte {
-	// 95 printable ASCII chars [0x20-0x7E]
-	// Use rejection sampling for true monotonicity
-	for attempt := 0; attempt < 100; attempt++ {
-		bits := s.DrawBits(7) // 0-127
-		if bits < 95 {
-			return charFromSimplicityOrder(bits)
-		}
-	}
-	return 'a' // fallback
-}
-
-// charFromSimplicityOrder maps values 0-94 to printable ASCII in order of simplicity.
-// 0-25: a-z (lowercase letters - simplest)
-// 26-35: 0-9 (digits)
-// 36-61: A-Z (uppercase letters)
-// 62-94: space + punctuation
-func charFromSimplicityOrder(n uint64) byte {
-	if n < 26 {
-		return byte('a' + n)
-	} else if n < 36 {
-		return byte('0' + (n - 26))
-	} else if n < 62 {
-		return byte('A' + (n - 36))
-	} else {
-		// Remaining 33 chars: space + punctuation in ASCII order
-		// Space, !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~
-		punctuation := " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
-		return punctuation[n-62]
-	}
-}
-
-// charFromAlphaNumOrder maps values 0-61 to alphanumeric chars by simplicity.
-// 0-25: a-z, 26-35: 0-9, 36-61: A-Z
-func charFromAlphaNumOrder(n uint64) byte {
-	if n < 26 {
-		return byte('a' + n)
-	} else if n < 36 {
-		return byte('0' + (n - 26))
-	} else {
-		return byte('A' + (n - 36))
-	}
-}
-
-// charFromAlphaOrder maps values 0-51 to alphabetic chars by simplicity.
-// 0-25: a-z, 26-51: A-Z
-func charFromAlphaOrder(n uint64) byte {
-	if n < 26 {
-		return byte('a' + n)
-	} else {
-		return byte('A' + (n - 26))
-	}
-}
-
-// formatCounter formats a counter value as a string respecting charset constraints
-func (g *StringGenerator) formatCounter(counter uint64, charset stringCharset) string {
-	switch charset {
-	case charsetAlpha:
-		// For alpha, convert to base-26 using letters
-		if counter == 0 {
-			return "a"
-		}
-		result := ""
-		for counter > 0 {
-			result = string(rune('a'+(counter%26))) + result
-			counter /= 26
-		}
-		return result
-	case charsetAlphaNum, charsetPrintable, charsetASCII, charsetAny:
-		// For others, use decimal representation (digits are valid in all these)
-		return fmt.Sprintf("%d", counter)
-	default:
-		return fmt.Sprintf("%d", counter)
-	}
-}
-
-// enforceLength pads or truncates the string to meet length constraints
-func (g *StringGenerator) enforceLength(s string, charset stringCharset) string {
-	minLen := 0
-	if g.minLen != nil {
-		minLen = *g.minLen
-	}
 	maxLen := 100
+	if g.minLen != nil {
+		minLen = *g.minLen
+	}
 	if g.maxLen != nil {
 		maxLen = *g.maxLen
 	}
 
-	// Truncate if too long
-	if len(s) > maxLen {
-		// Try to preserve suffix if present
-		if g.suffix != "" && len(g.suffix) < maxLen {
-			// Truncate from the middle, keep suffix
-			prefixPart := s[:maxLen-len(g.suffix)]
-			return prefixPart + g.suffix
+	// If prefix/suffix are present, adjust minLen/maxLen for the base string
+	// so the total length (prefix + base + suffix) matches the constraints
+	prefixLen := len(g.prefix)
+	suffixLen := len(g.suffix)
+	affixLen := prefixLen + suffixLen
+
+	if affixLen > 0 {
+		// Adjust lengths to account for prefix/suffix
+		minLen -= affixLen
+		if minLen < 0 {
+			minLen = 0
 		}
-		return s[:maxLen]
+		maxLen -= affixLen
+		if maxLen < 0 {
+			maxLen = 0
+		}
 	}
 
-	// Pad if too short
-	if len(s) < minLen {
-		padding := minLen - len(s)
-		padChar := g.getPadChar(charset)
-		return s + strings.Repeat(string(padChar), padding)
-	}
-
-	return s
-}
-
-// getPadChar returns an appropriate padding character for the charset
-func (g *StringGenerator) getPadChar(charset stringCharset) rune {
-	switch charset {
+	// Build codepoint intervals based on charset
+	var intervals []conjecture.CodepointInterval
+	switch g.charset {
+	case charsetASCII:
+		intervals = []conjecture.CodepointInterval{{Low: 0, High: 127}}
+	case charsetPrintable:
+		intervals = []conjecture.CodepointInterval{{Low: 32, High: 126}}
+	case charsetAlphaNum:
+		intervals = []conjecture.CodepointInterval{
+			{Low: '0', High: '9'},
+			{Low: 'A', High: 'Z'},
+			{Low: 'a', High: 'z'},
+		}
 	case charsetAlpha:
-		return 'a'
-	case charsetAlphaNum, charsetPrintable, charsetASCII:
-		return '0'
-	default:
-		return '0'
-	}
-}
-
-// BoolGenerator generates boolean values.
-type BoolGenerator struct{}
-
-// Bool creates a new boolean generator.
-func Bool() *BoolGenerator {
-	return &BoolGenerator{}
-}
-
-// Draw generates a boolean value from the source.
-func (g *BoolGenerator) Draw(s Source, label string) bool {
-	var value bool
-	if s.IsDeterministic() {
-		// Deterministic mode: always return false (simple, predictable)
-		value = false
-	} else {
-		// Random mode: draw a random bit
-		value = s.DrawBits(1) == 1
-	}
-	s.WriteLog(fmt.Sprintf("Bool(%s)=%v ", label, value))
-	return value
-}
-
-// Float64Generator generates float64 values.
-type Float64Generator struct{}
-
-// Float64 creates a new float64 generator.
-func Float64() *Float64Generator {
-	return &Float64Generator{}
-}
-
-// Draw generates a float64 value from the source.
-func (g *Float64Generator) Draw(s Source, label string) float64 {
-	if s.IsDeterministic() {
-		// Deterministic: small sequential values
-		counter := s.DrawBits(32)
-		value := float64(counter) + 0.5
-		s.WriteLog(fmt.Sprintf("Float64(%s)=%v ", label, value))
-		return value
-	}
-	// Random: full float64 space including special values
-	bits := s.DrawBits(64)
-	value := math.Float64frombits(bits)
-	s.WriteLog(fmt.Sprintf("Float64(%s)=%v ", label, value))
-	return value
-}
-
-// TimeGenerator generates time.Time values.
-type TimeGenerator struct {
-	baseTime time.Time
-}
-
-// Time creates a new time generator.
-// Default base time is Unix epoch.
-func Time() *TimeGenerator {
-	return &TimeGenerator{
-		baseTime: time.Unix(0, 0).UTC(),
-	}
-}
-
-// BaseTime sets the base time for generation.
-func (g *TimeGenerator) BaseTime(t time.Time) *TimeGenerator {
-	g.baseTime = t
-	return g
-}
-
-// Draw generates a time.Time value from the source.
-func (g *TimeGenerator) Draw(s Source, label string) time.Time {
-	if s.IsDeterministic() {
-		// Deterministic: sequential times from base
-		offset := s.DrawBits(32)
-		value := g.baseTime.Add(time.Duration(offset) * time.Second)
-		s.WriteLog(fmt.Sprintf("Time(%s)=%v ", label, value.Format(time.RFC3339)))
-		return value
-	}
-	// Random: full time range
-	bits := s.DrawBits(64)
-	value := time.Unix(int64(bits), 0).UTC()
-	s.WriteLog(fmt.Sprintf("Time(%s)=%v ", label, value.Format(time.RFC3339)))
-	return value
-}
-
-// DurationGenerator generates time.Duration values.
-type DurationGenerator struct{}
-
-// Duration creates a new duration generator.
-func Duration() *DurationGenerator {
-	return &DurationGenerator{}
-}
-
-// Draw generates a time.Duration value from the source.
-func (g *DurationGenerator) Draw(s Source, label string) time.Duration {
-	if s.IsDeterministic() {
-		// Deterministic: sequential durations
-		counter := s.DrawBits(32)
-		value := time.Duration(counter) * time.Second
-		s.WriteLog(fmt.Sprintf("Duration(%s)=%v ", label, value))
-		return value
-	}
-	// Random: full duration range
-	bits := s.DrawBits(64)
-	value := time.Duration(int64(bits))
-	s.WriteLog(fmt.Sprintf("Duration(%s)=%v ", label, value))
-	return value
-}
-
-// BytesGenerator generates byte slices.
-type BytesGenerator struct {
-	length *int
-}
-
-// Bytes creates a new bytes generator.
-// Default generates 16 bytes for deterministic mode, 0-100 for random.
-func Bytes() *BytesGenerator {
-	return &BytesGenerator{}
-}
-
-// Len sets the exact length of the byte slice.
-func (g *BytesGenerator) Len(n int) *BytesGenerator {
-	g.length = &n
-	return g
-}
-
-// Draw generates a byte slice from the source.
-func (g *BytesGenerator) Draw(s Source, label string) []byte {
-	var length int
-	if g.length != nil {
-		length = *g.length
-	} else if s.IsDeterministic() {
-		length = 16 // Default deterministic length
-	} else {
-		length = int(s.DrawBits(7)) // 0-127 bytes
+		intervals = []conjecture.CodepointInterval{
+			{Low: 'A', High: 'Z'},
+			{Low: 'a', High: 'z'},
+		}
+	default: // charsetAny
+		intervals = []conjecture.CodepointInterval{{Low: 0, High: 127}} // Start with ASCII for now
 	}
 
-	if length == 0 {
-		s.WriteLog(fmt.Sprintf("Bytes(%s)=[] ", label))
-		return []byte{}
+	baseStr, err := d.DrawString(conjecture.StringParams{
+		MinSize:   minLen,
+		MaxSize:   maxLen,
+		Intervals: intervals,
+	})
+	if err != nil {
+		return "", err
 	}
 
-	result := make([]byte, length)
-	for i := 0; i < length; i++ {
-		result[i] = byte(s.DrawBits(8))
+	// Add prefix/suffix if needed
+	if g.prefix != "" || g.suffix != "" {
+		return g.prefix + baseStr + g.suffix, nil
 	}
-	s.WriteLog(fmt.Sprintf("Bytes(%s)=[%d bytes] ", label, length))
-	return result
+
+	return baseStr, nil
 }
 
-// UUIDGenerator generates UUID values.
-type UUIDGenerator struct{}
-
-// UUID creates a new UUID generator.
-func UUID() *UUIDGenerator {
-	return &UUIDGenerator{}
+// String implements Gen[string]
+func (g *StringGenerator) String() string {
+	return "StringGenerator"
 }
 
-// Draw generates a UUID from the source.
-func (g *UUIDGenerator) Draw(s Source, label string) uuid.UUID {
-	if s.IsDeterministic() {
-		// Deterministic: SHA1-based UUID from counter
-		counter := s.DrawBits(64)
-		value := DeterministicUUIDFromInt(counter)
-		s.WriteLog(fmt.Sprintf("UUID(%s)=%v ", label, value))
-		return value
-	}
-	// Random: random bytes as UUID
-	var data [16]byte
-	for i := 0; i < 16; i++ {
-		data[i] = byte(s.DrawBits(8))
-	}
-	// Set version 4 and variant bits
-	data[6] = (data[6] & 0x0f) | 0x40 // Version 4
-	data[8] = (data[8] & 0x3f) | 0x80 // Variant is 10
-	value := uuid.Must(uuid.FromBytes(data[:]))
-	s.WriteLog(fmt.Sprintf("UUID(%s)=%v ", label, value))
-	return value
+// =============================================================================
+// Float Generators
+// =============================================================================
+
+// Float64 creates a float64 generator for [min, max]
+func Float64(min, max float64) Gen[float64] {
+	return conjecture.Float(min, max)
 }
 
-// SliceGenerator generates slices of values using an element generator.
-type SliceGenerator[T any] struct {
-	elementGen        Generator[T]
-	minLen            *int
-	maxLen            *int
-	filterFn          func([]T) bool
-	maxFilterAttempts int
+// =============================================================================
+// Time Generators
+// =============================================================================
+
+// Time creates a time.Time generator
+func Time() Gen[time.Time] {
+	// Generate as Unix timestamp and convert
+	minTime := int64(0)            // 1970-01-01
+	maxTime := int64(253402300799) // 9999-12-31
+
+	return conjecture.Map(
+		conjecture.Integer(minTime, maxTime),
+		func(unix int64) time.Time {
+			return time.Unix(unix, 0).UTC()
+		},
+	)
 }
 
-// Slice creates a new slice generator using the given element generator.
-// By default it generates slices with 0-100 elements.
-// Use MinLen/MaxLen/Len to constrain the size.
-//
-// Example:
-//
-//	// Generate slices of integers between 1-10
-//	ints := Slice(Int().Range(1, 10)).MinLen(5).MaxLen(20)
-func Slice[T any](elementGen Generator[T]) *SliceGenerator[T] {
+// =============================================================================
+// Duration Generators
+// =============================================================================
+
+// Duration creates a time.Duration generator
+func Duration() Gen[time.Duration] {
+	// Generate durations as nanoseconds
+	return conjecture.Map(
+		conjecture.Integer(0, int64(24*time.Hour)), // 0 to 24 hours
+		func(nanos int64) time.Duration {
+			return time.Duration(nanos)
+		},
+	)
+}
+
+// =============================================================================
+// Bytes Generators
+// =============================================================================
+
+// Bytes creates a []byte generator
+func Bytes() Gen[[]byte] {
+	return conjecture.Bytes(0, 100)
+}
+
+// BytesLen creates a []byte generator with specific length
+func BytesLen(minLen, maxLen int) Gen[[]byte] {
+	return conjecture.Bytes(minLen, maxLen)
+}
+
+// =============================================================================
+// UUID Generators
+// =============================================================================
+
+// UUID creates a UUID string generator
+func UUID() Gen[string] {
+	// Generate 16 random bytes and format as UUID
+	return conjecture.Map(
+		conjecture.Bytes(16, 16),
+		func(b []byte) string {
+			return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+				b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+		},
+	)
+}
+
+// =============================================================================
+// Slice Generators
+// =============================================================================
+
+// Slice creates a slice generator
+func Slice[T any](elem Gen[T]) *SliceGenerator[T] {
 	return &SliceGenerator[T]{
-		elementGen: elementGen,
+		elem: elem,
 	}
 }
 
-// validate checks that the generator's constraints are consistent.
-func (g *SliceGenerator[T]) validate() {
-	if g.minLen != nil && g.maxLen != nil && *g.minLen > *g.maxLen {
-		panic(fmt.Sprintf("SliceGenerator: MinLen(%d) > MaxLen(%d)", *g.minLen, *g.maxLen))
-	}
+// SliceGenerator provides fluent API for slice generation
+type SliceGenerator[T any] struct {
+	elem   Gen[T]
+	minLen *int
+	maxLen *int
 }
 
-// MinLen constrains the generator to produce slices with at least minLen elements.
-func (g *SliceGenerator[T]) MinLen(minLen int) *SliceGenerator[T] {
-	if minLen < 0 {
-		panic(fmt.Sprintf("SliceGenerator.MinLen: minLen (%d) must be >= 0", minLen))
-	}
-	g.minLen = &minLen
-	g.validate()
+// MinLen sets minimum slice length
+func (g *SliceGenerator[T]) MinLen(n int) *SliceGenerator[T] {
+	g.minLen = &n
 	return g
 }
 
-// MaxLen constrains the generator to produce slices with at most maxLen elements.
-func (g *SliceGenerator[T]) MaxLen(maxLen int) *SliceGenerator[T] {
-	if maxLen < 0 {
-		panic(fmt.Sprintf("SliceGenerator.MaxLen: maxLen (%d) must be >= 0", maxLen))
-	}
-	g.maxLen = &maxLen
-	g.validate()
+// MaxLen sets maximum slice length
+func (g *SliceGenerator[T]) MaxLen(n int) *SliceGenerator[T] {
+	g.maxLen = &n
 	return g
 }
 
-// Len constrains the generator to produce slices with exactly len elements.
-func (g *SliceGenerator[T]) Len(len int) *SliceGenerator[T] {
-	if len < 0 {
-		panic(fmt.Sprintf("SliceGenerator.Len: len (%d) must be >= 0", len))
-	}
-	g.minLen = &len
-	g.maxLen = &len
-	g.validate()
+// Len sets exact slice length
+func (g *SliceGenerator[T]) Len(n int) *SliceGenerator[T] {
+	g.minLen = &n
+	g.maxLen = &n
 	return g
 }
 
-// NonEmpty constrains the generator to produce non-empty slices.
+// NonEmpty ensures slice has at least one element
 func (g *SliceGenerator[T]) NonEmpty() *SliceGenerator[T] {
 	one := 1
 	g.minLen = &one
-	g.validate()
 	return g
 }
 
-// Filter constrains the generator to only produce slices that satisfy the predicate.
-// The generator will retry up to 100 times (by default) to find a matching value.
-// If no matching value is found after max attempts, the test iteration is skipped.
-//
-// Use Filter for predicates that pass frequently (>50% of values).
-// For rare conditions, use t.Assume() instead to skip test iterations directly.
-//
-// Example:
-//
-//	uniqueInts := Slice(Int()).Filter(func(s []int) bool {
-//	    seen := make(map[int]bool)
-//	    for _, v := range s {
-//	        if seen[v] { return false }
-//	        seen[v] = true
-//	    }
-//	    return true
-//	})
-func (g *SliceGenerator[T]) Filter(fn func([]T) bool) *SliceGenerator[T] {
-	g.filterFn = fn
-	if g.maxFilterAttempts == 0 {
-		g.maxFilterAttempts = 100
-	}
-	return g
-}
-
-// Draw generates a slice from the source.
-func (g *SliceGenerator[T]) Draw(s Source, label string) []T {
-	// Determine length bounds
+// Draw implements Gen[[]T]
+func (g *SliceGenerator[T]) Draw(d conjecture.DataSource) ([]T, error) {
 	minLen := 0
-	maxLen := 100 // Default max length
+	maxLen := 100
 	if g.minLen != nil {
 		minLen = *g.minLen
 	}
@@ -1083,150 +544,57 @@ func (g *SliceGenerator[T]) Draw(s Source, label string) []T {
 		maxLen = *g.maxLen
 	}
 
-	maxAttempts := 1
-	if g.filterFn != nil {
-		maxAttempts = g.maxFilterAttempts
-	}
-
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		// Generate a length
-		var length int
-		if s.IsDeterministic() {
-			// Deterministic mode: use counter for predictable lengths
-			// Start with minLen and increment
-			counter := s.DrawBits(64)
-			if minLen == maxLen {
-				length = minLen
-			} else {
-				rangeSize := maxLen - minLen + 1
-				length = minLen + int(counter%uint64(rangeSize))
-			}
-		} else {
-			// Random mode with range stratification (shrink-compatible)
-			// Smaller rangeChoice → smaller slices (better for shrinking!)
-			if minLen == maxLen {
-				length = minLen
-			} else {
-				rangeChoice := s.DrawBits(3) // 0-7
-
-				var effectiveMin, effectiveMax int
-				switch rangeChoice {
-				case 0: // ~12.5% - very small (0-3 elements)
-					effectiveMin = minLen
-					effectiveMax = minInt(minLen+3, maxLen)
-				case 1: // ~12.5% - small (0-10 elements)
-					effectiveMin = minLen
-					effectiveMax = minInt(minLen+10, maxLen)
-				default: // ~75% - full range
-					effectiveMin = minLen
-					effectiveMax = maxLen
-				}
-
-				// Draw monotonically within effective range using rejection sampling
-				lengthRange := uint64(effectiveMax - effectiveMin + 1)
-				bitsNeeded := bitsNeededForRange(lengthRange)
-
-				for retry := 0; retry < 100; retry++ {
-					bits := s.DrawBits(bitsNeeded)
-					if bits < lengthRange {
-						length = effectiveMin + int(bits)
-						break
-					}
-				}
-
-				// Fallback
-				if length < minLen || length > maxLen {
-					length = minLen
-				}
-			}
-		}
-
-		// Generate elements
-		var result []T
-		if length > 0 {
-			result = make([]T, length)
-			for i := 0; i < length; i++ {
-				result[i] = g.elementGen.Draw(s, fmt.Sprintf("%s[%d]", label, i))
-			}
-		}
-
-		// Check filter
-		if g.filterFn != nil && !g.filterFn(result) {
-			continue
-		}
-
-		s.WriteLog(fmt.Sprintf("Slice(%s)=[%d elements] ", label, length))
-		return result
-	}
-
-	// Filter exhausted
-	panic(skipTest{})
+	return conjecture.Slice(g.elem, minLen, maxLen).Draw(d)
 }
 
-// MapGenerator generates maps with key and value generators.
-type MapGenerator[K comparable, V any] struct {
-	keyGen            Generator[K]
-	valueGen          Generator[V]
-	minLen            *int
-	maxLen            *int
-	filterFn          func(map[K]V) bool
-	maxFilterAttempts int
+// String implements Gen[[]T]
+func (g *SliceGenerator[T]) String() string {
+	return "SliceGenerator"
 }
 
-// Map creates a new map generator using the given key and value generators.
-// By default it generates maps with 0-100 entries.
-func Map[K comparable, V any](keyGen Generator[K], valueGen Generator[V]) *MapGenerator[K, V] {
+// =============================================================================
+// Map Generators
+// =============================================================================
+
+// MapOf creates a map generator from key and value generators.
+func MapOf[K comparable, V any](keyGen Gen[K], valueGen Gen[V]) *MapGenerator[K, V] {
 	return &MapGenerator[K, V]{
 		keyGen:   keyGen,
 		valueGen: valueGen,
 	}
 }
 
-// MinLen sets the minimum number of entries.
+// MapGenerator provides fluent API for map generation
+type MapGenerator[K comparable, V any] struct {
+	keyGen   Gen[K]
+	valueGen Gen[V]
+	minLen   *int
+	maxLen   *int
+}
+
+// MinLen sets minimum map size
 func (g *MapGenerator[K, V]) MinLen(n int) *MapGenerator[K, V] {
 	g.minLen = &n
 	return g
 }
 
-// MaxLen sets the maximum number of entries.
+// MaxLen sets maximum map size
 func (g *MapGenerator[K, V]) MaxLen(n int) *MapGenerator[K, V] {
 	g.maxLen = &n
 	return g
 }
 
-// Len sets the exact number of entries (both min and max).
-func (g *MapGenerator[K, V]) Len(n int) *MapGenerator[K, V] {
-	g.minLen = &n
-	g.maxLen = &n
-	return g
-}
-
-// NonEmpty ensures the map always has at least one entry.
+// NonEmpty ensures map has at least one entry
 func (g *MapGenerator[K, V]) NonEmpty() *MapGenerator[K, V] {
 	one := 1
 	g.minLen = &one
 	return g
 }
 
-// Filter adds a predicate that generated maps must satisfy.
-// The generator will retry up to 100 times (by default) to find a matching map.
-// If no matching map is found after max attempts, the test iteration is skipped (via t.Assume).
-//
-// Use Filter for predicates that pass frequently (>50% of values).
-// For rare conditions, use t.Assume() instead to skip test iterations directly.
-func (g *MapGenerator[K, V]) Filter(fn func(map[K]V) bool) *MapGenerator[K, V] {
-	g.filterFn = fn
-	if g.maxFilterAttempts == 0 {
-		g.maxFilterAttempts = 100
-	}
-	return g
-}
-
-// Draw generates a map from the source.
-func (g *MapGenerator[K, V]) Draw(s Source, label string) map[K]V {
-	// Determine length bounds
+// Draw implements Gen[map[K]V]
+func (g *MapGenerator[K, V]) Draw(d conjecture.DataSource) (map[K]V, error) {
 	minLen := 0
-	maxLen := 100 // Default max length
+	maxLen := 100
 	if g.minLen != nil {
 		minLen = *g.minLen
 	}
@@ -1234,80 +602,37 @@ func (g *MapGenerator[K, V]) Draw(s Source, label string) map[K]V {
 		maxLen = *g.maxLen
 	}
 
-	maxAttempts := 1
-	if g.filterFn != nil {
-		maxAttempts = g.maxFilterAttempts
-	}
+	return conjecture.MapGen(g.keyGen, g.valueGen, minLen, maxLen).Draw(d)
+}
 
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		// Generate a length (same strategy as SliceGenerator)
-		var length int
-		if s.IsDeterministic() {
-			// Deterministic mode: use counter for predictable lengths
-			counter := s.DrawBits(64)
-			if minLen == maxLen {
-				length = minLen
-			} else {
-				rangeSize := maxLen - minLen + 1
-				length = minLen + int(counter%uint64(rangeSize))
-			}
-		} else {
-			// Random mode with range stratification (shrink-compatible)
-			// Smaller rangeChoice → smaller maps (better for shrinking!)
-			if minLen == maxLen {
-				length = minLen
-			} else {
-				rangeChoice := s.DrawBits(3) // 0-7
+// String implements Gen[map[K]V]
+func (g *MapGenerator[K, V]) String() string {
+	return "MapGenerator"
+}
 
-				var effectiveMin, effectiveMax int
-				switch rangeChoice {
-				case 0: // ~12.5% - very small (0-3 entries)
-					effectiveMin = minLen
-					effectiveMax = minInt(minLen+3, maxLen)
-				case 1: // ~12.5% - small (0-10 entries)
-					effectiveMin = minLen
-					effectiveMax = minInt(minLen+10, maxLen)
-				default: // ~75% - full range
-					effectiveMin = minLen
-					effectiveMax = maxLen
-				}
-
-				// Draw monotonically within effective range using rejection sampling
-				lengthRange := uint64(effectiveMax - effectiveMin + 1)
-				bitsNeeded := bitsNeededForRange(lengthRange)
-
-				for retry := 0; retry < 100; retry++ {
-					bits := s.DrawBits(bitsNeeded)
-					if bits < lengthRange {
-						length = effectiveMin + int(bits)
-						break
-					}
-				}
-
-				// Fallback
-				if length < minLen || length > maxLen {
-					length = minLen
-				}
-			}
+// Email returns a generator for email addresses
+func Email() Gen[string] {
+	return conjecture.Build("Email", func(d conjecture.DataSource) (string, error) {
+		user, err := String().ExampleHint("user_").Draw(d)
+		if err != nil {
+			return "", err
 		}
+		return user + "@example.com", nil
+	})
+}
 
-		// Generate entries
-		result := make(map[K]V)
-		for i := 0; i < length; i++ {
-			key := g.keyGen.Draw(s, fmt.Sprintf("%s.key[%d]", label, i))
-			value := g.valueGen.Draw(s, fmt.Sprintf("%s.value[%d]", label, i))
-			result[key] = value // Note: duplicate keys will overwrite
+// URL returns a generator for URLs
+func URL() Gen[string] {
+	return conjecture.Build("URL", func(d conjecture.DataSource) (string, error) {
+		path, err := String().ExampleHint("path_").Draw(d)
+		if err != nil {
+			return "", err
 		}
+		return "https://example.com/" + path, nil
+	})
+}
 
-		// Check filter
-		if g.filterFn != nil && !g.filterFn(result) {
-			continue
-		}
-
-		s.WriteLog(fmt.Sprintf("Map(%s)=[%d entries] ", label, len(result)))
-		return result
-	}
-
-	// Filter exhausted
-	panic(skipTest{})
+// UUIDString returns a generator for UUID strings (alias for UUID)
+func UUIDString() Gen[string] {
+	return UUID()
 }

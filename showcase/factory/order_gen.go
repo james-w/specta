@@ -71,7 +71,7 @@ func (r OrderRecipe) UserFromGenerator(gen specta.Generator[showcase.User]) Orde
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
-	r.opts = append(r.opts, spec.WithOrderUserFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithOrderUserFromGenerator(v.Gen()))
 	r.userRecipe = &v
 	return r
 }
@@ -136,9 +136,9 @@ func (r OrderRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) Ord
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r OrderRecipe) Provider() specta.Provider[showcase.Order] {
-	return specta.FromSpec(spec.BuildOrder, spec.NewOrderSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r OrderRecipe) Gen() specta.Gen[showcase.Order] {
+	return specta.FromSpecGen(spec.BuildOrder, spec.NewOrderSpec, r.opts...)
 }
 
 // Build creates a single Order instance.
@@ -169,30 +169,30 @@ func (r OrderRecipe) AsEqualMatcher() specta.Matcher[showcase.Order] {
 	// Build matcher only for set fields
 	m := OrderMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.User.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.userRecipe != nil {
 			m = m.User(r.userRecipe.AsEqualMatcher())
 		} else {
-			m = m.User(specta.DeepEqual(s.User.Value(p)))
+			m = m.User(specta.DeepEqual(s.User.GetValue(p, "User")))
 		}
 	}
 	if s.Items.IsSet() {
-		m = m.Items(specta.DeepEqual(s.Items.Value(p)))
+		m = m.Items(specta.DeepEqual(s.Items.GetValue(p, "Items")))
 	}
 	if s.Total.IsSet() {
-		m = m.Total(specta.DeepEqual(s.Total.Value(p)))
+		m = m.Total(specta.DeepEqual(s.Total.GetValue(p, "Total")))
 	}
 	if s.Status.IsSet() {
-		m = m.Status(specta.DeepEqual(s.Status.Value(p)))
+		m = m.Status(specta.DeepEqual(s.Status.GetValue(p, "Status")))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 	if s.UpdatedAt.IsSet() {
-		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.Value(p)))
+		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
 	return m.Matcher()

@@ -97,14 +97,14 @@ func (m *UserMatcher) Matches(u User) specta.MatchResult {
 type factoryType struct{}
 
 type userBuilder struct {
-	p *specta.Gen
+	p specta.Source
 }
 
 func (b userBuilder) Build() User {
 	return User{ID: "test-id", Name: "Test", Email: "test@example.com", Age: 30, Active: true}
 }
 
-func (f factoryType) NewUser(p *specta.Gen) userBuilder {
+func (f factoryType) NewUser(p specta.Source) userBuilder {
 	return userBuilder{p: p}
 }
 

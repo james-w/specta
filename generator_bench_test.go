@@ -2,25 +2,27 @@ package specta
 
 import (
 	"testing"
+
+	"github.com/james-w/specta/conjecture"
 )
 
 // BenchmarkIntGenerator measures Int() generation performance
 func BenchmarkIntGenerator(b *testing.B) {
 	b.Run("unconstrained", func(b *testing.B) {
-		p := New()
 		gen := Int()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			gen.Draw(p, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			gen.Draw(data)
 		}
 	})
 
 	b.Run("with_range", func(b *testing.B) {
-		p := New()
 		gen := Int().Range(0, 1000)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			gen.Draw(p, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			gen.Draw(data)
 		}
 	})
 
@@ -28,8 +30,8 @@ func BenchmarkIntGenerator(b *testing.B) {
 		gen := Int().Range(0, 1000)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source := NewSource(int64(i))
-			gen.Draw(source, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			gen.Draw(data)
 		}
 	})
 }
@@ -37,20 +39,20 @@ func BenchmarkIntGenerator(b *testing.B) {
 // BenchmarkStringGenerator measures String() generation performance
 func BenchmarkStringGenerator(b *testing.B) {
 	b.Run("unconstrained", func(b *testing.B) {
-		p := New()
 		gen := String()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			gen.Draw(p, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			gen.Draw(data)
 		}
 	})
 
 	b.Run("alphanumeric_short", func(b *testing.B) {
-		p := New()
 		gen := String().AlphaNum().MaxLen(20)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			gen.Draw(p, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			gen.Draw(data)
 		}
 	})
 
@@ -58,8 +60,8 @@ func BenchmarkStringGenerator(b *testing.B) {
 		gen := String().AlphaNum().MaxLen(50)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source := NewSource(int64(i))
-			gen.Draw(source, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			gen.Draw(data)
 		}
 	})
 }
@@ -67,20 +69,20 @@ func BenchmarkStringGenerator(b *testing.B) {
 // BenchmarkSliceGenerator measures Slice() generation performance
 func BenchmarkSliceGenerator(b *testing.B) {
 	b.Run("int_slice_small", func(b *testing.B) {
-		p := New()
 		gen := Slice(Int()).MaxLen(10)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			gen.Draw(p, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			gen.Draw(data)
 		}
 	})
 
 	b.Run("string_slice_small", func(b *testing.B) {
-		p := New()
 		gen := Slice(String().MaxLen(10)).MaxLen(5)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			gen.Draw(p, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			gen.Draw(data)
 		}
 	})
 
@@ -88,8 +90,8 @@ func BenchmarkSliceGenerator(b *testing.B) {
 		gen := Slice(Int()).MaxLen(20)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source := NewSource(int64(i))
-			gen.Draw(source, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			gen.Draw(data)
 		}
 	})
 }
@@ -97,20 +99,20 @@ func BenchmarkSliceGenerator(b *testing.B) {
 // BenchmarkMapGenerator measures Map() generation performance
 func BenchmarkMapGenerator(b *testing.B) {
 	b.Run("int_to_string_small", func(b *testing.B) {
-		p := New()
-		gen := Map(Int(), String().MaxLen(10)).MaxLen(10)
+		gen := MapOf(Int(), String().MaxLen(10)).MaxLen(10)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			gen.Draw(p, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			gen.Draw(data)
 		}
 	})
 
 	b.Run("random_mode", func(b *testing.B) {
-		gen := Map(Int(), String().MaxLen(20)).MaxLen(15)
+		gen := MapOf(Int(), String().MaxLen(20)).MaxLen(15)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source := NewSource(int64(i))
-			gen.Draw(source, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			gen.Draw(data)
 		}
 	})
 }
@@ -118,21 +120,24 @@ func BenchmarkMapGenerator(b *testing.B) {
 // BenchmarkPropertyTest measures full property test iteration overhead
 func BenchmarkPropertyTest(b *testing.B) {
 	b.Run("simple_int_property", func(b *testing.B) {
+		gen := Int().Range(0, 100)
+		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			// Run a single property test iteration
-			source := NewSource(int64(i))
-			gen := Int().Range(0, 100)
-			value := gen.Draw(source, "x")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			value, _ := gen.Draw(data)
 			// Simulate simple assertion
 			_ = value >= 0 && value <= 100
 		}
 	})
 
 	b.Run("complex_property", func(b *testing.B) {
+		sliceGen := Slice(Int().Range(0, 100)).MaxLen(20)
+		strGen := String().AlphaNum().MaxLen(30)
+		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source := NewSource(int64(i))
-			slice := Slice(Int().Range(0, 100)).MaxLen(20).Draw(source, "slice")
-			str := String().AlphaNum().MaxLen(30).Draw(source, "str")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			slice, _ := sliceGen.Draw(data)
+			str, _ := strGen.Draw(data)
 			// Simulate complex assertions
 			_ = len(slice) <= 20
 			_ = len(str) <= 30
@@ -140,21 +145,21 @@ func BenchmarkPropertyTest(b *testing.B) {
 	})
 }
 
-// BenchmarkDrawBits measures the core DrawBits performance
+// BenchmarkDrawBits measures the core drawing performance
 func BenchmarkDrawBits(b *testing.B) {
-	b.Run("deterministic", func(b *testing.B) {
-		p := New()
+	b.Run("draw_integer", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			p.DrawBits(32)
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			data.DrawInteger(conjecture.IntegerParams{Min: 0, Max: 100, ShrinkToward: 0})
 		}
 	})
 
-	b.Run("random", func(b *testing.B) {
-		source := NewSource(12345)
+	b.Run("draw_bytes", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source.DrawBits(32)
+			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
+			data.DrawBytes(conjecture.BytesParams{MinSize: 32, MaxSize: 32})
 		}
 	})
 }
@@ -165,8 +170,8 @@ func BenchmarkEdgeCaseBiasing(b *testing.B) {
 		gen := Int().Range(0, 1000)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source := NewSource(int64(i))
-			gen.Draw(source, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			gen.Draw(data)
 		}
 	})
 
@@ -174,8 +179,8 @@ func BenchmarkEdgeCaseBiasing(b *testing.B) {
 		gen := Slice(Int()).MaxLen(50)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			source := NewSource(int64(i))
-			gen.Draw(source, "value")
+			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
+			gen.Draw(data)
 		}
 	})
 }

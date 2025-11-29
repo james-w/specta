@@ -120,7 +120,7 @@ func (r UserRecipe) AddressFromGenerator(gen specta.Generator[showcase.Address])
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r UserRecipe) AddressFromRecipe(v AddressRecipe) UserRecipe {
-	r.opts = append(r.opts, spec.WithUserAddressFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithUserAddressFromGenerator(v.Gen()))
 	r.addressRecipe = &v
 	return r
 }
@@ -149,9 +149,9 @@ func (r UserRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) User
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r UserRecipe) Provider() specta.Provider[showcase.User] {
-	return specta.FromSpec(spec.BuildUser, spec.NewUserSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r UserRecipe) Gen() specta.Gen[showcase.User] {
+	return specta.FromSpecGen(spec.BuildUser, spec.NewUserSpec, r.opts...)
 }
 
 // Build creates a single User instance.
@@ -182,33 +182,33 @@ func (r UserRecipe) AsEqualMatcher() specta.Matcher[showcase.User] {
 	// Build matcher only for set fields
 	m := UserMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Email.IsSet() {
-		m = m.Email(specta.DeepEqual(s.Email.Value(p)))
+		m = m.Email(specta.DeepEqual(s.Email.GetValue(p, "Email")))
 	}
 	if s.FirstName.IsSet() {
-		m = m.FirstName(specta.DeepEqual(s.FirstName.Value(p)))
+		m = m.FirstName(specta.DeepEqual(s.FirstName.GetValue(p, "FirstName")))
 	}
 	if s.LastName.IsSet() {
-		m = m.LastName(specta.DeepEqual(s.LastName.Value(p)))
+		m = m.LastName(specta.DeepEqual(s.LastName.GetValue(p, "LastName")))
 	}
 	if s.Active.IsSet() {
-		m = m.Active(specta.DeepEqual(s.Active.Value(p)))
+		m = m.Active(specta.DeepEqual(s.Active.GetValue(p, "Active")))
 	}
 	if s.Address.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.addressRecipe != nil {
 			m = m.Address(r.addressRecipe.AsEqualMatcher())
 		} else {
-			m = m.Address(specta.DeepEqual(s.Address.Value(p)))
+			m = m.Address(specta.DeepEqual(s.Address.GetValue(p, "Address")))
 		}
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 	if s.UpdatedAt.IsSet() {
-		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.Value(p)))
+		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
 	return m.Matcher()

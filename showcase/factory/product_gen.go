@@ -111,9 +111,9 @@ func (r ProductRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) P
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r ProductRecipe) Provider() specta.Provider[showcase.Product] {
-	return specta.FromSpec(spec.BuildProduct, spec.NewProductSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r ProductRecipe) Gen() specta.Gen[showcase.Product] {
+	return specta.FromSpecGen(spec.BuildProduct, spec.NewProductSpec, r.opts...)
 }
 
 // Build creates a single Product instance.
@@ -144,22 +144,22 @@ func (r ProductRecipe) AsEqualMatcher() specta.Matcher[showcase.Product] {
 	// Build matcher only for set fields
 	m := ProductMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Description.IsSet() {
-		m = m.Description(specta.DeepEqual(s.Description.Value(p)))
+		m = m.Description(specta.DeepEqual(s.Description.GetValue(p, "Description")))
 	}
 	if s.Price.IsSet() {
-		m = m.Price(specta.DeepEqual(s.Price.Value(p)))
+		m = m.Price(specta.DeepEqual(s.Price.GetValue(p, "Price")))
 	}
 	if s.InStock.IsSet() {
-		m = m.InStock(specta.DeepEqual(s.InStock.Value(p)))
+		m = m.InStock(specta.DeepEqual(s.InStock.GetValue(p, "InStock")))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 
 	return m.Matcher()

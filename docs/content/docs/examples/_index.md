@@ -512,7 +512,7 @@ func AdminUserWithPermissions(p Primitives, permissions ...string) User {
 ```go
 // Create specialized primitives for your domain
 type ProductPrimitives struct {
-    *specta.Gen
+    specta.Source
 }
 
 func (p *ProductPrimitives) SKU() string {

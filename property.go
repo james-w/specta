@@ -1,9 +1,12 @@
 package specta
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/james-w/specta/conjecture"
 )
 
 // T is a testing helper for property-based tests.
@@ -13,7 +16,12 @@ import (
 type T struct {
 	failed bool
 	errors []string
-	Source Source // Exported so tests can construct T instances
+	Data   *conjecture.ConjectureData // ConjectureData for drawing values
+	Source Source                     // Deprecated: kept for backward compatibility, will panic if used
+
+	// Track generated values for error reporting
+	generatedValues      map[string]string // label -> formatted value
+	generatedValuesOrder []string          // labels in draw order
 }
 
 // propertyFailure is a sentinel panic value used to stop property test iterations.
@@ -40,31 +48,6 @@ func (t *T) Fatalf(format string, args ...any) {
 // Helper marks the calling function as a test helper.
 // This is a no-op for property testing but satisfies the TestingT interface.
 func (t *T) Helper() {}
-
-// DrawBits implements Source by delegating to T.Source.
-func (t *T) DrawBits(n int) uint64 {
-	return t.Source.DrawBits(n)
-}
-
-// WriteLog implements Source by delegating to T.Source.
-func (t *T) WriteLog(msg string) {
-	t.Source.WriteLog(msg)
-}
-
-// IsDeterministic implements Source by delegating to T.Source.
-func (t *T) IsDeterministic() bool {
-	return t.Source.IsDeterministic()
-}
-
-// StartInterval implements Source by delegating to T.Source.
-func (t *T) StartInterval(label string) {
-	t.Source.StartInterval(label)
-}
-
-// EndInterval implements Source by delegating to T.Source.
-func (t *T) EndInterval() {
-	t.Source.EndInterval()
-}
 
 // Assume skips the current property test iteration if the condition is false.
 // This is useful for filtering generated values that don't meet preconditions.
@@ -148,11 +131,22 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 	var skipped int
 	var tested int
 	for i := 0; i < cfg.maxTests; i++ {
+		// Create ConjectureData for this iteration
+		data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(cfg.seed + int64(i))))
+
 		pt := &T{
-			Source: NewSource(cfg.seed + int64(i)),
+			Data:            data,
+			Source:          nil, // Don't set Source - it's deprecated
+			generatedValues: make(map[string]string),
 		}
 
 		failed, wasSkipped := runCheck(check, pt)
+
+		// Check if test overran (couldn't satisfy constraints)
+		if data.Status() == conjecture.StatusOverrun {
+			skipped++
+			continue
+		}
 
 		if wasSkipped {
 			skipped++
@@ -162,33 +156,48 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 		tested++
 
 		if failed {
-			// Property failed - shrink it using Hypothesis-style multi-pass shrinking
-			// We know pt.Source is a *randomSource since we created it with NewSource
-			rs := pt.Source.(*randomSource)
+			// Property failed - attempt to shrink to minimal failing example
+			data.Freeze()
+			failingSeq := data.Sequence()
 
-			// Create test function for the shrinker
-			testFunc := func(data []byte) bool {
-				shrinkT := &T{
-					Source: NewSourceFromData(data),
+			// Shrink the failing example
+			shrinkTest := func(d *conjecture.ConjectureData) bool {
+				testT := &T{
+					Data:            d,
+					Source:          nil,
+					generatedValues: make(map[string]string),
 				}
-				failed, _ := runCheck(check, shrinkT)
-				return failed
+				testFailed, testSkipped := runCheck(check, testT)
+
+				// Check the data status - if it overran during replay, this shrink attempt is invalid
+				if d.Status() == conjecture.StatusOverrun {
+					return false
+				}
+
+				// Only consider it interesting if it failed (not skipped)
+				if testFailed && !testSkipped {
+					d.MarkInteresting("property failed")
+					return true
+				}
+				return false
 			}
 
-			// Create shrinker with intervals from the original failing run
-			shrinker := NewShrinker(rs.Data(), rs.Intervals(), testFunc)
-			shrinker.maxCalls = cfg.maxShrinks
-			shrunkData := shrinker.Shrink()
+			ctx := context.Background()
+			shrinkResult := conjecture.Shrink(ctx, failingSeq, shrinkTest,
+				conjecture.WithMaxShrinkCalls(cfg.maxShrinks))
 
-			// Report failure
-			reportFailure(t, shrunkData, check, i+1, cfg.maxTests, cfg.seed+int64(i), tested, skipped)
+			// Report with shrunk example
+			reportFailure(t, shrinkResult.Sequence, check, i+1, cfg.maxTests, cfg.seed+int64(i), tested, skipped, shrinkResult.Calls)
 			return
 		}
 	}
 
 	// All tests passed
-	// Warn if skip rate is high (>90%)
-	if tested > 0 {
+	// Warn if skip rate is high (>90%) or if no tests ran at all
+	if tested == 0 {
+		t.Errorf("All %d property test attempts were skipped - no tests actually ran! Check your generators and constraints.",
+			skipped)
+	} else if tested > 0 {
 		skipRate := float64(skipped) / float64(skipped+tested) * 100
 		if skipRate > 90 {
 			t.Errorf("Warning: %.1f%% of property tests were skipped (%d/%d). Consider narrowing your generator or using Filter().",
@@ -221,19 +230,64 @@ func runCheck(check func(*T), pt *T) (failed bool, skipped bool) {
 }
 
 // reportFailure creates a detailed error message and fails the test.
-func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxTests int, seed int64, tested, skipped int) {
+// reportFailureNoShrink reports a property test failure without shrinking (Phase 3 temporary version)
+func reportFailureNoShrink(t TestingT, data *conjecture.ConjectureData, attempts, maxTests int, seed int64, tested, skipped int, errors []string) {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
+	// Build error message
+	var msg strings.Builder
+	msg.WriteString("\n=== Property Test Failed (Shrinking not yet implemented) ===\n")
+	msg.WriteString(fmt.Sprintf("Seed: %d\n", seed))
+	msg.WriteString(fmt.Sprintf("Attempts: %d/%d\n", attempts, maxTests))
+	if skipped > 0 {
+		msg.WriteString(fmt.Sprintf("Tested: %d, Skipped: %d (%.1f%% skip rate)\n",
+			tested, skipped, float64(skipped)/float64(tested+skipped)*100))
+	}
+
+	// Show generated values from ConjectureData sequence
+	seq := data.Sequence()
+	if seq != nil && seq.Len() > 0 {
+		msg.WriteString("\nGenerated choices:\n")
+		for i := 0; i < seq.Len(); i++ {
+			c := seq.Get(i)
+			msg.WriteString(fmt.Sprintf("  [%d] %s: %v\n", i, c.Type, c.Value))
+		}
+	}
+
+	// Show failure messages
+	if len(errors) > 0 {
+		msg.WriteString("\nFailure:\n")
+		for _, err := range errors {
+			lines := strings.Split(err, "\n")
+			for _, line := range lines {
+				if line != "" {
+					msg.WriteString("  ")
+					msg.WriteString(line)
+				}
+				msg.WriteString("\n")
+			}
+		}
+	}
+
+	msg.WriteString(fmt.Sprintf("\nReproduce: Property(t, check, Seed(%d))\n", seed))
+	t.Errorf("%s", msg.String())
+}
+
+func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(*T), attempts, maxTests int, seed int64, tested, skipped int, shrinkCalls int) {
 	// Only call Helper() if t is a real *testing.T
 	if helper, ok := t.(interface{ Helper() }); ok {
 		helper.Helper()
 	}
 
-	// Replay with logging to show generated values
+	// Replay the shrunk sequence to get the actual failure and capture generated values
+	data := conjecture.ForReplay(shrunkSeq)
 	finalT := &T{
-		Source: NewSourceFromData(shrunkData),
+		Data:            data,
+		Source:          nil,
+		generatedValues: make(map[string]string),
 	}
-	// We know finalT.Source is a *randomSource since we created it with NewSourceFromData
-	rs := finalT.Source.(*randomSource)
-	rs.EnableLogging()
 	runCheck(check, finalT)
 
 	// Build error message
@@ -246,11 +300,13 @@ func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxT
 			tested, skipped, float64(skipped)/float64(tested+skipped)*100))
 	}
 
-	// Show generated values
-	if log := rs.Log(); log != "" {
-		msg.WriteString("\nGenerated values:\n  ")
-		msg.WriteString(strings.TrimSpace(log))
-		msg.WriteString("\n")
+	// Show generated values that were tracked during replay
+	if len(finalT.generatedValues) > 0 {
+		msg.WriteString("\nGenerated values:\n")
+		// Use draw order for intuitive output
+		for _, label := range finalT.generatedValuesOrder {
+			msg.WriteString(fmt.Sprintf("  %s = %s\n", label, finalT.generatedValues[label]))
+		}
 	}
 
 	// Show failure messages
@@ -273,4 +329,24 @@ func reportFailure(t TestingT, shrunkData []byte, check func(*T), attempts, maxT
 	msg.WriteString(fmt.Sprintf("\nReproduce: Property(t, check, Seed(%d))\n", seed))
 
 	t.Errorf("%s", msg.String())
+}
+
+// formatChoiceValue formats a choice value for display in error messages.
+// For simple values, just show the value. For complex spans (like slices),
+// we'd need to replay to get the actual generated value.
+func formatChoiceValue(c conjecture.Choice) string {
+	switch c.Type {
+	case conjecture.ChoiceBoolean, conjecture.ChoiceInteger, conjecture.ChoiceFloat:
+		return fmt.Sprintf("%v", c.Value)
+	case conjecture.ChoiceString:
+		return fmt.Sprintf("%q", c.Value)
+	case conjecture.ChoiceBytes:
+		b := c.Value.([]byte)
+		if len(b) <= 20 {
+			return fmt.Sprintf("%v", b)
+		}
+		return fmt.Sprintf("%v... (%d bytes)", b[:20], len(b))
+	default:
+		return fmt.Sprintf("%v", c.Value)
+	}
 }

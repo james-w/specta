@@ -80,7 +80,7 @@ func (r OrganizationRecipe) CEOFromGenerator(gen specta.Generator[*showcase.User
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrganizationRecipe) CEOFromRecipe(v UserRecipe) OrganizationRecipe {
-	r.opts = append(r.opts, spec.WithOrganizationCEOFromProvider(specta.PtrOf(v.Provider())))
+	r.opts = append(r.opts, spec.WithOrganizationCEOFromGenerator(specta.PtrOfGen(v.Gen())))
 	r.cEORecipe = &v
 	return r
 }
@@ -121,9 +121,9 @@ func (r OrganizationRecipe) MetadataFromGenerator(gen specta.Generator[map[strin
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r OrganizationRecipe) Provider() specta.Provider[showcase.Organization] {
-	return specta.FromSpec(spec.BuildOrganization, spec.NewOrganizationSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r OrganizationRecipe) Gen() specta.Gen[showcase.Organization] {
+	return specta.FromSpecGen(spec.BuildOrganization, spec.NewOrganizationSpec, r.opts...)
 }
 
 // Build creates a single Organization instance.
@@ -154,27 +154,27 @@ func (r OrganizationRecipe) AsEqualMatcher() specta.Matcher[showcase.Organizatio
 	// Build matcher only for set fields
 	m := OrganizationMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.CEO.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.cEORecipe != nil {
 			m = m.CEO(specta.PointsTo(r.cEORecipe.AsEqualMatcher()))
 		} else {
-			m = m.CEO(specta.DeepEqual(s.CEO.Value(p)))
+			m = m.CEO(specta.DeepEqual(s.CEO.GetValue(p, "CEO")))
 		}
 	}
 	if s.Teams.IsSet() {
-		m = m.Teams(specta.DeepEqual(s.Teams.Value(p)))
+		m = m.Teams(specta.DeepEqual(s.Teams.GetValue(p, "Teams")))
 	}
 	if s.Members.IsSet() {
-		m = m.Members(specta.DeepEqual(s.Members.Value(p)))
+		m = m.Members(specta.DeepEqual(s.Members.GetValue(p, "Members")))
 	}
 	if s.Metadata.IsSet() {
-		m = m.Metadata(specta.DeepEqual(s.Metadata.Value(p)))
+		m = m.Metadata(specta.DeepEqual(s.Metadata.GetValue(p, "Metadata")))
 	}
 
 	return m.Matcher()

@@ -96,7 +96,7 @@ func (r BlogPostRecipe) AuthorFromGenerator(gen specta.Generator[showcase.User])
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r BlogPostRecipe) AuthorFromRecipe(v UserRecipe) BlogPostRecipe {
-	r.opts = append(r.opts, spec.WithBlogPostAuthorFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithBlogPostAuthorFromGenerator(v.Gen()))
 	r.authorRecipe = &v
 	return r
 }
@@ -149,9 +149,9 @@ func (r BlogPostRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) 
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r BlogPostRecipe) Provider() specta.Provider[showcase.BlogPost] {
-	return specta.FromSpec(spec.BuildBlogPost, spec.NewBlogPostSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r BlogPostRecipe) Gen() specta.Gen[showcase.BlogPost] {
+	return specta.FromSpecGen(spec.BuildBlogPost, spec.NewBlogPostSpec, r.opts...)
 }
 
 // Build creates a single BlogPost instance.
@@ -182,33 +182,33 @@ func (r BlogPostRecipe) AsEqualMatcher() specta.Matcher[showcase.BlogPost] {
 	// Build matcher only for set fields
 	m := BlogPostMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Title.IsSet() {
-		m = m.Title(specta.DeepEqual(s.Title.Value(p)))
+		m = m.Title(specta.DeepEqual(s.Title.GetValue(p, "Title")))
 	}
 	if s.Content.IsSet() {
-		m = m.Content(specta.DeepEqual(s.Content.Value(p)))
+		m = m.Content(specta.DeepEqual(s.Content.GetValue(p, "Content")))
 	}
 	if s.Author.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.authorRecipe != nil {
 			m = m.Author(r.authorRecipe.AsEqualMatcher())
 		} else {
-			m = m.Author(specta.DeepEqual(s.Author.Value(p)))
+			m = m.Author(specta.DeepEqual(s.Author.GetValue(p, "Author")))
 		}
 	}
 	if s.Published.IsSet() {
-		m = m.Published(specta.DeepEqual(s.Published.Value(p)))
+		m = m.Published(specta.DeepEqual(s.Published.GetValue(p, "Published")))
 	}
 	if s.PublishedAt.IsSet() {
-		m = m.PublishedAt(specta.DeepEqual(s.PublishedAt.Value(p)))
+		m = m.PublishedAt(specta.DeepEqual(s.PublishedAt.GetValue(p, "PublishedAt")))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 	if s.UpdatedAt.IsSet() {
-		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.Value(p)))
+		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
 	return m.Matcher()

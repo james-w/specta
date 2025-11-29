@@ -90,14 +90,14 @@ func (r MemberRecipe) TeamFromGenerator(gen specta.Generator[*showcase.Team]) Me
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r MemberRecipe) TeamFromRecipe(v TeamRecipe) MemberRecipe {
-	r.opts = append(r.opts, spec.WithMemberTeamFromProvider(specta.PtrOf(v.Provider())))
+	r.opts = append(r.opts, spec.WithMemberTeamFromGenerator(specta.PtrOfGen(v.Gen())))
 	r.teamRecipe = &v
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r MemberRecipe) Provider() specta.Provider[showcase.Member] {
-	return specta.FromSpec(spec.BuildMember, spec.NewMemberSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r MemberRecipe) Gen() specta.Gen[showcase.Member] {
+	return specta.FromSpecGen(spec.BuildMember, spec.NewMemberSpec, r.opts...)
 }
 
 // Build creates a single Member instance.
@@ -128,20 +128,20 @@ func (r MemberRecipe) AsEqualMatcher() specta.Matcher[showcase.Member] {
 	// Build matcher only for set fields
 	m := MemberMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.TeamID.IsSet() {
-		m = m.TeamID(specta.DeepEqual(s.TeamID.Value(p)))
+		m = m.TeamID(specta.DeepEqual(s.TeamID.GetValue(p, "TeamID")))
 	}
 	if s.Team.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.teamRecipe != nil {
 			m = m.Team(specta.PointsTo(r.teamRecipe.AsEqualMatcher()))
 		} else {
-			m = m.Team(specta.DeepEqual(s.Team.Value(p)))
+			m = m.Team(specta.DeepEqual(s.Team.GetValue(p, "Team")))
 		}
 	}
 

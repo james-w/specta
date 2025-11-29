@@ -54,10 +54,10 @@ func NewProfileFactory(s specta.Source) *specta.SpecFactory[showcase.Profile, Pr
 
 // Default field generators.
 var (
-	ProfileIDGenerator          specta.Generator[string]         = specta.String().ExampleHint("id_")
-	ProfileNameGenerator        specta.Generator[string]         = specta.String().ExampleHint("name_")
-	ProfileDescriptionGenerator specta.Generator[string]         = specta.String().ExampleHint("description_")
-	ProfileManagerGenerator     specta.Generator[*showcase.User] = specta.GeneratorFromProvider(specta.PtrOf(specta.FromSpec(BuildUser, NewUserSpec)))
+	ProfileIDGenerator          specta.Generator[string]         = specta.String().ExampleHint("id_").NonEmpty()
+	ProfileNameGenerator        specta.Generator[string]         = specta.String().ExampleHint("name_").NonEmpty()
+	ProfileDescriptionGenerator specta.Generator[string]         = specta.String().ExampleHint("description_").NonEmpty()
+	ProfileManagerGenerator     specta.Generator[*showcase.User] = specta.PtrOfGen(specta.FromSpecGen(BuildUser, NewUserSpec))
 	ProfileIsPublicGenerator    specta.Generator[bool]           = specta.Bool()
 )
 
@@ -84,11 +84,9 @@ func WithProfileID(v string) specta.Opt[ProfileSpec] {
 
 // WithProfileIDFromGenerator sets the ID field using a Generator.
 func WithProfileIDFromGenerator(gen specta.Generator[string]) specta.Opt[ProfileSpec] {
-	prov := specta.ProviderFromGenerator(gen, "ID")
-	return specta.SetWith(
-		func(s *ProfileSpec, m specta.Maybe[string]) { s.ID = m },
-		prov,
-	)
+	return func(s *ProfileSpec) {
+		s.ID = specta.Some(gen)
+	}
 }
 
 // WithProfileName sets the Name field to a literal value.
@@ -98,11 +96,9 @@ func WithProfileName(v string) specta.Opt[ProfileSpec] {
 
 // WithProfileNameFromGenerator sets the Name field using a Generator.
 func WithProfileNameFromGenerator(gen specta.Generator[string]) specta.Opt[ProfileSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Name")
-	return specta.SetWith(
-		func(s *ProfileSpec, m specta.Maybe[string]) { s.Name = m },
-		prov,
-	)
+	return func(s *ProfileSpec) {
+		s.Name = specta.Some(gen)
+	}
 }
 
 // WithProfileDescription sets the Description field to a literal value.
@@ -112,11 +108,9 @@ func WithProfileDescription(v string) specta.Opt[ProfileSpec] {
 
 // WithProfileDescriptionFromGenerator sets the Description field using a Generator.
 func WithProfileDescriptionFromGenerator(gen specta.Generator[string]) specta.Opt[ProfileSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Description")
-	return specta.SetWith(
-		func(s *ProfileSpec, m specta.Maybe[string]) { s.Description = m },
-		prov,
-	)
+	return func(s *ProfileSpec) {
+		s.Description = specta.Some(gen)
+	}
 }
 
 // WithProfileManager sets the Manager field to a literal value.
@@ -126,19 +120,9 @@ func WithProfileManager(v *showcase.User) specta.Opt[ProfileSpec] {
 
 // WithProfileManagerFromGenerator sets the Manager field using a Generator.
 func WithProfileManagerFromGenerator(gen specta.Generator[*showcase.User]) specta.Opt[ProfileSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Manager")
-	return specta.SetWith(
-		func(s *ProfileSpec, m specta.Maybe[*showcase.User]) { s.Manager = m },
-		prov,
-	)
-}
-
-// WithProfileManagerFromProvider sets the Manager field using a Provider (evaluated lazily).
-func WithProfileManagerFromProvider(prov specta.Provider[*showcase.User]) specta.Opt[ProfileSpec] {
-	return specta.SetWith(
-		func(s *ProfileSpec, m specta.Maybe[*showcase.User]) { s.Manager = m },
-		prov,
-	)
+	return func(s *ProfileSpec) {
+		s.Manager = specta.Some(gen)
+	}
 }
 
 // WithProfileIsPublic sets the IsPublic field to a literal value.
@@ -148,9 +132,7 @@ func WithProfileIsPublic(v bool) specta.Opt[ProfileSpec] {
 
 // WithProfileIsPublicFromGenerator sets the IsPublic field using a Generator.
 func WithProfileIsPublicFromGenerator(gen specta.Generator[bool]) specta.Opt[ProfileSpec] {
-	prov := specta.ProviderFromGenerator(gen, "IsPublic")
-	return specta.SetWith(
-		func(s *ProfileSpec, m specta.Maybe[bool]) { s.IsPublic = m },
-		prov,
-	)
+	return func(s *ProfileSpec) {
+		s.IsPublic = specta.Some(gen)
+	}
 }

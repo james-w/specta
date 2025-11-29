@@ -2,7 +2,6 @@ package showcase_test
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,21 +16,11 @@ func TestAddressFactory(t *testing.T) {
 	t.Run("default values", func(t *testing.T) {
 		addr := factory.Address().Build(p)
 
-		if addr.Street == "" {
-			t.Error("expected non-empty Street")
-		}
-		if addr.City == "" {
-			t.Error("expected non-empty City")
-		}
-		if addr.State == "" {
-			t.Error("expected non-empty State")
-		}
-		if addr.ZipCode == "" {
-			t.Error("expected non-empty ZipCode")
-		}
-		if addr.Country == "" {
-			t.Error("expected non-empty Country")
-		}
+		specta.AssertThat(t, addr.Street, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, addr.City, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, addr.State, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, addr.ZipCode, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, addr.Country, specta.Not(specta.Equal("")))
 	})
 
 	t.Run("custom values", func(t *testing.T) {
@@ -43,35 +32,21 @@ func TestAddressFactory(t *testing.T) {
 			Country("USA").
 			Build(p)
 
-		if addr.Street != "123 Main St" {
-			t.Errorf("expected Street='123 Main St', got %q", addr.Street)
-		}
-		if addr.City != "Springfield" {
-			t.Errorf("expected City='Springfield', got %q", addr.City)
-		}
-		if addr.State != "IL" {
-			t.Errorf("expected State='IL', got %q", addr.State)
-		}
-		if addr.ZipCode != "62701" {
-			t.Errorf("expected ZipCode='62701', got %q", addr.ZipCode)
-		}
-		if addr.Country != "USA" {
-			t.Errorf("expected Country='USA', got %q", addr.Country)
-		}
+		specta.AssertThat(t, addr.Street, specta.Equal("123 Main St"))
+		specta.AssertThat(t, addr.City, specta.Equal("Springfield"))
+		specta.AssertThat(t, addr.State, specta.Equal("IL"))
+		specta.AssertThat(t, addr.ZipCode, specta.Equal("62701"))
+		specta.AssertThat(t, addr.Country, specta.Equal("USA"))
 	})
 
 	t.Run("many with unique values", func(t *testing.T) {
 		addresses := factory.Address().Many(3, p)
 
-		if len(addresses) != 3 {
-			t.Fatalf("expected 3 addresses, got %d", len(addresses))
-		}
+		specta.AssertThat(t, addresses, specta.HasSize[showcase.Address](3))
 
 		// Each address should have unique values due to deterministic generation
 		for i := range 2 {
-			if addresses[i].Street == addresses[i+1].Street {
-				t.Errorf("addresses[%d] and addresses[%d] have same Street", i, i+1)
-			}
+			specta.AssertThat(t, addresses[i].Street, specta.Not(specta.Equal(addresses[i+1].Street)))
 		}
 	})
 }
@@ -82,25 +57,13 @@ func TestUserFactory(t *testing.T) {
 	t.Run("default values with nested address", func(t *testing.T) {
 		user := factory.User().Build(p)
 
-		if user.ID == "" {
-			t.Error("expected non-empty ID")
-		}
-		if user.Email == "" {
-			t.Error("expected non-empty Email")
-		}
-		if user.FirstName == "" {
-			t.Error("expected non-empty FirstName")
-		}
-		if user.LastName == "" {
-			t.Error("expected non-empty LastName")
-		}
+		specta.AssertThat(t, user.ID, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, user.Email, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, user.FirstName, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, user.LastName, specta.Not(specta.Equal("")))
 		// Address should be auto-generated
-		if user.Address.City == "" {
-			t.Error("expected nested Address to be generated with non-empty City")
-		}
-		if user.CreatedAt.IsZero() {
-			t.Error("expected non-zero CreatedAt")
-		}
+		specta.AssertThat(t, user.Address.City, specta.Not(specta.Equal("")))
+		specta.AssertThat(t, user.CreatedAt.IsZero(), specta.IsFalse())
 	})
 
 	t.Run("custom active user", func(t *testing.T) {
@@ -111,18 +74,10 @@ func TestUserFactory(t *testing.T) {
 			LastName("Doe").
 			Build(p)
 
-		if user.Email != "test@example.com" {
-			t.Errorf("expected Email='test@example.com', got %q", user.Email)
-		}
-		if !user.Active {
-			t.Error("expected Active=true")
-		}
-		if user.FirstName != "John" {
-			t.Errorf("expected FirstName='John', got %q", user.FirstName)
-		}
-		if user.LastName != "Doe" {
-			t.Errorf("expected LastName='Doe', got %q", user.LastName)
-		}
+		specta.AssertThat(t, user.Email, specta.Equal("test@example.com"))
+		specta.AssertThat(t, user.Active, specta.IsTrue())
+		specta.AssertThat(t, user.FirstName, specta.Equal("John"))
+		specta.AssertThat(t, user.LastName, specta.Equal("Doe"))
 	})
 
 	t.Run("nested address from recipe", func(t *testing.T) {
@@ -132,26 +87,19 @@ func TestUserFactory(t *testing.T) {
 			).
 			Build(p)
 
-		if user.Address.City != "Boston" {
-			t.Errorf("expected Address.City='Boston', got %q", user.Address.City)
-		}
-		if user.Address.State != "MA" {
-			t.Errorf("expected Address.State='MA', got %q", user.Address.State)
-		}
+		specta.AssertThat(t, user.Address.City, specta.Equal("Boston"))
+		specta.AssertThat(t, user.Address.State, specta.Equal("MA"))
 	})
 
 	t.Run("literal address reuse", func(t *testing.T) {
 		addr := factory.Address().City("NYC").Build(p)
 		users := factory.User().Address(addr).Many(2, p)
 
-		if len(users) != 2 {
-			t.Fatalf("expected 2 users, got %d", len(users))
-		}
+		specta.AssertThat(t, users, specta.HasSize[showcase.User](2))
 
 		// Both users should have the same address (same object)
-		if users[0].Address.City != "NYC" || users[1].Address.City != "NYC" {
-			t.Error("expected both users to have NYC address")
-		}
+		specta.AssertThat(t, users[0].Address.City, specta.Equal("NYC"))
+		specta.AssertThat(t, users[1].Address.City, specta.Equal("NYC"))
 	})
 
 	t.Run("address recipe generates unique instances", func(t *testing.T) {
@@ -159,18 +107,13 @@ func TestUserFactory(t *testing.T) {
 			AddressFromRecipe(factory.Address().State("CA")).
 			Many(2, p)
 
-		if len(users) != 2 {
-			t.Fatalf("expected 2 users, got %d", len(users))
-		}
+		specta.AssertThat(t, users, specta.HasSize[showcase.User](2))
 
 		// Each user should have unique address (different cities)
-		if users[0].Address.City == users[1].Address.City {
-			t.Error("expected users to have different addresses when using FromRecipe")
-		}
+		specta.AssertThat(t, users[0].Address.City, specta.Not(specta.Equal(users[1].Address.City)))
 		// But both should have CA state
-		if users[0].Address.State != "CA" || users[1].Address.State != "CA" {
-			t.Error("expected both users to have CA state")
-		}
+		specta.AssertThat(t, users[0].Address.State, specta.Equal("CA"))
+		specta.AssertThat(t, users[1].Address.State, specta.Equal("CA"))
 	})
 }
 
@@ -184,18 +127,10 @@ func TestProductFactory(t *testing.T) {
 			InStock(true).
 			Build(p)
 
-		if product.Name != "Widget" {
-			t.Errorf("expected Name='Widget', got %q", product.Name)
-		}
-		if product.Price != 19.99 {
-			t.Errorf("expected Price=19.99, got %f", product.Price)
-		}
-		if !product.InStock {
-			t.Error("expected InStock=true")
-		}
-		if product.ID == "" {
-			t.Error("expected non-empty ID")
-		}
+		specta.AssertThat(t, product.Name, specta.Equal("Widget"))
+		specta.AssertThat(t, product.Price, specta.Equal(19.99))
+		specta.AssertThat(t, product.InStock, specta.IsTrue())
+		specta.AssertThat(t, product.ID, specta.Not(specta.Equal("")))
 	})
 }
 
@@ -209,18 +144,10 @@ func TestOrderFactory(t *testing.T) {
 			Total(100.50).
 			Build(p)
 
-		if order.User.Email != "customer@example.com" {
-			t.Errorf("expected User.Email='customer@example.com', got %q", order.User.Email)
-		}
-		if order.Status != "pending" {
-			t.Errorf("expected Status='pending', got %q", order.Status)
-		}
-		if order.Total != 100.50 {
-			t.Errorf("expected Total=100.50, got %f", order.Total)
-		}
-		if order.ID == "" {
-			t.Error("expected non-empty ID")
-		}
+		specta.AssertThat(t, order.User.Email, specta.Equal("customer@example.com"))
+		specta.AssertThat(t, order.Status, specta.Equal("pending"))
+		specta.AssertThat(t, order.Total, specta.Equal(100.50))
+		specta.AssertThat(t, order.ID, specta.Not(specta.Equal("")))
 	})
 
 	t.Run("order with custom items slice", func(t *testing.T) {
@@ -242,15 +169,9 @@ func TestOrderFactory(t *testing.T) {
 			Total(35.00).
 			Build(p)
 
-		if len(order.Items) != 2 {
-			t.Fatalf("expected 2 items, got %d", len(order.Items))
-		}
-		if order.Items[0].Product.Name != "Item 1" {
-			t.Errorf("expected first item name='Item 1', got %q", order.Items[0].Product.Name)
-		}
-		if order.Total != 35.00 {
-			t.Errorf("expected Total=35.00, got %f", order.Total)
-		}
+		specta.AssertThat(t, order.Items, specta.HasSize[showcase.OrderItem](2))
+		specta.AssertThat(t, order.Items[0].Product.Name, specta.Equal("Item 1"))
+		specta.AssertThat(t, order.Total, specta.Equal(35.00))
 	})
 }
 
@@ -267,21 +188,11 @@ func TestBlogPostFactory(t *testing.T) {
 			AuthorFromRecipe(factory.User().FirstName("Alice")).
 			Build(p)
 
-		if post.Title != "My First Post" {
-			t.Errorf("expected Title='My First Post', got %q", post.Title)
-		}
-		if post.Content != "Hello world!" {
-			t.Errorf("expected Content='Hello world!', got %q", post.Content)
-		}
-		if !post.Published {
-			t.Error("expected Published=true")
-		}
-		if !post.PublishedAt.Equal(now) {
-			t.Error("expected PublishedAt to match provided time")
-		}
-		if post.Author.FirstName != "Alice" {
-			t.Errorf("expected Author.FirstName='Alice', got %q", post.Author.FirstName)
-		}
+		specta.AssertThat(t, post.Title, specta.Equal("My First Post"))
+		specta.AssertThat(t, post.Content, specta.Equal("Hello world!"))
+		specta.AssertThat(t, post.Published, specta.IsTrue())
+		specta.AssertThat(t, post.PublishedAt.Equal(now), specta.IsTrue())
+		specta.AssertThat(t, post.Author.FirstName, specta.Equal("Alice"))
 	})
 }
 
@@ -299,18 +210,10 @@ func TestCommentFactory(t *testing.T) {
 			).
 			Build(p)
 
-		if comment.Content != "Great post!" {
-			t.Errorf("expected Content='Great post!', got %q", comment.Content)
-		}
-		if comment.Post.Title != "Test Post" {
-			t.Errorf("expected Post.Title='Test Post', got %q", comment.Post.Title)
-		}
-		if comment.Author.FirstName != "Bob" {
-			t.Errorf("expected Author.FirstName='Bob', got %q", comment.Author.FirstName)
-		}
-		if comment.ID == "" {
-			t.Error("expected non-empty ID")
-		}
+		specta.AssertThat(t, comment.Content, specta.Equal("Great post!"))
+		specta.AssertThat(t, comment.Post.Title, specta.Equal("Test Post"))
+		specta.AssertThat(t, comment.Author.FirstName, specta.Equal("Bob"))
+		specta.AssertThat(t, comment.ID, specta.Not(specta.Equal("")))
 	})
 
 	t.Run("multiple comments on same post", func(t *testing.T) {
@@ -320,15 +223,11 @@ func TestCommentFactory(t *testing.T) {
 			Post(post).
 			Many(3, p)
 
-		if len(comments) != 3 {
-			t.Fatalf("expected 3 comments, got %d", len(comments))
-		}
+		specta.AssertThat(t, comments, specta.HasSize[showcase.Comment](3))
 
 		// All comments should reference the same post
-		for i, c := range comments {
-			if c.Post.Title != "Shared Post" {
-				t.Errorf("comment[%d] expected Post.Title='Shared Post', got %q", i, c.Post.Title)
-			}
+		for _, c := range comments {
+			specta.AssertThat(t, c.Post.Title, specta.Equal("Shared Post"))
 		}
 	})
 }
@@ -341,12 +240,8 @@ func TestDeterministicGeneration(t *testing.T) {
 		user1 := factory.User().FirstName("Test").Build(p1)
 		user2 := factory.User().FirstName("Test").Build(p2)
 
-		if user1.ID != user2.ID {
-			t.Errorf("expected same ID with same primitives, got %q and %q", user1.ID, user2.ID)
-		}
-		if user1.Email != user2.Email {
-			t.Errorf("expected same Email with same primitives, got %q and %q", user1.Email, user2.Email)
-		}
+		specta.AssertThat(t, user1.ID, specta.Equal(user2.ID))
+		specta.AssertThat(t, user1.Email, specta.Equal(user2.Email))
 	})
 
 	t.Run("sequential generation increments counter", func(t *testing.T) {
@@ -355,12 +250,8 @@ func TestDeterministicGeneration(t *testing.T) {
 		addr1 := factory.Address().Build(p)
 		addr2 := factory.Address().Build(p)
 
-		if addr1.Street == addr2.Street {
-			t.Error("expected different Street values on sequential generation")
-		}
-		if addr1.City == addr2.City {
-			t.Error("expected different City values on sequential generation")
-		}
+		specta.AssertThat(t, addr1.Street, specta.Not(specta.Equal(addr2.Street)))
+		specta.AssertThat(t, addr1.City, specta.Not(specta.Equal(addr2.City)))
 	})
 }
 
@@ -376,17 +267,13 @@ func TestProviderComposition(t *testing.T) {
 		order2 := factory.Order().UserFromRecipe(userRecipe).Build(p)
 
 		// Both should have Active=true and FirstName="Composite"
-		if !order1.User.Active || !order2.User.Active {
-			t.Error("expected both users to be active")
-		}
-		if order1.User.FirstName != "Composite" || order2.User.FirstName != "Composite" {
-			t.Error("expected both users to have FirstName='Composite'")
-		}
+		specta.AssertThat(t, order1.User.Active, specta.IsTrue())
+		specta.AssertThat(t, order2.User.Active, specta.IsTrue())
+		specta.AssertThat(t, order1.User.FirstName, specta.Equal("Composite"))
+		specta.AssertThat(t, order2.User.FirstName, specta.Equal("Composite"))
 
 		// But they should have different IDs (unique instances)
-		if order1.User.ID == order2.User.ID {
-			t.Error("expected different user IDs (unique instances from recipe)")
-		}
+		specta.AssertThat(t, order1.User.ID, specta.Not(specta.Equal(order2.User.ID)))
 	})
 }
 
@@ -399,27 +286,21 @@ func TestTimeHandling(t *testing.T) {
 		p = specta.New()
 		user2 := factory.User().Build(p)
 
-		if !user1.CreatedAt.Equal(user2.CreatedAt) {
-			t.Error("expected deterministic CreatedAt times")
-		}
+		specta.AssertThat(t, user1.CreatedAt.Equal(user2.CreatedAt), specta.IsTrue())
 	})
 
 	t.Run("custom times can be set", func(t *testing.T) {
 		customTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 		product := factory.Product().CreatedAt(customTime).Build(p)
 
-		if !product.CreatedAt.Equal(customTime) {
-			t.Errorf("expected CreatedAt=%v, got %v", customTime, product.CreatedAt)
-		}
+		specta.AssertThat(t, product.CreatedAt.Equal(customTime), specta.IsTrue())
 	})
 
 	t.Run("sequential calls advance time", func(t *testing.T) {
 		user1 := factory.User().Build(p)
 		user2 := factory.User().Build(p)
 
-		if !user2.CreatedAt.After(user1.CreatedAt) {
-			t.Error("expected second user CreatedAt to be after first")
-		}
+		specta.AssertThat(t, user2.CreatedAt.After(user1.CreatedAt), specta.IsTrue())
 	})
 }
 
@@ -432,13 +313,9 @@ func TestBankAccountFactory(t *testing.T) {
 		name := account.GetName()
 		balance := account.GetBalance()
 
-		if name == "" {
-			t.Error("expected non-empty Name")
-		}
+		specta.AssertThat(t, name, specta.Not(specta.Equal("")))
 		// Default balance should be generated
-		if balance == 0 {
-			t.Error("expected non-zero balance from default provider")
-		}
+		specta.AssertThat(t, balance, specta.Not(specta.Equal(0)))
 	})
 
 	t.Run("constructor-based factory with custom values", func(t *testing.T) {
@@ -447,34 +324,24 @@ func TestBankAccountFactory(t *testing.T) {
 			Balance(1000).
 			Build(p)
 
-		if account.GetName() != "Alice" {
-			t.Errorf("expected Name='Alice', got %q", account.GetName())
-		}
-		if account.GetBalance() != 1000 {
-			t.Errorf("expected Balance=1000, got %d", account.GetBalance())
-		}
+		specta.AssertThat(t, account.GetName(), specta.Equal("Alice"))
+		specta.AssertThat(t, account.GetBalance(), specta.Equal(1000))
 	})
 
 	t.Run("many generates unique instances", func(t *testing.T) {
 		accounts := factory.BankAccount().Many(3, p)
 
-		if len(accounts) != 3 {
-			t.Fatalf("expected 3 accounts, got %d", len(accounts))
-		}
+		specta.AssertThat(t, accounts, specta.HasSize[showcase.BankAccount](3))
 
 		// Names should be unique
 		names := make(map[string]bool)
-		for i, acc := range accounts {
+		for _, acc := range accounts {
 			name := acc.GetName()
-			if names[name] {
-				t.Errorf("duplicate name found: %q at index %d", name, i)
-			}
+			specta.AssertThat(t, names[name], specta.IsFalse())
 			names[name] = true
 		}
 
-		if len(names) != 3 {
-			t.Errorf("expected 3 unique names, got %d", len(names))
-		}
+		specta.AssertThat(t, len(names), specta.Equal(3))
 	})
 }
 
@@ -484,58 +351,37 @@ func TestEmailFactory(t *testing.T) {
 	t.Run("Build with valid email returns no error", func(t *testing.T) {
 		email, err := factory.Email().Address("user@example.com").Build(p)
 
-		if err != nil {
-			t.Fatalf("expected no error, got %v", err)
-		}
-		if email.GetAddress() != "user@example.com" {
-			t.Errorf("expected Address='user@example.com', got %q", email.GetAddress())
-		}
+		specta.AssertThat(t, err, specta.NoErr())
+		specta.AssertThat(t, email.GetAddress(), specta.Equal("user@example.com"))
 	})
 
 	t.Run("Build with invalid email returns error", func(t *testing.T) {
 		_, err := factory.Email().Address("notanemail").Build(p)
 
-		if err == nil {
-			t.Error("expected error for invalid email")
-		}
+		specta.AssertThat(t, err, specta.IsError())
 	})
 
 	t.Run("Build with default pattern generates valid email", func(t *testing.T) {
 		// Default provider uses email pattern which generates valid emails
 		email, err := factory.Email().Build(p)
 
-		if err != nil {
-			t.Fatalf("expected no error with email pattern default, got %v", err)
-		}
+		specta.AssertThat(t, err, specta.NoErr())
 		addr := email.GetAddress()
-		if !strings.Contains(addr, "@") {
-			t.Errorf("expected valid email format with @, got %q", addr)
-		}
+		specta.AssertThat(t, addr, specta.Contains("@"))
 	})
 
-	t.Run("Provider panics on error", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("expected Provider to panic on invalid email")
-			}
-		}()
-
-		provider := factory.Email().Address("invalid").Provider()
-		provider(p) // Should panic
+	t.Run("Build returns error on invalid input", func(t *testing.T) {
+		_, err := factory.Email().Address("invalid").Build(p)
+		specta.AssertThat(t, err, specta.IsError())
 	})
 
 	t.Run("Many panics on error", func(t *testing.T) {
 		defer func() {
 			r := recover()
-			if r == nil {
-				t.Error("expected Many to panic on invalid email")
-			} else {
-				// Verify the panic message includes the item index
-				msg := fmt.Sprint(r)
-				if !strings.Contains(msg, "Many() failed on item 0") {
-					t.Errorf("expected panic message to include item index, got: %v", r)
-				}
-			}
+			specta.AssertThat(t, r, specta.Not(specta.Equal[any](nil)))
+			// Verify the panic message includes the item index
+			msg := fmt.Sprint(r)
+			specta.AssertThat(t, msg, specta.Contains("Many() failed on item 0"))
 		}()
 
 		factory.Email().Address("invalid").Many(3, p) // Should panic on first item
@@ -544,13 +390,9 @@ func TestEmailFactory(t *testing.T) {
 	t.Run("Many succeeds with valid emails", func(t *testing.T) {
 		emails := factory.Email().Address("test@example.com").Many(3, p)
 
-		if len(emails) != 3 {
-			t.Fatalf("expected 3 emails, got %d", len(emails))
-		}
-		for i, email := range emails {
-			if email.GetAddress() != "test@example.com" {
-				t.Errorf("email %d: expected Address='test@example.com', got %q", i, email.GetAddress())
-			}
+		specta.AssertThat(t, emails, specta.HasSize[showcase.Email](3))
+		for _, email := range emails {
+			specta.AssertThat(t, email.GetAddress(), specta.Equal("test@example.com"))
 		}
 	})
 }
@@ -562,28 +404,20 @@ func TestIDGeneration(t *testing.T) {
 		users := factory.User().Many(5, p)
 
 		seen := make(map[string]bool)
-		for i, u := range users {
-			if seen[u.ID] {
-				t.Errorf("duplicate ID found: %q at index %d", u.ID, i)
-			}
+		for _, u := range users {
+			specta.AssertThat(t, seen[u.ID], specta.IsFalse())
 			seen[u.ID] = true
 		}
 
-		if len(seen) != 5 {
-			t.Errorf("expected 5 unique IDs, got %d", len(seen))
-		}
+		specta.AssertThat(t, len(seen), specta.Equal(5))
 	})
 
 	t.Run("ID format", func(t *testing.T) {
 		user := factory.User().Build(p)
 
-		if len(user.ID) == 0 {
-			t.Error("expected non-empty ID")
-		}
+		specta.AssertThat(t, user.ID, specta.Not(specta.Equal("")))
 		// IDs should start with "id_"
-		if len(user.ID) < 3 || user.ID[:3] != "id_" {
-			t.Errorf("expected ID to start with 'id_', got %q", user.ID)
-		}
+		specta.AssertThat(t, user.ID, specta.HasPrefix("id_"))
 	})
 }
 
@@ -594,51 +428,31 @@ func TestCustomUserRecipes(t *testing.T) {
 	t.Run("AdminUser", func(t *testing.T) {
 		admin := factory.AdminUser().Build(p)
 
-		if admin.FirstName != "Admin" {
-			t.Errorf("expected FirstName='Admin', got %q", admin.FirstName)
-		}
-		if admin.LastName != "User" {
-			t.Errorf("expected LastName='User', got %q", admin.LastName)
-		}
-		if admin.Email != "admin@example.com" {
-			t.Errorf("expected Email='admin@example.com', got %q", admin.Email)
-		}
-		if !admin.Active {
-			t.Error("expected Active=true")
-		}
+		specta.AssertThat(t, admin.FirstName, specta.Equal("Admin"))
+		specta.AssertThat(t, admin.LastName, specta.Equal("User"))
+		specta.AssertThat(t, admin.Email, specta.Equal("admin@example.com"))
+		specta.AssertThat(t, admin.Active, specta.IsTrue())
 	})
 
 	t.Run("GuestUser", func(t *testing.T) {
 		guest := factory.GuestUser().Build(p)
 
-		if guest.FirstName != "Guest" {
-			t.Errorf("expected FirstName='Guest', got %q", guest.FirstName)
-		}
-		if guest.LastName != "User" {
-			t.Errorf("expected LastName='User', got %q", guest.LastName)
-		}
-		if guest.Active {
-			t.Error("expected Active=false")
-		}
+		specta.AssertThat(t, guest.FirstName, specta.Equal("Guest"))
+		specta.AssertThat(t, guest.LastName, specta.Equal("User"))
+		specta.AssertThat(t, guest.Active, specta.IsFalse())
 	})
 
 	t.Run("WithAdminRole", func(t *testing.T) {
 		user := factory.User().WithAdminRole().Build(p)
 
-		if user.FirstName != "Admin" {
-			t.Errorf("expected FirstName='Admin', got %q", user.FirstName)
-		}
-		if !user.Active {
-			t.Error("expected Active=true")
-		}
+		specta.AssertThat(t, user.FirstName, specta.Equal("Admin"))
+		specta.AssertThat(t, user.Active, specta.IsTrue())
 	})
 
 	t.Run("WithTestEmail", func(t *testing.T) {
 		user := factory.User().WithTestEmail("alice").Build(p)
 
-		if user.Email != "alice@test.example.com" {
-			t.Errorf("expected Email='alice@test.example.com', got %q", user.Email)
-		}
+		specta.AssertThat(t, user.Email, specta.Equal("alice@test.example.com"))
 	})
 
 	t.Run("composing custom methods", func(t *testing.T) {
@@ -648,12 +462,8 @@ func TestCustomUserRecipes(t *testing.T) {
 			FirstName("SuperAdmin"). // Override the admin first name
 			Build(p)
 
-		if user.FirstName != "SuperAdmin" {
-			t.Errorf("expected FirstName='SuperAdmin', got %q", user.FirstName)
-		}
-		if user.Email != "admin@example.com" {
-			t.Errorf("expected Email='admin@example.com', got %q", user.Email)
-		}
+		specta.AssertThat(t, user.FirstName, specta.Equal("SuperAdmin"))
+		specta.AssertThat(t, user.Email, specta.Equal("admin@example.com"))
 	})
 }
 
@@ -665,17 +475,13 @@ func TestCustomDefaults(t *testing.T) {
 		user := factory.User().Build(p)
 
 		// Custom default should generate user1@test.example.com format
-		if !strings.Contains(user.Email, "@test.example.com") {
-			t.Errorf("expected email to contain @test.example.com, got %q", user.Email)
-		}
+		specta.AssertThat(t, user.Email, specta.Contains("@test.example.com"))
 	})
 
 	t.Run("active defaults to true", func(t *testing.T) {
 		user := factory.User().Build(p)
 
 		// Custom default sets Active to true
-		if !user.Active {
-			t.Error("expected Active=true by default (from custom default)")
-		}
+		specta.AssertThat(t, user.Active, specta.IsTrue())
 	})
 }

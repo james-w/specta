@@ -43,9 +43,9 @@ func (r BankAccountRecipe) Balance(v int) BankAccountRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r BankAccountRecipe) Provider() specta.Provider[showcase.BankAccount] {
-	return specta.FromSpec(spec.BuildBankAccount, spec.NewBankAccountSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r BankAccountRecipe) Gen() specta.Gen[showcase.BankAccount] {
+	return specta.FromSpecGen(spec.BuildBankAccount, spec.NewBankAccountSpec, r.opts...)
 }
 
 // Build creates a single BankAccount instance.
@@ -72,10 +72,10 @@ func (r BankAccountRecipe) AsEqualMatcher() specta.Matcher[showcase.BankAccount]
 
 	m := BankAccountMatches()
 	if s.Name.IsSet() {
-		m = m.Name(specta.Equal(s.Name.Value(p)))
+		m = m.Name(specta.Equal(s.Name.GetValue(p, "Name")))
 	}
 	if s.Balance.IsSet() {
-		m = m.Balance(specta.Equal(s.Balance.Value(p)))
+		m = m.Balance(specta.Equal(s.Balance.GetValue(p, "Balance")))
 	}
 	return m.Matcher()
 }

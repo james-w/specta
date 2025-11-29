@@ -83,9 +83,9 @@ func (r UserViewRecipe) ScoreFromGenerator(gen specta.Generator[int]) UserViewRe
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r UserViewRecipe) Provider() specta.Provider[example.UserView] {
-	return specta.FromSpec(spec.BuildUserView, spec.NewUserViewSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r UserViewRecipe) Gen() specta.Gen[example.UserView] {
+	return specta.FromSpecGen(spec.BuildUserView, spec.NewUserViewSpec, r.opts...)
 }
 
 // Build creates a single UserView instance.
@@ -116,16 +116,16 @@ func (r UserViewRecipe) AsEqualMatcher() specta.Matcher[example.UserView] {
 	// Build matcher only for set fields
 	m := UserViewMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Active.IsSet() {
-		m = m.Active(specta.DeepEqual(s.Active.Value(p)))
+		m = m.Active(specta.DeepEqual(s.Active.GetValue(p, "Active")))
 	}
 	if s.Score.IsSet() {
-		m = m.Score(specta.DeepEqual(s.Score.Value(p)))
+		m = m.Score(specta.DeepEqual(s.Score.GetValue(p, "Score")))
 	}
 
 	return m.Matcher()

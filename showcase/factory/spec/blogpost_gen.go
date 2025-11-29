@@ -59,10 +59,10 @@ func NewBlogPostFactory(s specta.Source) *specta.SpecFactory[showcase.BlogPost, 
 
 // Default field generators.
 var (
-	BlogPostIDGenerator          specta.Generator[string]        = specta.String().ExampleHint("id_")
-	BlogPostTitleGenerator       specta.Generator[string]        = specta.String().ExampleHint("title_")
-	BlogPostContentGenerator     specta.Generator[string]        = specta.String().ExampleHint("content_")
-	BlogPostAuthorGenerator      specta.Generator[showcase.User] = specta.GeneratorFromProvider(specta.FromSpec(BuildUser, NewUserSpec))
+	BlogPostIDGenerator          specta.Generator[string]        = specta.String().ExampleHint("id_").NonEmpty()
+	BlogPostTitleGenerator       specta.Generator[string]        = specta.String().ExampleHint("title_").NonEmpty()
+	BlogPostContentGenerator     specta.Generator[string]        = specta.String().ExampleHint("content_").NonEmpty()
+	BlogPostAuthorGenerator      specta.Generator[showcase.User] = specta.FromSpecGen(BuildUser, NewUserSpec)
 	BlogPostPublishedGenerator   specta.Generator[bool]          = specta.Bool()
 	BlogPostPublishedAtGenerator specta.Generator[time.Time]     = specta.Time()
 	BlogPostCreatedAtGenerator   specta.Generator[time.Time]     = specta.Time()
@@ -98,11 +98,9 @@ func WithBlogPostID(v string) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostIDFromGenerator sets the ID field using a Generator.
 func WithBlogPostIDFromGenerator(gen specta.Generator[string]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "ID")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[string]) { s.ID = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.ID = specta.Some(gen)
+	}
 }
 
 // WithBlogPostTitle sets the Title field to a literal value.
@@ -112,11 +110,9 @@ func WithBlogPostTitle(v string) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostTitleFromGenerator sets the Title field using a Generator.
 func WithBlogPostTitleFromGenerator(gen specta.Generator[string]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Title")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[string]) { s.Title = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.Title = specta.Some(gen)
+	}
 }
 
 // WithBlogPostContent sets the Content field to a literal value.
@@ -126,11 +122,9 @@ func WithBlogPostContent(v string) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostContentFromGenerator sets the Content field using a Generator.
 func WithBlogPostContentFromGenerator(gen specta.Generator[string]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Content")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[string]) { s.Content = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.Content = specta.Some(gen)
+	}
 }
 
 // WithBlogPostAuthor sets the Author field to a literal value.
@@ -140,19 +134,9 @@ func WithBlogPostAuthor(v showcase.User) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostAuthorFromGenerator sets the Author field using a Generator.
 func WithBlogPostAuthorFromGenerator(gen specta.Generator[showcase.User]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Author")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[showcase.User]) { s.Author = m },
-		prov,
-	)
-}
-
-// WithBlogPostAuthorFromProvider sets the Author field using a Provider (evaluated lazily).
-func WithBlogPostAuthorFromProvider(prov specta.Provider[showcase.User]) specta.Opt[BlogPostSpec] {
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[showcase.User]) { s.Author = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.Author = specta.Some(gen)
+	}
 }
 
 // WithBlogPostPublished sets the Published field to a literal value.
@@ -162,11 +146,9 @@ func WithBlogPostPublished(v bool) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostPublishedFromGenerator sets the Published field using a Generator.
 func WithBlogPostPublishedFromGenerator(gen specta.Generator[bool]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Published")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[bool]) { s.Published = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.Published = specta.Some(gen)
+	}
 }
 
 // WithBlogPostPublishedAt sets the PublishedAt field to a literal value.
@@ -176,11 +158,9 @@ func WithBlogPostPublishedAt(v time.Time) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostPublishedAtFromGenerator sets the PublishedAt field using a Generator.
 func WithBlogPostPublishedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "PublishedAt")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[time.Time]) { s.PublishedAt = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.PublishedAt = specta.Some(gen)
+	}
 }
 
 // WithBlogPostCreatedAt sets the CreatedAt field to a literal value.
@@ -190,11 +170,9 @@ func WithBlogPostCreatedAt(v time.Time) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostCreatedAtFromGenerator sets the CreatedAt field using a Generator.
 func WithBlogPostCreatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "CreatedAt")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.CreatedAt = specta.Some(gen)
+	}
 }
 
 // WithBlogPostUpdatedAt sets the UpdatedAt field to a literal value.
@@ -204,9 +182,7 @@ func WithBlogPostUpdatedAt(v time.Time) specta.Opt[BlogPostSpec] {
 
 // WithBlogPostUpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
 func WithBlogPostUpdatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[BlogPostSpec] {
-	prov := specta.ProviderFromGenerator(gen, "UpdatedAt")
-	return specta.SetWith(
-		func(s *BlogPostSpec, m specta.Maybe[time.Time]) { s.UpdatedAt = m },
-		prov,
-	)
+	return func(s *BlogPostSpec) {
+		s.UpdatedAt = specta.Some(gen)
+	}
 }

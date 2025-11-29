@@ -11,13 +11,11 @@ import (
 
 func init() {
 	// Override email generator to use a more realistic test pattern
-	UserEmailGenerator = specta.GeneratorFromProvider(func(s specta.Source) string {
-		counter := s.DrawBits(32)
-		return fmt.Sprintf("user%d@test.example.com", counter)
+	UserEmailGenerator = specta.Build("UserEmail", func(d specta.DataSource) (string, error) {
+		counter := d.DrawBits(32)
+		return fmt.Sprintf("user%d@test.example.com", counter), nil
 	})
 
 	// Override Active generator to always be true (active by default)
-	UserActiveGenerator = specta.GeneratorFromProvider(func(s specta.Source) bool {
-		return true
-	})
+	UserActiveGenerator = specta.Just(true)
 }

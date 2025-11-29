@@ -70,9 +70,9 @@ func (r TeamRecipe) MembersFromGenerator(gen specta.Generator[[]showcase.Member]
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r TeamRecipe) Provider() specta.Provider[showcase.Team] {
-	return specta.FromSpec(spec.BuildTeam, spec.NewTeamSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r TeamRecipe) Gen() specta.Gen[showcase.Team] {
+	return specta.FromSpecGen(spec.BuildTeam, spec.NewTeamSpec, r.opts...)
 }
 
 // Build creates a single Team instance.
@@ -103,13 +103,13 @@ func (r TeamRecipe) AsEqualMatcher() specta.Matcher[showcase.Team] {
 	// Build matcher only for set fields
 	m := TeamMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Members.IsSet() {
-		m = m.Members(specta.DeepEqual(s.Members.Value(p)))
+		m = m.Members(specta.DeepEqual(s.Members.GetValue(p, "Members")))
 	}
 
 	return m.Matcher()

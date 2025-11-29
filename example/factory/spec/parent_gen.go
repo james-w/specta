@@ -50,7 +50,7 @@ func NewParentFactory(s specta.Source) *specta.SpecFactory[example.Parent, Paren
 
 // Default field generators.
 var (
-	ParentChildGenerator specta.Generator[example.UserView] = specta.GeneratorFromProvider(specta.FromSpec(BuildUserView, NewUserViewSpec))
+	ParentChildGenerator specta.Generator[example.UserView] = specta.FromSpecGen(BuildUserView, NewUserViewSpec)
 )
 
 // BuildParent constructs a Parent from a ParentSpec.
@@ -68,17 +68,7 @@ func WithParentChild(v example.UserView) specta.Opt[ParentSpec] {
 
 // WithParentChildFromGenerator sets the Child field using a Generator.
 func WithParentChildFromGenerator(gen specta.Generator[example.UserView]) specta.Opt[ParentSpec] {
-	prov := specta.ProviderFromGenerator(gen, "Child")
-	return specta.SetWith(
-		func(s *ParentSpec, m specta.Maybe[example.UserView]) { s.Child = m },
-		prov,
-	)
-}
-
-// WithParentChildFromProvider sets the Child field using a Provider (evaluated lazily).
-func WithParentChildFromProvider(prov specta.Provider[example.UserView]) specta.Opt[ParentSpec] {
-	return specta.SetWith(
-		func(s *ParentSpec, m specta.Maybe[example.UserView]) { s.Child = m },
-		prov,
-	)
+	return func(s *ParentSpec) {
+		s.Child = specta.Some(gen)
+	}
 }

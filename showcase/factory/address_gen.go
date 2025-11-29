@@ -96,9 +96,9 @@ func (r AddressRecipe) CountryFromGenerator(gen specta.Generator[string]) Addres
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r AddressRecipe) Provider() specta.Provider[showcase.Address] {
-	return specta.FromSpec(spec.BuildAddress, spec.NewAddressSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r AddressRecipe) Gen() specta.Gen[showcase.Address] {
+	return specta.FromSpecGen(spec.BuildAddress, spec.NewAddressSpec, r.opts...)
 }
 
 // Build creates a single Address instance.
@@ -129,19 +129,19 @@ func (r AddressRecipe) AsEqualMatcher() specta.Matcher[showcase.Address] {
 	// Build matcher only for set fields
 	m := AddressMatches()
 	if s.Street.IsSet() {
-		m = m.Street(specta.DeepEqual(s.Street.Value(p)))
+		m = m.Street(specta.DeepEqual(s.Street.GetValue(p, "Street")))
 	}
 	if s.City.IsSet() {
-		m = m.City(specta.DeepEqual(s.City.Value(p)))
+		m = m.City(specta.DeepEqual(s.City.GetValue(p, "City")))
 	}
 	if s.State.IsSet() {
-		m = m.State(specta.DeepEqual(s.State.Value(p)))
+		m = m.State(specta.DeepEqual(s.State.GetValue(p, "State")))
 	}
 	if s.ZipCode.IsSet() {
-		m = m.ZipCode(specta.DeepEqual(s.ZipCode.Value(p)))
+		m = m.ZipCode(specta.DeepEqual(s.ZipCode.GetValue(p, "ZipCode")))
 	}
 	if s.Country.IsSet() {
-		m = m.Country(specta.DeepEqual(s.Country.Value(p)))
+		m = m.Country(specta.DeepEqual(s.Country.GetValue(p, "Country")))
 	}
 
 	return m.Matcher()
