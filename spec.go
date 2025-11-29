@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/james-w/specta/conjecture"
 )
@@ -183,7 +184,38 @@ func (a *primitivesGenAdapter) DrawBoolean(p float64) (bool, error) {
 // DrawString implements conjecture.ConjectureData interface for deterministic generation.
 func (a *primitivesGenAdapter) DrawString(params conjecture.StringParams) (string, error) {
 	counter := a.gen.Next()
-	return fmt.Sprintf("str_%d", counter), nil
+
+	// Determine length: use MinSize if set, otherwise default
+	length := 8 // default
+	if params.MinSize > 0 {
+		length = params.MinSize
+	}
+	// MaxSize only matters if less than MinSize (shouldn't happen, but handle it)
+	if params.MaxSize > 0 && params.MaxSize < length {
+		length = params.MaxSize
+	}
+
+	// Get first character from charset intervals
+	firstChar := firstCharFromIntervals(params.Intervals)
+
+	// Build string: use counter to vary content determin​istically
+	var builder strings.Builder
+	for i := 0; i < length; i++ {
+		// Offset each character position by counter for uniqueness
+		charOffset := (counter + uint64(i)) % 26
+		char := firstChar + rune(charOffset)
+		// Wrap around if we go past 'Z' or '9' depending on charset
+		if firstChar >= '0' && firstChar <= '9' {
+			char = '0' + rune((counter+uint64(i))%10)
+		} else if firstChar >= 'A' && firstChar <= 'Z' {
+			char = 'A' + rune((counter+uint64(i))%26)
+		} else if firstChar == ' ' {
+			// For printable starting with space, cycle through readable chars
+			char = ' ' + rune((counter+uint64(i))%95) // printable ASCII range
+		}
+		builder.WriteRune(char)
+	}
+	return builder.String(), nil
 }
 
 // DrawFloat implements conjecture.ConjectureData interface for deterministic generation.
@@ -193,9 +225,10 @@ func (a *primitivesGenAdapter) DrawFloat(params conjecture.FloatParams) (float64
 
 // DrawBytes implements conjecture.ConjectureData interface for deterministic generation.
 func (a *primitivesGenAdapter) DrawBytes(params conjecture.BytesParams) ([]byte, error) {
-	size := (params.MinSize + params.MaxSize) / 2
-	if size == 0 {
-		size = params.MinSize
+	size := params.MinSize
+	if size == 0 && params.MaxSize > 0 {
+		// If only MaxSize set, use it (unusual but handle it)
+		size = params.MaxSize
 	}
 	return a.gen.BytesN(size), nil
 }
@@ -239,6 +272,23 @@ func (a *primitivesGenAdapter) MarkOverrun() {
 // MarkInteresting marks an interesting test case (no-op for deterministic generation).
 func (a *primitivesGenAdapter) MarkInteresting(reason string) {
 	// No-op for deterministic generation
+}
+
+// firstCharFromIntervals returns the first valid character from intervals.
+// For AlphaNum this would be '0', for Printable ' ' (space), etc.
+func firstCharFromIntervals(intervals []conjecture.CodepointInterval) rune {
+	if len(intervals) == 0 {
+		// No constraints: default to 'A'
+		return 'A'
+	}
+	// Return Low value of first interval
+	firstChar := rune(intervals[0].Low)
+	// If the first character is non-printable (< space), use 'A' instead
+	// This handles the default charsetAny case which includes ASCII 0-127
+	if firstChar < ' ' {
+		return 'A'
+	}
+	return firstChar
 }
 
 // Opt applies to a spec S (not the final instance).

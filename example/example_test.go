@@ -24,7 +24,7 @@ func ExampleUserViewMatcher_singleFieldMismatch() {
 	// Output:
 	// UserView {
 	//   ~ Active: false
-	//   ~ ID: "id_1"
+	//   ~ ID: "id_BCDEFGHI"
 	//   ✗ Name: expected "bar" but got "foo"
 	//   ~ Score: 2
 	// }
@@ -48,7 +48,7 @@ func ExampleUserViewMatcher_multipleFieldMismatches() {
 	// Output:
 	// UserView {
 	//   ✗ Active: expected true but got false
-	//   ~ ID: "id_1"
+	//   ~ ID: "id_BCDEFGHI"
 	//   ✗ Name: expected string to start with "A" but got "Bob"
 	//   ✗ Score: expected value > 90 but got 85
 	// }
@@ -377,7 +377,7 @@ func ExampleAssertThat_structuredDiffWithExpression() {
 	// actual didn't match:
 	// UserView {
 	//   ~ Active: false
-	//   ~ ID: "id_1"
+	//   ~ ID: "id_BCDEFGHI"
 	//   ✗ Name: expected "Alice" but got "Bob"
 	//   ✗ Score: expected value > 90 but got 50
 	// }

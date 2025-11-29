@@ -338,19 +338,13 @@ func (g *StringGenerator) ExampleHint(hint string) *StringGenerator {
 
 // Draw implements Gen[string]
 func (g *StringGenerator) Draw(d conjecture.DataSource) (string, error) {
-	// Mode determined by d.IsDeterministic() - depends on Source type
-	if d.IsDeterministic() {
-		// Deterministic mode: use counter for factory-friendly output
-		counter := d.DrawBits(32)
-		if g.exampleHint != "" {
-			// Use hint if set: "id_1", "name_1", etc.
-			return fmt.Sprintf("%s%d", g.exampleHint, counter), nil
-		}
-		// Fallback to generic: "str_1", "str_2", etc.
-		return fmt.Sprintf("str_%d", counter), nil
+	// In deterministic mode, merge ExampleHint into prefix
+	prefix := g.prefix
+	if d.IsDeterministic() && g.exampleHint != "" {
+		prefix = g.exampleHint
 	}
 
-	// Property testing mode: full random generation
+	// Determine min/max lengths
 	minLen := 0
 	maxLen := 100
 	if g.minLen != nil {
@@ -362,7 +356,7 @@ func (g *StringGenerator) Draw(d conjecture.DataSource) (string, error) {
 
 	// If prefix/suffix are present, adjust minLen/maxLen for the base string
 	// so the total length (prefix + base + suffix) matches the constraints
-	prefixLen := len(g.prefix)
+	prefixLen := len(prefix)
 	suffixLen := len(g.suffix)
 	affixLen := prefixLen + suffixLen
 
@@ -410,8 +404,8 @@ func (g *StringGenerator) Draw(d conjecture.DataSource) (string, error) {
 	}
 
 	// Add prefix/suffix if needed
-	if g.prefix != "" || g.suffix != "" {
-		return g.prefix + baseStr + g.suffix, nil
+	if prefix != "" || g.suffix != "" {
+		return prefix + baseStr + g.suffix, nil
 	}
 
 	return baseStr, nil
