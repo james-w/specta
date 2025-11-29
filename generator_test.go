@@ -669,34 +669,29 @@ func TestSliceGenerator(t *testing.T) {
 	})
 
 	t.Run("Filter works on slices", func(t *testing.T) {
-		t.Skip("Filter not yet implemented in new conjecture API")
-		/*
-			specta.Property(t, func(t *specta.T) {
-				// Only accept slices with at least one even number
-				gen := specta.Slice(specta.Int().Range(0, 100)).NonEmpty().Filter(func(s []int64) bool {
-					for _, v := range s {
-						if v%2 == 0 {
-							return true
-						}
-					}
-					return false
-				})
-				value, err := gen.Draw(t.Data)
-				if err != nil { t.Fatalf("generator failed: %v", err) }
-
-				// Verify filter condition holds
-				foundEven := false
-				for _, v := range value {
+		specta.Property(t, func(t *specta.T) {
+			// Only accept slices with at least one even number
+			value := specta.Draw(t, specta.Slice(specta.Int().Range(0, 100)).NonEmpty().Filter(func(s []int64) bool {
+				for _, v := range s {
 					if v%2 == 0 {
-						foundEven = true
-						break
+						return true
 					}
 				}
-				if !foundEven {
-					t.Errorf("filter should ensure at least one even number, but none found in %v", value)
+				return false
+			}), "value")
+
+			// Verify filter condition holds
+			foundEven := false
+			for _, v := range value {
+				if v%2 == 0 {
+					foundEven = true
+					break
 				}
-			}, specta.MaxTests(100))
-		*/
+			}
+			if !foundEven {
+				t.Errorf("filter should ensure at least one even number, but none found in %v", value)
+			}
+		}, specta.MaxTests(100))
 	})
 }
 
@@ -1091,32 +1086,27 @@ func TestMapGenerator(t *testing.T) {
 	})
 
 	t.Run("Filter works on maps", func(t *testing.T) {
-		t.Skip("Filter not yet implemented in new conjecture API")
-		/*
-			specta.Property(t, func(t *specta.T) {
-				// Only accept maps where all values are even
-				gen := specta.MapOf(
-					specta.String(),
-					specta.Int().Range(0, 100),
-				).NonEmpty().Filter(func(m map[string]int64) bool {
-					for _, v := range m {
-						if v%2 != 0 {
-							return false
-						}
-					}
-					return true
-				})
-				value, err := gen.Draw(t.Data)
-				if err != nil { t.Fatalf("generator failed: %v", err) }
-
-				// Verify filter condition holds
-				for k, v := range value {
+		specta.Property(t, func(t *specta.T) {
+			// Only accept maps where all values are even
+			value := specta.Draw(t, specta.MapOf(
+				specta.String(),
+				specta.Int().Range(0, 100),
+			).NonEmpty().Filter(func(m map[string]int64) bool {
+				for _, v := range m {
 					if v%2 != 0 {
-						t.Errorf("filter should ensure all values are even, but %s=%d is odd", k, v)
+						return false
 					}
 				}
-			}, specta.MaxTests(100))
-		*/
+				return true
+			}), "value")
+
+			// Verify filter condition holds
+			for k, v := range value {
+				if v%2 != 0 {
+					t.Errorf("filter should ensure all values are even, but %s=%d is odd", k, v)
+				}
+			}
+		}, specta.MaxTests(100))
 	})
 
 	t.Run("handles key collisions gracefully", func(t *testing.T) {

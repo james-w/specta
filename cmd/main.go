@@ -1820,10 +1820,10 @@ func defaultGenerator(pkg string, f field) string {
 func defaultGeneratorParam(pkg string, p ConstructorParam) string {
 	// Convert ConstructorParam to a field-like structure for defaultGenerator
 	f := field{
-		Name:                 p.Name,
-		TypeExpr:             p.TypeExpr,
-		IsCustomType:         p.IsCustomType,
-		UnqualifiedTypeName:  p.UnqualifiedTypeName,
+		Name:                p.Name,
+		TypeExpr:            p.TypeExpr,
+		IsCustomType:        p.IsCustomType,
+		UnqualifiedTypeName: p.UnqualifiedTypeName,
 	}
 	return defaultGenerator(pkg, f)
 }

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sanity-io/litter"
 	"github.com/james-w/specta/conjecture"
+	"github.com/sanity-io/litter"
 )
 
 // Gen is an alias for conjecture.Gen for convenience
@@ -193,6 +193,11 @@ func (g *IntGenerator) Draw(d conjecture.DataSource) (int64, error) {
 // String implements Gen[int64]
 func (g *IntGenerator) String() string {
 	return "IntGenerator"
+}
+
+// Filter returns a generator that only produces integers satisfying the predicate
+func (g *IntGenerator) Filter(pred func(int64) bool) Gen[int64] {
+	return conjecture.Filter(g, pred)
 }
 
 // =============================================================================
@@ -417,6 +422,11 @@ func (g *StringGenerator) String() string {
 	return "StringGenerator"
 }
 
+// Filter returns a generator that only produces strings satisfying the predicate
+func (g *StringGenerator) Filter(pred func(string) bool) Gen[string] {
+	return conjecture.Filter(g, pred)
+}
+
 // =============================================================================
 // Float Generators
 // =============================================================================
@@ -552,6 +562,11 @@ func (g *SliceGenerator[T]) String() string {
 	return "SliceGenerator"
 }
 
+// Filter returns a generator that only produces slices satisfying the predicate
+func (g *SliceGenerator[T]) Filter(pred func([]T) bool) Gen[[]T] {
+	return conjecture.Filter(g, pred)
+}
+
 // =============================================================================
 // Map Generators
 // =============================================================================
@@ -608,6 +623,11 @@ func (g *MapGenerator[K, V]) Draw(d conjecture.DataSource) (map[K]V, error) {
 // String implements Gen[map[K]V]
 func (g *MapGenerator[K, V]) String() string {
 	return "MapGenerator"
+}
+
+// Filter returns a generator that only produces maps satisfying the predicate
+func (g *MapGenerator[K, V]) Filter(pred func(map[K]V) bool) Gen[map[K]V] {
+	return conjecture.Filter(g, pred)
 }
 
 // Email returns a generator for email addresses

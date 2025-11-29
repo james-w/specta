@@ -1,6 +1,7 @@
 package specta_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/james-w/specta"
@@ -30,75 +31,57 @@ func TestAssumeSkipsIteration(t *testing.T) {
 
 // TestFilterWithHighPassRate tests Filter with a predicate that passes frequently
 func TestFilterWithHighPassRate(t *testing.T) {
-	t.Skip("Filter not yet implemented in new conjecture API")
-	/*
-		specta.Property(t, func(t *specta.T) {
-			// Filter for even numbers - should pass ~50% of the time
-			n := specta.Int().Range(1, 100).Filter(func(x int64) bool {
-				return x%2 == 0
-			}).Draw(t.Data, "n")
+	specta.Property(t, func(t *specta.T) {
+		// Filter for even numbers - should pass ~50% of the time
+		n := specta.Draw(t, specta.Int().Range(1, 100).Filter(func(x int64) bool {
+			return x%2 == 0
+		}), "n")
 
-			// Verify it's even
-			if n%2 != 0 {
-				t.Errorf("expected even number but got %d", n)
-			}
-		}, specta.MaxTests(50))
-	*/
+		// Verify it's even
+		if n%2 != 0 {
+			t.Errorf("expected even number but got %d", n)
+		}
+	}, specta.MaxTests(50))
 }
 
 // TestFilterWithLowPassRate tests Filter with a predicate that rarely passes
 func TestFilterWithLowPassRate(t *testing.T) {
-	t.Skip("Filter not yet implemented in new conjecture API")
-	/*
-		var skipCount int
-		originalErrorf := func(format string, args ...interface{}) {
-			// Count skip warnings
-			if strings.Contains(format, "skipped") {
-				skipCount++
-			}
+	// This filter is very selective - only primes in a small range
+	// Most iterations should be skipped after filter exhaustion
+	specta.Property(t, func(t *specta.T) {
+		n := specta.Draw(t, specta.Int().Range(1, 100).Filter(func(x int64) bool {
+			return isPrime(int(x))
+		}), "n")
+
+		// If we get here, n should be prime
+		if !isPrime(int(n)) {
+			t.Errorf("expected prime but got %d", n)
 		}
-		_ = originalErrorf // Use if needed
+	}, specta.MaxTests(20))
 
-		// This filter is very selective - only primes in a small range
-		// Most iterations should be skipped after filter exhaustion
-		specta.Property(t, func(t *specta.T) {
-			n := specta.Int().Range(1, 100).Filter(func(x int64) bool {
-				return isPrime(int(x))
-			}).Draw(t.Data, "n")
-
-			// If we get here, n should be prime
-			if !isPrime(int(n)) {
-				t.Errorf("expected prime but got %d", n)
-			}
-		}, specta.MaxTests(20))
-
-		// Filter should eventually find primes, but may skip some iterations
-		// No assertion needed - just making sure it doesn't hang
-	*/
+	// Filter should eventually find primes, but may skip some iterations
+	// No assertion needed - just making sure it doesn't hang
 }
 
 // TestStringFilter tests Filter on string generator
 func TestStringFilter(t *testing.T) {
-	t.Skip("Filter not yet implemented in new conjecture API")
-	/*
-		specta.Property(t, func(t *specta.T) {
-			s := specta.String().AlphaNum().MinLen(5).MaxLen(10).Filter(func(s string) bool {
-				return strings.Contains(s, "a") || strings.Contains(s, "A")
-			}).Draw(t.Data, "s")
+	specta.Property(t, func(t *specta.T) {
+		s := specta.Draw(t, specta.String().AlphaNum().MinLen(5).MaxLen(10).Filter(func(s string) bool {
+			return strings.Contains(s, "a") || strings.Contains(s, "A")
+		}), "s")
 
-			// Should contain 'a' or 'A'
-			if !strings.Contains(s, "a") && !strings.Contains(s, "A") {
-				t.Errorf("expected string to contain 'a' or 'A', got %q", s)
-			}
+		// Should contain 'a' or 'A'
+		if !strings.Contains(s, "a") && !strings.Contains(s, "A") {
+			t.Errorf("expected string to contain 'a' or 'A', got %q", s)
+		}
 
-			// Should be alphanumeric
-			for _, r := range s {
-				if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
-					t.Errorf("expected alphanumeric string, got %q", s)
-				}
+		// Should be alphanumeric
+		for _, r := range s {
+			if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
+				t.Errorf("expected alphanumeric string, got %q", s)
 			}
-		}, specta.MaxTests(30))
-	*/
+		}
+	}, specta.MaxTests(30))
 }
 
 // TestAssumeWithMultipleConditions tests multiple Assume calls
@@ -135,21 +118,18 @@ func TestAssumeWithMultipleConditions(t *testing.T) {
 
 // TestFilterComposition tests chaining Filter with other constraints
 func TestFilterComposition(t *testing.T) {
-	t.Skip("Filter not yet implemented in new conjecture API")
-	/*
-		specta.Property(t, func(t *specta.T) {
-			n := specta.Int().Range(10, 50).Filter(func(x int64) bool {
-				return x%3 == 0 // divisible by 3
-			}).Draw(t.Data, "n")
+	specta.Property(t, func(t *specta.T) {
+		n := specta.Draw(t, specta.Int().Range(10, 50).Filter(func(x int64) bool {
+			return x%3 == 0 // divisible by 3
+		}), "n")
 
-			if n < 10 || n > 50 {
-				t.Errorf("expected n in [10, 50], got %d", n)
-			}
-			if n%3 != 0 {
-				t.Errorf("expected n divisible by 3, got %d", n)
-			}
-		}, specta.MaxTests(30))
-	*/
+		if n < 10 || n > 50 {
+			t.Errorf("expected n in [10, 50], got %d", n)
+		}
+		if n%3 != 0 {
+			t.Errorf("expected n divisible by 3, got %d", n)
+		}
+	}, specta.MaxTests(30))
 }
 
 // Helper function to check if a number is prime
