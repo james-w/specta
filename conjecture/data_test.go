@@ -65,7 +65,7 @@ func TestConjectureData_Spans(t *testing.T) {
 	d := NewConjectureData()
 
 	spanID := d.StartSpan("test-span")
-	d.DrawInteger(IntegerParams{Min: 0, Max: 10})
+	_, _ = d.DrawInteger(IntegerParams{Min: 0, Max: 10})
 	d.EndSpan(spanID, false)
 
 	spans := d.Sequence().Spans()

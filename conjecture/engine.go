@@ -15,7 +15,6 @@ import (
 type Engine struct {
 	settings Settings
 	database Database
-	mu       sync.Mutex
 }
 
 // Settings configures the test engine.

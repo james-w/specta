@@ -230,51 +230,6 @@ func runCheck(check func(*T), pt *T) (failed bool, skipped bool) {
 }
 
 // reportFailure creates a detailed error message and fails the test.
-// reportFailureNoShrink reports a property test failure without shrinking (Phase 3 temporary version)
-func reportFailureNoShrink(t TestingT, data *conjecture.ConjectureData, attempts, maxTests int, seed int64, tested, skipped int, errors []string) {
-	if helper, ok := t.(interface{ Helper() }); ok {
-		helper.Helper()
-	}
-
-	// Build error message
-	var msg strings.Builder
-	msg.WriteString("\n=== Property Test Failed (Shrinking not yet implemented) ===\n")
-	msg.WriteString(fmt.Sprintf("Seed: %d\n", seed))
-	msg.WriteString(fmt.Sprintf("Attempts: %d/%d\n", attempts, maxTests))
-	if skipped > 0 {
-		msg.WriteString(fmt.Sprintf("Tested: %d, Skipped: %d (%.1f%% skip rate)\n",
-			tested, skipped, float64(skipped)/float64(tested+skipped)*100))
-	}
-
-	// Show generated values from ConjectureData sequence
-	seq := data.Sequence()
-	if seq != nil && seq.Len() > 0 {
-		msg.WriteString("\nGenerated choices:\n")
-		for i := 0; i < seq.Len(); i++ {
-			c := seq.Get(i)
-			msg.WriteString(fmt.Sprintf("  [%d] %s: %v\n", i, c.Type, c.Value))
-		}
-	}
-
-	// Show failure messages
-	if len(errors) > 0 {
-		msg.WriteString("\nFailure:\n")
-		for _, err := range errors {
-			lines := strings.Split(err, "\n")
-			for _, line := range lines {
-				if line != "" {
-					msg.WriteString("  ")
-					msg.WriteString(line)
-				}
-				msg.WriteString("\n")
-			}
-		}
-	}
-
-	msg.WriteString(fmt.Sprintf("\nReproduce: Property(t, check, Seed(%d))\n", seed))
-	t.Errorf("%s", msg.String())
-}
-
 func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(*T), attempts, maxTests int, seed int64, tested, skipped int, shrinkCalls int) {
 	// Only call Helper() if t is a real *testing.T
 	if helper, ok := t.(interface{ Helper() }); ok {
@@ -329,24 +284,4 @@ func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(
 	msg.WriteString(fmt.Sprintf("\nReproduce: Property(t, check, Seed(%d))\n", seed))
 
 	t.Errorf("%s", msg.String())
-}
-
-// formatChoiceValue formats a choice value for display in error messages.
-// For simple values, just show the value. For complex spans (like slices),
-// we'd need to replay to get the actual generated value.
-func formatChoiceValue(c conjecture.Choice) string {
-	switch c.Type {
-	case conjecture.ChoiceBoolean, conjecture.ChoiceInteger, conjecture.ChoiceFloat:
-		return fmt.Sprintf("%v", c.Value)
-	case conjecture.ChoiceString:
-		return fmt.Sprintf("%q", c.Value)
-	case conjecture.ChoiceBytes:
-		b := c.Value.([]byte)
-		if len(b) <= 20 {
-			return fmt.Sprintf("%v", b)
-		}
-		return fmt.Sprintf("%v... (%d bytes)", b[:20], len(b))
-	default:
-		return fmt.Sprintf("%v", c.Value)
-	}
 }

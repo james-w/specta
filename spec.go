@@ -341,11 +341,11 @@ type dataSourceWrapper struct {
 }
 
 func (w *dataSourceWrapper) StartInterval(label string) {
-	w.DataSource.StartSpan(label)
+	w.StartSpan(label)
 }
 
 func (w *dataSourceWrapper) EndInterval() {
-	w.DataSource.EndSpan(0, false)
+	w.EndSpan(0, false)
 }
 
 func (w *dataSourceWrapper) WriteLog(msg string) {

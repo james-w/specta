@@ -214,7 +214,7 @@ func (db *FileDatabase) Save(key string, seq *ChoiceSequence) {
 	hash := hashSequence(data)
 
 	filename := filepath.Join(dir, hash)
-	os.WriteFile(filename, data, 0644)
+	_ = os.WriteFile(filename, data, 0644) // Best effort - ignore errors
 }
 
 func (db *FileDatabase) Load(key string) []*ChoiceSequence {
@@ -243,7 +243,7 @@ func (db *FileDatabase) Load(key string) []*ChoiceSequence {
 }
 
 func (db *FileDatabase) Delete(key string) {
-	os.RemoveAll(db.path(key))
+	_ = os.RemoveAll(db.path(key)) // Best effort - ignore errors
 }
 
 // Simple serialization for choice sequences.

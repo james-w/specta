@@ -10,18 +10,6 @@ import (
 	"github.com/james-w/specta/conjecture"
 )
 
-// testSpy implements conjecture.TestingT for capturing output in examples
-type testSpy struct {
-	output string
-}
-
-func (t *testSpy) Errorf(format string, args ...interface{}) {
-	t.output = fmt.Sprintf(format, args...)
-	fmt.Print(t.output)
-}
-
-func (t *testSpy) Helper() {}
-
 // =============================================================================
 // Basic Examples
 // =============================================================================

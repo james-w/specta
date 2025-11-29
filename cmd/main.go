@@ -844,59 +844,6 @@ func generateMatcher(d data) ([]byte, error) {
 	return src, nil
 }
 
-// verifyFilesAsPackage verifies that a set of files compile together as a package
-func verifyFilesAsPackage(files map[string][]byte) error {
-	if len(files) == 0 {
-		return nil
-	}
-
-	// Get the directory from the first file
-	var dir string
-	for path := range files {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return fmt.Errorf("abs path: %w", err)
-		}
-		dir = filepath.Dir(absPath)
-		break
-	}
-
-	// Create overlay with absolute paths
-	overlay := make(map[string][]byte)
-	for path, content := range files {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			return fmt.Errorf("abs path: %w", err)
-		}
-		overlay[absPath] = content
-	}
-
-	cfg := &packages.Config{
-		Mode:       packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps,
-		Overlay:    overlay,
-		BuildFlags: []string{"-tags=ignore_testgen"},
-	}
-
-	// Load the package containing these files
-	pkgs, err := packages.Load(cfg, dir)
-	if err != nil {
-		return fmt.Errorf("load for type-check: %w", err)
-	}
-
-	// Check for type errors
-	for _, pkg := range pkgs {
-		if len(pkg.Errors) > 0 {
-			var errs []string
-			for _, e := range pkg.Errors {
-				errs = append(errs, e.Error())
-			}
-			return fmt.Errorf("type errors in generated code:\n%s", strings.Join(errs, "\n"))
-		}
-	}
-
-	return nil
-}
-
 // lower converts the first character of a string to lowercase
 func lower(s string) string {
 	if s == "" {

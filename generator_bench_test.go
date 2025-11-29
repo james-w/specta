@@ -13,7 +13,7 @@ func BenchmarkIntGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -22,7 +22,7 @@ func BenchmarkIntGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -31,7 +31,7 @@ func BenchmarkIntGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 }
@@ -43,7 +43,7 @@ func BenchmarkStringGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -52,7 +52,7 @@ func BenchmarkStringGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -61,7 +61,7 @@ func BenchmarkStringGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 }
@@ -73,7 +73,7 @@ func BenchmarkSliceGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -82,7 +82,7 @@ func BenchmarkSliceGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -91,7 +91,7 @@ func BenchmarkSliceGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 }
@@ -103,7 +103,7 @@ func BenchmarkMapGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -112,7 +112,7 @@ func BenchmarkMapGenerator(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 }
@@ -151,7 +151,7 @@ func BenchmarkDrawBits(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			data.DrawInteger(conjecture.IntegerParams{Min: 0, Max: 100, ShrinkToward: 0})
+			_, _ = data.DrawInteger(conjecture.IntegerParams{Min: 0, Max: 100, ShrinkToward: 0})
 		}
 	})
 
@@ -159,7 +159,7 @@ func BenchmarkDrawBits(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(0))
-			data.DrawBytes(conjecture.BytesParams{MinSize: 32, MaxSize: 32})
+			_, _ = data.DrawBytes(conjecture.BytesParams{MinSize: 32, MaxSize: 32})
 		}
 	})
 }
@@ -171,7 +171,7 @@ func BenchmarkEdgeCaseBiasing(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 
@@ -180,7 +180,7 @@ func BenchmarkEdgeCaseBiasing(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(i)))
-			gen.Draw(data)
+			_, _ = gen.Draw(data)
 		}
 	})
 }
