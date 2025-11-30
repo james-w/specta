@@ -239,6 +239,7 @@ specta.DeepEqual(expected)
 specta.GreaterThan(18)
 specta.LessThan(100)
 specta.GreaterThanOrEqual(21)
+specta.LessThanOrEqual(100)
 
 // String matchers
 specta.Contains("@example.com")

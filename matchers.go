@@ -218,6 +218,25 @@ func GreaterThanOrEqual[T interface {
 	})
 }
 
+// LessThanOrEqual creates a matcher for numeric types.
+func LessThanOrEqual[T interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+		~float32 | ~float64
+}](threshold T) Matcher[T] {
+	return MatcherFunc[T](func(actual T) MatchResult {
+		if actual <= threshold {
+			return MatchResult{Matched: true}
+		}
+		return MatchResult{
+			Matched:  false,
+			Message:  fmt.Sprintf("expected value <= %v but got %v", threshold, actual),
+			Expected: fmt.Sprintf("<= %v", threshold),
+			Actual:   actual,
+		}
+	})
+}
+
 // ==============================================================================
 // String Matchers
 // ==============================================================================

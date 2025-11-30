@@ -162,6 +162,44 @@ func TestGreaterThanOrEqual(t *testing.T) {
 	})
 }
 
+func TestLessThanOrEqual(t *testing.T) {
+	t.Run("matches lesser or equal values", func(t *testing.T) {
+		matcher := specta.LessThanOrEqual(10)
+		result := matcher.Matches(5)
+		if !result.Matched {
+			t.Errorf("LessThanOrEqual(10) should match 5, but got: %s", result.Message)
+		}
+
+		result = matcher.Matches(10)
+		if !result.Matched {
+			t.Error("LessThanOrEqual(10) should match 10 (boundary)")
+		}
+
+		result = matcher.Matches(20)
+		if result.Matched {
+			t.Error("LessThanOrEqual(10) should not match 20")
+		}
+	})
+
+	t.Run("works with floats", func(t *testing.T) {
+		matcher := specta.LessThanOrEqual(3.14)
+		result := matcher.Matches(3.13)
+		if !result.Matched {
+			t.Errorf("LessThanOrEqual(3.14) should match 3.13, but got: %s", result.Message)
+		}
+
+		result = matcher.Matches(3.14)
+		if !result.Matched {
+			t.Error("LessThanOrEqual(3.14) should match 3.14 (boundary)")
+		}
+
+		result = matcher.Matches(3.15)
+		if result.Matched {
+			t.Error("LessThanOrEqual(3.14) should not match 3.15")
+		}
+	})
+}
+
 func TestContains(t *testing.T) {
 	t.Run("matches substring", func(t *testing.T) {
 		matcher := specta.Contains("world")
