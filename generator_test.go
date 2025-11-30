@@ -24,9 +24,10 @@ func TestIntGenerator_Constraints(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(10, 20)
 			value := specta.Draw(t, gen, "constrained_int")
-			if value < 10 || value > 20 {
-				t.Errorf("value %d outside range [10, 20]", value)
-			}
+			specta.AssertThat(t, value, specta.AllOf(
+				specta.GreaterThanOrEqual(int64(10)),
+				specta.Not(specta.GreaterThan(int64(20))),
+			))
 		}, specta.MaxTests(100))
 	})
 
@@ -34,9 +35,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Min(100)
 			value := specta.Draw(t, gen, "value")
-			if value < 100 {
-				t.Errorf("value %d less than min 100", value)
-			}
+			specta.AssertThat(t, value, specta.GreaterThanOrEqual(int64(100)))
 		}, specta.MaxTests(100))
 	})
 
@@ -44,9 +43,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Max(50)
 			value := specta.Draw(t, gen, "value")
-			if value > 50 {
-				t.Errorf("value %d greater than max 50", value)
-			}
+			specta.AssertThat(t, value, specta.Not(specta.GreaterThan(int64(50))))
 		}, specta.MaxTests(100))
 	})
 
@@ -54,9 +51,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Positive()
 			value := specta.Draw(t, gen, "positive_int")
-			if value <= 0 {
-				t.Errorf("value %d not positive", value)
-			}
+			specta.AssertThat(t, value, specta.GreaterThan(int64(0)))
 		}, specta.MaxTests(100))
 	})
 
@@ -64,9 +59,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().NonNegative()
 			value := specta.Draw(t, gen, "nonneg_int")
-			if value < 0 {
-				t.Errorf("value %d is negative", value)
-			}
+			specta.AssertThat(t, value, specta.GreaterThanOrEqual(int64(0)))
 		}, specta.MaxTests(100))
 	})
 
@@ -74,9 +67,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Negative()
 			value := specta.Draw(t, gen, "negative_int")
-			if value >= 0 {
-				t.Errorf("value %d not negative", value)
-			}
+			specta.AssertThat(t, value, specta.LessThan(int64(0)))
 		}, specta.MaxTests(100))
 	})
 
@@ -84,9 +75,10 @@ func TestIntGenerator_Constraints(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Min(10).Max(100)
 			value := specta.Draw(t, gen, "value")
-			if value < 10 || value > 100 {
-				t.Errorf("value %d outside range [10, 100]", value)
-			}
+			specta.AssertThat(t, value, specta.AllOf(
+				specta.GreaterThanOrEqual(int64(10)),
+				specta.Not(specta.GreaterThan(int64(100))),
+			))
 		}, specta.MaxTests(100))
 	})
 }
@@ -106,9 +98,7 @@ func TestStringGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().NonEmpty()
 			value := specta.Draw(t, gen, "nonempty_str")
-			if len(value) == 0 {
-				t.Errorf("generated empty string")
-			}
+			specta.AssertThat(t, int64(len(value)), specta.GreaterThan(int64(0)))
 		}, specta.MaxTests(100))
 	})
 
@@ -116,9 +106,7 @@ func TestStringGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MinLen(10)
 			value := specta.Draw(t, gen, "value")
-			if len(value) < 10 {
-				t.Errorf("string length %d less than min 10", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.GreaterThanOrEqual(int64(10)))
 		}, specta.MaxTests(100))
 	})
 
@@ -126,9 +114,7 @@ func TestStringGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MaxLen(5)
 			value := specta.Draw(t, gen, "value")
-			if len(value) > 5 {
-				t.Errorf("string length %d greater than max 5", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.Not(specta.GreaterThan(int64(5))))
 		}, specta.MaxTests(100))
 	})
 
@@ -136,9 +122,7 @@ func TestStringGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Len(10)
 			value := specta.Draw(t, gen, "value")
-			if len(value) != 10 {
-				t.Errorf("string length %d not equal to 10", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.Equal(int64(10)))
 		}, specta.MaxTests(100))
 	})
 
@@ -146,9 +130,7 @@ func TestStringGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Prefix("test_")
 			value := specta.Draw(t, gen, "value")
-			if !strings.HasPrefix(value, "test_") {
-				t.Errorf("string %q doesn't have prefix 'test_'", value)
-			}
+			specta.AssertThat(t, value, specta.HasPrefix("test_"))
 		}, specta.MaxTests(100))
 	})
 
@@ -156,9 +138,7 @@ func TestStringGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Suffix("_end")
 			value := specta.Draw(t, gen, "value")
-			if !strings.HasSuffix(value, "_end") {
-				t.Errorf("string %q doesn't have suffix '_end'", value)
-			}
+			specta.AssertThat(t, value, specta.HasSuffix("_end"))
 		}, specta.MaxTests(100))
 	})
 
@@ -215,12 +195,11 @@ func TestStringGenerator(t *testing.T) {
 			gen := specta.String().Prefix("user_").AlphaNum().MinLen(10).MaxLen(20)
 			value := specta.Draw(t, gen, "value")
 
-			if !strings.HasPrefix(value, "user_") {
-				t.Errorf("string %q doesn't have prefix 'user_'", value)
-			}
-			if len(value) < 10 || len(value) > 20 {
-				t.Errorf("string length %d outside range [10, 20]", len(value))
-			}
+			specta.AssertThat(t, value, specta.HasPrefix("user_"))
+			specta.AssertThat(t, int64(len(value)), specta.AllOf(
+				specta.GreaterThanOrEqual(int64(10)),
+				specta.Not(specta.GreaterThan(int64(20))),
+			))
 			// Check alphanumeric after prefix
 			rest := strings.TrimPrefix(value, "user_")
 			for i, r := range rest {
@@ -244,9 +223,7 @@ func TestStringGenerator(t *testing.T) {
 			}, specta.Seed(seed), specta.MaxTests(100))
 		}
 
-		if !foundEmpty {
-			t.Errorf("never generated empty string (probability issue, not a bug)")
-		}
+		specta.AssertThat(t, foundEmpty, specta.IsTrue())
 	})
 }
 
@@ -269,21 +246,15 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 			}, specta.Seed(seed), specta.MaxTests(20))
 		}
 
-		if !foundMin {
-			t.Errorf("never found min boundary value 10")
-		}
-		if !foundMax {
-			t.Errorf("never found max boundary value 20")
-		}
+		specta.AssertThat(t, foundMin, specta.IsTrue())
+		specta.AssertThat(t, foundMax, specta.IsTrue())
 	})
 
 	t.Run("handles single value range", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(42, 42)
 			value := specta.Draw(t, gen, "value")
-			if value != 42 {
-				t.Errorf("expected 42, got %d", value)
-			}
+			specta.AssertThat(t, value, specta.Equal(int64(42)))
 		}, specta.MaxTests(100))
 	})
 
@@ -298,9 +269,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 			}
 		}, specta.MaxTests(1000))
 
-		if !foundNegative {
-			t.Errorf("never generated negative value")
-		}
+		specta.AssertThat(t, foundNegative, specta.IsTrue())
 	})
 
 	t.Run("generates extreme values", func(t *testing.T) {
@@ -350,9 +319,7 @@ func TestIntGenerator_EdgeCaseBiasing(t *testing.T) {
 		edgeCases := []int64{0, 1, 200}
 		for _, edge := range edgeCases {
 			count := found[edge]
-			if count < 12 {
-				t.Errorf("edge case %d only appeared %d times (expected >12 with biasing, uniform would be ~5)", edge, count)
-			}
+			specta.AssertThat(t, count, specta.GreaterThanOrEqual(12))
 			t.Logf("edge case %d appeared %d times", edge, count)
 		}
 	})
@@ -374,9 +341,7 @@ func TestIntGenerator_EdgeCaseBiasing(t *testing.T) {
 		// - uniform: 50%/401 ≈ 0.12%
 		// Total: ~16% = ~160 times expected
 		// Use conservative threshold of 50 to account for variance
-		if foundZero < 50 {
-			t.Errorf("zero only appeared %d times (expected >=50 with biasing, uniform would be ~2)", foundZero)
-		}
+		specta.AssertThat(t, foundZero, specta.GreaterThanOrEqual(50))
 		t.Logf("zero appeared %d times out of 1000", foundZero)
 	})
 
@@ -399,9 +364,7 @@ func TestIntGenerator_EdgeCaseBiasing(t *testing.T) {
 		// - 12.5% chance of powers of 2 branch (checks each with 20% acceptance)
 		// - 50% uniform: 8 values / 201 = ~40 times
 		// - With biasing: expect >60 times total
-		if foundPowers < 60 {
-			t.Errorf("powers of 2 only appeared %d times total (expected >60, uniform would be ~40)", foundPowers)
-		}
+		specta.AssertThat(t, foundPowers, specta.GreaterThanOrEqual(60))
 		t.Logf("powers of 2 appeared %d times total out of 1000", foundPowers)
 	})
 
@@ -453,9 +416,7 @@ func TestSliceGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int()).MinLen(5)
 			value := specta.Draw(t, gen, "min_slice")
-			if len(value) < 5 {
-				t.Errorf("slice length %d less than min 5", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.GreaterThanOrEqual(int64(5)))
 		}, specta.MaxTests(100))
 	})
 
@@ -463,9 +424,7 @@ func TestSliceGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int()).MaxLen(10)
 			value := specta.Draw(t, gen, "max_slice")
-			if len(value) > 10 {
-				t.Errorf("slice length %d greater than max 10", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.Not(specta.GreaterThan(int64(10))))
 		}, specta.MaxTests(100))
 	})
 
@@ -473,9 +432,7 @@ func TestSliceGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.String()).Len(7)
 			value := specta.Draw(t, gen, "fixed_slice")
-			if len(value) != 7 {
-				t.Errorf("slice length %d not equal to 7", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.Equal(int64(7)))
 		}, specta.MaxTests(100))
 	})
 
@@ -483,9 +440,7 @@ func TestSliceGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Bool()).NonEmpty()
 			value := specta.Draw(t, gen, "nonempty_slice")
-			if len(value) == 0 {
-				t.Errorf("generated empty slice")
-			}
+			specta.AssertThat(t, int64(len(value)), specta.GreaterThan(int64(0)))
 		}, specta.MaxTests(100))
 	})
 
@@ -493,10 +448,11 @@ func TestSliceGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int().Range(1, 10))
 			value := specta.Draw(t, gen, "value")
-			for i, v := range value {
-				if v < 1 || v > 10 {
-					t.Errorf("element %d at index %d outside range [1, 10]", v, i)
-				}
+			for _, v := range value {
+				specta.AssertThat(t, v, specta.AllOf(
+					specta.GreaterThanOrEqual(int64(1)),
+					specta.Not(specta.GreaterThan(int64(10))),
+				))
 			}
 		}, specta.MaxTests(100))
 	})
@@ -524,9 +480,10 @@ func TestSliceGenerator(t *testing.T) {
 			gen := specta.Slice(specta.String().AlphaNum()).MinLen(2).MaxLen(5)
 			value := specta.Draw(t, gen, "value")
 
-			if len(value) < 2 || len(value) > 5 {
-				t.Errorf("slice length %d outside range [2, 5]", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.AllOf(
+				specta.GreaterThanOrEqual(int64(2)),
+				specta.Not(specta.GreaterThan(int64(5))),
+			))
 
 			// Check each element is alphanumeric
 			for i, s := range value {
@@ -549,9 +506,7 @@ func TestSliceGenerator(t *testing.T) {
 		}, specta.MaxTests(200))
 
 		// Should see at least a few different lengths
-		if len(lengths) < 3 {
-			t.Errorf("only saw %d different lengths, expected more variety", len(lengths))
-		}
+		specta.AssertThat(t, int64(len(lengths)), specta.GreaterThanOrEqual(int64(3)))
 	})
 
 	t.Run("Filter works on slices", func(t *testing.T) {
@@ -574,9 +529,7 @@ func TestSliceGenerator(t *testing.T) {
 					break
 				}
 			}
-			if !foundEven {
-				t.Errorf("filter should ensure at least one even number, but none found in %v", value)
-			}
+			specta.AssertThat(t, foundEven, specta.IsTrue())
 		}, specta.MaxTests(100))
 	})
 }
@@ -662,9 +615,7 @@ func TestSliceGenerator_SizeBiasing(t *testing.T) {
 
 		// Uniform would be: 1000 * 4/101 ≈ 40
 		// With biasing: should be higher, expect at least 80
-		if verySmallCount < 70 {
-			t.Errorf("very small slices (0-3) only appeared %d times (expected >70 with biasing, uniform would be ~40)", verySmallCount)
-		}
+		specta.AssertThat(t, verySmallCount, specta.GreaterThanOrEqual(70))
 	})
 
 	t.Run("biases toward slices in 0-10 range", func(t *testing.T) {
@@ -681,9 +632,7 @@ func TestSliceGenerator_SizeBiasing(t *testing.T) {
 		// With stratification: 12.5% in [0-3], 12.5% in [0-10], 75% full
 		// Uniform would be: 1000 * 11/101 ≈ 109
 		// With biasing: should be higher, expect at least 150
-		if foundSmall < 140 {
-			t.Errorf("small slices (0-10) only appeared %d times (expected >140 with biasing, uniform would be ~109)", foundSmall)
-		}
+		specta.AssertThat(t, foundSmall, specta.GreaterThanOrEqual(140))
 		t.Logf("small slices (0-10) appeared %d times out of 1000", foundSmall)
 	})
 
@@ -764,9 +713,7 @@ func TestStringGenerator_LengthBiasing(t *testing.T) {
 
 		// Uniform would be: 1000 * 11/51 ≈ 216
 		// With biasing: should be higher, expect ~250-350
-		if shortCount < 200 {
-			t.Errorf("short strings (0-10) only appeared %d times (expected >200 with biasing, uniform would be ~216)", shortCount)
-		}
+		specta.AssertThat(t, shortCount, specta.GreaterThanOrEqual(200))
 
 		t.Logf("Short strings (0-10): %d times (%.1f%%)", shortCount, float64(shortCount)/10)
 		t.Logf("Length 0: %d times", dist[0])
@@ -815,9 +762,7 @@ func TestStringGenerator_LengthBiasing(t *testing.T) {
 		// With range stratification, max length appears in 75% full-range bucket
 		// Uniform in that bucket: 1000 * 0.75 / 101 ≈ 7.4 times
 		// Just verify we can hit it (not as frequently as with old edge biasing)
-		if foundMax < 3 {
-			t.Errorf("max length (100) only appeared %d times (expected at least a few)", foundMax)
-		}
+		specta.AssertThat(t, foundMax, specta.GreaterThanOrEqual(3))
 		t.Logf("max length (100) appeared %d times out of 1000", foundMax)
 	})
 }
@@ -837,9 +782,7 @@ func TestMapGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String(), specta.Int()).MinLen(5)
 			value := specta.Draw(t, gen, "value")
-			if len(value) < 5 {
-				t.Errorf("map length %d less than min 5", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.GreaterThanOrEqual(int64(5)))
 		}, specta.MaxTests(100))
 	})
 
@@ -847,9 +790,7 @@ func TestMapGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String(), specta.Bool()).MaxLen(10)
 			value := specta.Draw(t, gen, "value")
-			if len(value) > 10 {
-				t.Errorf("map length %d greater than max 10", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.Not(specta.GreaterThan(int64(10))))
 		}, specta.MaxTests(100))
 	})
 
@@ -859,9 +800,7 @@ func TestMapGenerator(t *testing.T) {
 			gen := specta.MapOf(specta.String(), specta.Int()).MinLen(7).MaxLen(7)
 			value := specta.Draw(t, gen, "value")
 			// Note: May be less than 7 if key collisions occur
-			if len(value) > 7 {
-				t.Errorf("map length %d greater than exact 7", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.Not(specta.GreaterThan(int64(7))))
 		}, specta.MaxTests(100))
 	})
 
@@ -869,9 +808,7 @@ func TestMapGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String().AlphaNum(), specta.Float64(0.0, 1.0)).NonEmpty()
 			value := specta.Draw(t, gen, "value")
-			if len(value) == 0 {
-				t.Errorf("generated empty map")
-			}
+			specta.AssertThat(t, int64(len(value)), specta.GreaterThan(int64(0)))
 		}, specta.MaxTests(100))
 	})
 
@@ -883,12 +820,11 @@ func TestMapGenerator(t *testing.T) {
 			)
 			value := specta.Draw(t, gen, "value")
 			for k, v := range value {
-				if !strings.HasPrefix(k, "key_") {
-					t.Errorf("key %q doesn't have prefix 'key_'", k)
-				}
-				if v < 1 || v > 10 {
-					t.Errorf("value %d outside range [1, 10]", v)
-				}
+				specta.AssertThat(t, k, specta.HasPrefix("key_"))
+				specta.AssertThat(t, v, specta.AllOf(
+					specta.GreaterThanOrEqual(int64(1)),
+					specta.Not(specta.GreaterThan(int64(10))),
+				))
 			}
 		}, specta.MaxTests(100))
 	})
@@ -921,9 +857,7 @@ func TestMapGenerator(t *testing.T) {
 		}, specta.MaxTests(200))
 
 		// Should see at least a few different sizes
-		if len(sizes) < 3 {
-			t.Errorf("only saw %d different sizes, expected more variety", len(sizes))
-		}
+		specta.AssertThat(t, int64(len(sizes)), specta.GreaterThanOrEqual(int64(3)))
 	})
 
 	t.Run("Filter works on maps", func(t *testing.T) {
@@ -942,10 +876,8 @@ func TestMapGenerator(t *testing.T) {
 			}), "value")
 
 			// Verify filter condition holds
-			for k, v := range value {
-				if v%2 != 0 {
-					t.Errorf("filter should ensure all values are even, but %s=%d is odd", k, v)
-				}
+			for _, v := range value {
+				specta.AssertThat(t, v%2, specta.Equal(int64(0)))
 			}
 		}, specta.MaxTests(100))
 	})
@@ -960,9 +892,7 @@ func TestMapGenerator(t *testing.T) {
 			value := specta.Draw(t, gen, "value")
 
 			// Should generate a map, possibly smaller than MaxLen due to collisions
-			if len(value) > 6 {
-				t.Errorf("map has %d entries but only 6 unique keys possible", len(value))
-			}
+			specta.AssertThat(t, int64(len(value)), specta.Not(specta.GreaterThan(int64(6))))
 		}, specta.MaxTests(100))
 	})
 }
@@ -1040,9 +970,9 @@ func TestChoiceGenerator(t *testing.T) {
 			}
 		}, specta.Seed(12345), specta.MaxTests(300))
 
-		if !seen["small"] || !seen["medium"] || !seen["large"] {
-			t.Errorf("didn't see all alternatives: %v", seen)
-		}
+		specta.AssertThat(t, seen["small"], specta.IsTrue())
+		specta.AssertThat(t, seen["medium"], specta.IsTrue())
+		specta.AssertThat(t, seen["large"], specta.IsTrue())
 	})
 
 	t.Run("weighted choices respect weights", func(t *testing.T) {
@@ -1085,9 +1015,9 @@ func TestChoiceGenerator(t *testing.T) {
 			}
 		}, specta.Seed(99), specta.MaxTests(300))
 
-		if !seen["small"] || !seen["medium"] || !seen["large"] {
-			t.Errorf("Or chaining didn't produce all alternatives: %v", seen)
-		}
+		specta.AssertThat(t, seen["small"], specta.IsTrue())
+		specta.AssertThat(t, seen["medium"], specta.IsTrue())
+		specta.AssertThat(t, seen["large"], specta.IsTrue())
 	})
 
 	t.Run("Filter integration", func(t *testing.T) {
@@ -1244,9 +1174,10 @@ func TestOptionalGenerator(t *testing.T) {
 		specta.Property(t, func(pt *specta.T) {
 			value := specta.Draw(pt, specta.Optional(specta.Int().Range(10, 20)), "value")
 			if value != nil {
-				if *value < 10 || *value > 20 {
-					t.Errorf("value out of range: %d", *value)
-				}
+				specta.AssertThat(pt, *value, specta.AllOf(
+					specta.GreaterThanOrEqual(int64(10)),
+					specta.Not(specta.GreaterThan(int64(20))),
+				))
 			}
 		}, specta.Seed(555), specta.MaxTests(100))
 	})
@@ -1272,18 +1203,14 @@ func TestOptionalGenerator(t *testing.T) {
 	t.Run("probability 0 always nil", func(t *testing.T) {
 		specta.Property(t, func(pt *specta.T) {
 			value := specta.Draw(pt, specta.Optional(specta.Int(), 0.0), "value")
-			if value != nil {
-				t.Errorf("expected nil with probability 0, got %v", *value)
-			}
+			specta.AssertThat(pt, value == nil, specta.IsTrue())
 		}, specta.Seed(666), specta.MaxTests(100))
 	})
 
 	t.Run("probability 1 always present", func(t *testing.T) {
 		specta.Property(t, func(pt *specta.T) {
 			value := specta.Draw(pt, specta.Optional(specta.Int(), 1.0), "value")
-			if value == nil {
-				t.Error("expected value with probability 1, got nil")
-			}
+			specta.AssertThat(pt, value != nil, specta.IsTrue())
 		}, specta.Seed(888), specta.MaxTests(100))
 	})
 }
@@ -1305,12 +1232,11 @@ func TestPairGenerator(t *testing.T) {
 			var _ = pair.B // string
 
 			// Constraint checks
-			if pair.A < 1 || pair.A > 100 {
-				t.Errorf("A out of range: %d", pair.A)
-			}
-			if len(pair.B) > 10 {
-				t.Errorf("B too long: %d", len(pair.B))
-			}
+			specta.AssertThat(pt, pair.A, specta.AllOf(
+				specta.GreaterThanOrEqual(int64(1)),
+				specta.Not(specta.GreaterThan(int64(100))),
+			))
+			specta.AssertThat(pt, int64(len(pair.B)), specta.Not(specta.GreaterThan(int64(10))))
 		}, specta.Seed(111), specta.MaxTests(100))
 	})
 
@@ -1322,9 +1248,10 @@ func TestPairGenerator(t *testing.T) {
 				specta.Optional(specta.String()),
 			), "nested_pair")
 
-			if pair.A < 1 || pair.A > 10 {
-				t.Errorf("A out of range: %d", pair.A)
-			}
+			specta.AssertThat(pt, pair.A, specta.AllOf(
+				specta.GreaterThanOrEqual(int64(1)),
+				specta.Not(specta.GreaterThan(int64(10))),
+			))
 			// B is *string, can be nil or non-nil
 		}, specta.Seed(222), specta.MaxTests(50))
 	})
@@ -1345,12 +1272,11 @@ func TestTripleGenerator(t *testing.T) {
 			var _ = triple.C // bool
 
 			// Constraint checks
-			if triple.A < 1 || triple.A > 100 {
-				t.Errorf("A out of range: %d", triple.A)
-			}
-			if len(triple.B) > 10 {
-				t.Errorf("B too long: %d", len(triple.B))
-			}
+			specta.AssertThat(pt, triple.A, specta.AllOf(
+				specta.GreaterThanOrEqual(int64(1)),
+				specta.Not(specta.GreaterThan(int64(100))),
+			))
+			specta.AssertThat(pt, int64(len(triple.B)), specta.Not(specta.GreaterThan(int64(10))))
 		}, specta.Seed(333), specta.MaxTests(100))
 	})
 
@@ -1362,15 +1288,18 @@ func TestTripleGenerator(t *testing.T) {
 				specta.Float64(0, 10000),  // altitude
 			), "coords")
 
-			if coords3d.A < -180 || coords3d.A > 180 {
-				t.Errorf("longitude out of range: %f", coords3d.A)
-			}
-			if coords3d.B < -90 || coords3d.B > 90 {
-				t.Errorf("latitude out of range: %f", coords3d.B)
-			}
-			if coords3d.C < 0 || coords3d.C > 10000 {
-				t.Errorf("altitude out of range: %f", coords3d.C)
-			}
+			specta.AssertThat(pt, coords3d.A, specta.AllOf(
+				specta.GreaterThanOrEqual(-180.0),
+				specta.Not(specta.GreaterThan(180.0)),
+			))
+			specta.AssertThat(pt, coords3d.B, specta.AllOf(
+				specta.GreaterThanOrEqual(-90.0),
+				specta.Not(specta.GreaterThan(90.0)),
+			))
+			specta.AssertThat(pt, coords3d.C, specta.AllOf(
+				specta.GreaterThanOrEqual(0.0),
+				specta.Not(specta.GreaterThan(10000.0)),
+			))
 		}, specta.Seed(444), specta.MaxTests(100))
 	})
 }
