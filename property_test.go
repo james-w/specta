@@ -373,10 +373,38 @@ func TestProperty_HighSkipRate(t *testing.T) {
 		}
 	}, specta.MaxTests(100), specta.Seed(12345))
 
-	// Should have a warning about high skip rate
+	// Should have a warning about high skip rate in logs (not errors)
+	if len(spy.Logs) == 0 {
+		t.Fatal("Expected skip rate warning in logs but got none")
+	}
+	if !strings.Contains(spy.Logs[0], "Warning: ") {
+		t.Errorf("Expected warning message in logs, got: %s", spy.Logs[0])
+	}
+	// Verify it's NOT in errors (should be a log, not error)
 	if len(spy.Errors) > 0 {
-		t.Logf("Warning message: %s", spy.Errors[0])
-	} else {
-		t.Error("Expected warning about high skip rate")
+		t.Errorf("Expected no errors but got: %v", spy.Errors)
+	}
+}
+
+func TestProperty_SkipRateBoundary(t *testing.T) {
+	spy := &testlib.Spy{}
+
+	specta.Property(spy, func(pt *specta.T) {
+		x := specta.Draw(pt, specta.Int().Range(0, 99), "x")
+
+		// Skip ~50% of the time (well below 90% threshold - should NOT warn)
+		pt.Assume(x < 50)
+
+		if x >= 50 {
+			pt.Errorf("Should not happen")
+		}
+	}, specta.MaxTests(100), specta.Seed(99999))
+
+	// Should NOT have a warning (skip rate well below 90%)
+	if len(spy.Logs) > 0 {
+		t.Errorf("Expected no warning for low skip rate, but got: %v", spy.Logs)
+	}
+	if len(spy.Errors) > 0 {
+		t.Errorf("Expected no errors but got: %v", spy.Errors)
 	}
 }

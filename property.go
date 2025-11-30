@@ -49,6 +49,10 @@ func (t *T) Fatalf(format string, args ...any) {
 // This is a no-op for property testing but satisfies the TestingT interface.
 func (t *T) Helper() {}
 
+// Logf logs a message.
+// This is a no-op for property testing but satisfies the TestingT interface.
+func (t *T) Logf(format string, args ...any) {}
+
 // Assume skips the current property test iteration if the condition is false.
 // This is useful for filtering generated values that don't meet preconditions.
 // Property will track how many tests were skipped and warn if the skip rate is high.
@@ -197,10 +201,10 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 	if tested == 0 {
 		t.Errorf("All %d property test attempts were skipped - no tests actually ran! Check your generators and constraints.",
 			skipped)
-	} else if tested > 0 {
+	} else {
 		skipRate := float64(skipped) / float64(skipped+tested) * 100
 		if skipRate > 90 {
-			t.Errorf("Warning: %.1f%% of property tests were skipped (%d/%d). Consider narrowing your generator or using Filter().",
+			t.Logf("Warning: %.1f%% of property tests were skipped (%d/%d). Consider narrowing your generator or using Filter().",
 				skipRate, skipped, skipped+tested)
 		}
 	}

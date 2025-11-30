@@ -35,6 +35,7 @@ func (f MatcherFunc[T]) Matches(actual T) MatchResult {
 type TestingT interface {
 	Helper()
 	Errorf(format string, args ...interface{})
+	Logf(format string, args ...interface{})
 }
 
 // AssertThat checks if actual matches the given matcher, failing the test if not.
