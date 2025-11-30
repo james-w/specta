@@ -21,9 +21,10 @@ func TestAssumeSkipsIteration(t *testing.T) {
 	}, specta.MaxTests(100))
 
 	// Should have executed about 50% of tests (n > 5)
-	if testExecuted < 30 || testExecuted > 70 {
-		t.Errorf("expected ~50%% execution, got %d/%d", testExecuted, totalAttempts)
-	}
+	specta.AssertThat(t, testExecuted, specta.AllOf(
+		specta.GreaterThanOrEqual(30),
+		specta.Not(specta.GreaterThan(70)),
+	))
 }
 
 // TestFilterWithHighPassRate tests Filter with a predicate that passes frequently
@@ -35,9 +36,7 @@ func TestFilterWithHighPassRate(t *testing.T) {
 		}), "n")
 
 		// Verify it's even
-		if n%2 != 0 {
-			t.Errorf("expected even number but got %d", n)
-		}
+		specta.AssertThat(t, n%2, specta.Equal(int64(0)))
 	}, specta.MaxTests(50))
 }
 
@@ -51,9 +50,7 @@ func TestFilterWithLowPassRate(t *testing.T) {
 		}), "n")
 
 		// If we get here, n should be prime
-		if !isPrime(int(n)) {
-			t.Errorf("expected prime but got %d", n)
-		}
+		specta.AssertThat(t, isPrime(int(n)), specta.IsTrue())
 	}, specta.MaxTests(20))
 
 	// Filter should eventually find primes, but may skip some iterations
@@ -68,9 +65,7 @@ func TestStringFilter(t *testing.T) {
 		}), "s")
 
 		// Should contain 'a' or 'A'
-		if !strings.Contains(s, "a") && !strings.Contains(s, "A") {
-			t.Errorf("expected string to contain 'a' or 'A', got %q", s)
-		}
+		specta.AssertThat(t, strings.Contains(s, "a") || strings.Contains(s, "A"), specta.IsTrue())
 
 		// Should be alphanumeric
 		for _, r := range s {
@@ -96,15 +91,13 @@ func TestAssumeWithMultipleConditions(t *testing.T) {
 		executedCount++
 
 		// If we get here, all assumptions hold
-		if x <= 50 || y >= 50 || x+y <= 60 {
-			t.Errorf("assumptions violated: x=%d, y=%d", x, y)
-		}
+		specta.AssertThat(t, x, specta.GreaterThan(int64(50)))
+		specta.AssertThat(t, y, specta.LessThan(int64(50)))
+		specta.AssertThat(t, x+y, specta.GreaterThan(int64(60)))
 	}, specta.MaxTests(100))
 
 	// Should have executed some tests (maybe 10-20%)
-	if executedCount == 0 {
-		t.Error("no tests executed - assumptions too restrictive")
-	}
+	specta.AssertThat(t, executedCount, specta.GreaterThan(0))
 }
 
 // TestFilterComposition tests chaining Filter with other constraints
@@ -114,12 +107,11 @@ func TestFilterComposition(t *testing.T) {
 			return x%3 == 0 // divisible by 3
 		}), "n")
 
-		if n < 10 || n > 50 {
-			t.Errorf("expected n in [10, 50], got %d", n)
-		}
-		if n%3 != 0 {
-			t.Errorf("expected n divisible by 3, got %d", n)
-		}
+		specta.AssertThat(t, n, specta.AllOf(
+			specta.GreaterThanOrEqual(int64(10)),
+			specta.Not(specta.GreaterThan(int64(50))),
+		))
+		specta.AssertThat(t, n%3, specta.Equal(int64(0)))
 	}, specta.MaxTests(30))
 }
 

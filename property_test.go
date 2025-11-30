@@ -18,9 +18,7 @@ func TestSource(t *testing.T) {
 		bits1 := s1.DrawBits(32)
 		bits2 := s2.DrawBits(32)
 
-		if bits1 != bits2 {
-			t.Errorf("expected same bits, got %d and %d", bits1, bits2)
-		}
+		specta.AssertThat(t, bits1, specta.Equal(bits2))
 	})
 
 	t.Run("different seeds produce different bytes", func(t *testing.T) {
@@ -30,9 +28,7 @@ func TestSource(t *testing.T) {
 		bits1 := s1.DrawBits(32)
 		bits2 := s2.DrawBits(32)
 
-		if bits1 == bits2 {
-			t.Errorf("expected different bits, got same: %d", bits1)
-		}
+		specta.AssertThat(t, bits1, specta.Not(specta.Equal(bits2)))
 	})
 
 	t.Run("can replay from data", func(t *testing.T) {
@@ -57,18 +53,14 @@ func TestSource(t *testing.T) {
 		s.EnableLogging()
 		s.WriteLog("test message")
 
-		if !strings.Contains(s.Log(), "test message") {
-			t.Errorf("expected log to contain 'test message', got: %s", s.Log())
-		}
+		specta.AssertThat(t, s.Log(), specta.Contains("test message"))
 	})
 
 	t.Run("logging disabled by default", func(t *testing.T) {
 		s := specta.NewSource(12345)
 		s.WriteLog("test message")
 
-		if s.Log() != "" {
-			t.Errorf("expected empty log, got: %s", s.Log())
-		}
+		specta.AssertThat(t, s.Log(), specta.Equal(""))
 	})
 }
 
@@ -90,9 +82,10 @@ func TestIntGenerator(t *testing.T) {
 			pt := &specta.T{Data: data}
 
 			value := specta.Draw(pt, specta.Int().Range(0, 10), "value")
-			if value < 0 || value > 10 {
-				t.Errorf("value %d out of range [0, 10]", value)
-			}
+			specta.AssertThat(t, value, specta.AllOf(
+				specta.GreaterThanOrEqual(int64(0)),
+				specta.Not(specta.GreaterThan(int64(10))),
+			))
 		}
 	})
 
@@ -105,9 +98,7 @@ func TestIntGenerator(t *testing.T) {
 		v1 := specta.Draw(pt1, specta.Int(), "v1")
 		v2 := specta.Draw(pt2, specta.Int(), "v2")
 
-		if v1 != v2 {
-			t.Errorf("expected same values, got %d and %d", v1, v2)
-		}
+		specta.AssertThat(t, v1, specta.Equal(v2))
 	})
 
 	t.Run("logs when enabled", func(t *testing.T) {
@@ -133,9 +124,7 @@ func TestIntGenerator(t *testing.T) {
 			pt := &specta.T{Data: data}
 
 			value := specta.Draw(pt, specta.Int().Range(42, 42), "value")
-			if value != 42 {
-				t.Errorf("expected 42, got %d", value)
-			}
+			specta.AssertThat(t, value, specta.Equal(int64(42)))
 		}
 	})
 }
@@ -151,9 +140,7 @@ func TestPropertyBasics(t *testing.T) {
 			specta.AssertThat(t, x+0, specta.Equal(x))
 		}, specta.MaxTests(10))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("expected property to pass, but it failed: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 
 	t.Run("failing property detected", func(t *testing.T) {
@@ -167,9 +154,7 @@ func TestPropertyBasics(t *testing.T) {
 			}
 		}, specta.MaxTests(100))
 
-		if len(spy.Errors) == 0 {
-			t.Error("expected property to fail, but it passed")
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(0))
 	})
 
 	t.Run("seed reproduction", func(t *testing.T) {
@@ -201,9 +186,7 @@ func TestPropertyBasics(t *testing.T) {
 			}
 		}, specta.Seed(failingSeed), specta.MaxTests(100))
 
-		if len(spy2.Errors) == 0 {
-			t.Error("expected property to fail with same seed")
-		}
+		specta.AssertThat(t, len(spy2.Errors), specta.GreaterThan(0))
 	})
 
 	t.Run("range constraints work in properties", func(t *testing.T) {
@@ -217,9 +200,7 @@ func TestPropertyBasics(t *testing.T) {
 			}
 		}, specta.MaxTests(100))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("expected property to pass: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 }
 
@@ -244,9 +225,7 @@ func TestPropertyShrinking(t *testing.T) {
 		// Check that error message contains the failure
 		// Shrinking should have found a small negative value
 		errorMsg := strings.Join(spy.Errors, "\n")
-		if !strings.Contains(errorMsg, "Property Test Failed") {
-			t.Errorf("expected failure message, got: %s", errorMsg)
-		}
+		specta.AssertThat(t, errorMsg, specta.Contains("Property Test Failed"))
 	})
 }
 
@@ -262,9 +241,7 @@ func TestPropertyWithMatchers(t *testing.T) {
 			specta.AssertThat(t, x+y, specta.Equal(y+x))
 		}, specta.MaxTests(50))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("commutative property should pass: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 
 	t.Run("works with comparison matchers", func(t *testing.T) {
@@ -276,9 +253,7 @@ func TestPropertyWithMatchers(t *testing.T) {
 			specta.AssertThat(t, x, specta.GreaterThanOrEqual(int64(0)))
 		}, specta.MaxTests(50))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("property should pass: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 }
 
@@ -291,7 +266,8 @@ func TestSpecTaImplementsTestingT(t *testing.T) {
 func TestPropertyPanics(t *testing.T) {
 	t.Run("unexpected panic propagates", func(t *testing.T) {
 		defer func() {
-			if r := recover(); r == nil {
+			r := recover()
+			if r == nil {
 				t.Error("expected panic to propagate")
 			} else if r != "unexpected panic" {
 				t.Errorf("expected 'unexpected panic', got: %v", r)
@@ -323,10 +299,9 @@ func TestProperty_AllSkipped(t *testing.T) {
 	// Should have an error about all tests being skipped
 	if len(spy.Errors) == 0 {
 		t.Error("Expected error about all tests being skipped")
+		return
 	}
-	if len(spy.Errors) > 0 && !contains(spy.Errors[0], "All") && !contains(spy.Errors[0], "skipped") {
-		t.Errorf("Expected error about all tests being skipped, got: %s", spy.Errors[0])
-	}
+	specta.AssertThat(t, contains(spy.Errors[0], "All") || contains(spy.Errors[0], "skipped"), specta.IsTrue())
 }
 
 func contains(s, substr string) bool {
@@ -351,11 +326,11 @@ func TestProperty_AllSkipped_Message(t *testing.T) {
 	}, specta.MaxTests(10))
 
 	// Print the actual error to verify
-	if len(spy.Errors) > 0 {
-		t.Logf("Error message: %s", spy.Errors[0])
-	} else {
+	if len(spy.Errors) == 0 {
 		t.Error("Expected error about all tests being skipped")
+		return
 	}
+	t.Logf("Error message: %s", spy.Errors[0])
 }
 
 func TestProperty_HighSkipRate(t *testing.T) {
@@ -377,13 +352,9 @@ func TestProperty_HighSkipRate(t *testing.T) {
 	if len(spy.Logs) == 0 {
 		t.Fatal("Expected skip rate warning in logs but got none")
 	}
-	if !strings.Contains(spy.Logs[0], "Warning: ") {
-		t.Errorf("Expected warning message in logs, got: %s", spy.Logs[0])
-	}
+	specta.AssertThat(t, spy.Logs[0], specta.Contains("Warning: "))
 	// Verify it's NOT in errors (should be a log, not error)
-	if len(spy.Errors) > 0 {
-		t.Errorf("Expected no errors but got: %v", spy.Errors)
-	}
+	specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 }
 
 func TestProperty_SkipRateBoundary(t *testing.T) {
@@ -401,10 +372,6 @@ func TestProperty_SkipRateBoundary(t *testing.T) {
 	}, specta.MaxTests(100), specta.Seed(99999))
 
 	// Should NOT have a warning (skip rate well below 90%)
-	if len(spy.Logs) > 0 {
-		t.Errorf("Expected no warning for low skip rate, but got: %v", spy.Logs)
-	}
-	if len(spy.Errors) > 0 {
-		t.Errorf("Expected no errors but got: %v", spy.Errors)
-	}
+	specta.AssertThat(t, len(spy.Logs), specta.Equal(0))
+	specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 }

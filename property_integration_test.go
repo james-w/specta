@@ -21,14 +21,10 @@ func TestPropertyIntegration_SimpleGenerators(t *testing.T) {
 			// String concatenation length property
 			combined := id + str
 			expectedLen := len(id) + len(str)
-			if len(combined) != expectedLen {
-				t.Errorf("concatenation length wrong: got %d, expected %d", len(combined), expectedLen)
-			}
+			specta.AssertThat(t, len(combined), specta.Equal(expectedLen))
 		}, specta.MaxTests(50))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("property should pass: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 
 	t.Run("Generators are deterministic with same seed", func(t *testing.T) {
@@ -45,14 +41,9 @@ func TestPropertyIntegration_SimpleGenerators(t *testing.T) {
 			ids2 = append(ids2, id)
 		}, specta.Seed(12345), specta.MaxTests(5))
 
-		if len(ids1) != len(ids2) {
-			t.Errorf("different number of IDs generated")
-		}
-
+		specta.AssertThat(t, len(ids1), specta.Equal(len(ids2)))
 		for i := range ids1 {
-			if ids1[i] != ids2[i] {
-				t.Errorf("ID %d differs: %s vs %s", i, ids1[i], ids2[i])
-			}
+			specta.AssertThat(t, ids1[i], specta.Equal(ids2[i]))
 		}
 	})
 }
@@ -74,9 +65,7 @@ func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 			}, specta.Seed(seed), specta.MaxTests(100))
 		}
 
-		if !foundEmpty {
-			t.Error("Generators should eventually generate empty strings")
-		}
+		specta.AssertThat(t, foundEmpty, specta.IsTrue())
 	})
 
 	t.Run("finds negative integers", func(t *testing.T) {
@@ -89,9 +78,7 @@ func TestPropertyIntegration_FullSpaceExploration(t *testing.T) {
 			}
 		}, specta.MaxTests(100))
 
-		if !foundNegative {
-			t.Error("Generators should generate negative integers")
-		}
+		specta.AssertThat(t, foundNegative, specta.IsTrue())
 	})
 }
 
@@ -107,14 +94,10 @@ func TestPropertyIntegration_RandomValues(t *testing.T) {
 			id2 := specta.Draw(t, specta.String().MinLen(8), "id2")
 
 			// With sufficiently long random strings, collision is extremely unlikely
-			if id1 == id2 {
-				t.Errorf("got duplicate random IDs (extremely unlikely): %s", id1)
-			}
+			specta.AssertThat(t, id1, specta.Not(specta.Equal(id2)))
 		}, specta.MaxTests(50))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("property should pass: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 
 	t.Run("values are different across iterations", func(t *testing.T) {
@@ -137,9 +120,7 @@ func TestPropertyIntegration_RandomValues(t *testing.T) {
 			}
 		}, specta.MaxTests(1), specta.Seed(54321))
 
-		if firstID == secondID {
-			t.Error("expected different IDs from different seeds")
-		}
+		specta.AssertThat(t, firstID, specta.Not(specta.Equal(secondID)))
 	})
 }
 
@@ -157,9 +138,7 @@ func TestPropertyIntegration_PropertyExample(t *testing.T) {
 			specta.AssertThat(t, a+b, specta.Equal(b+a))
 		}, specta.MaxTests(100))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("commutative property should always hold: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 
 	t.Run("string concatenation property", func(t *testing.T) {
@@ -174,8 +153,6 @@ func TestPropertyIntegration_PropertyExample(t *testing.T) {
 			specta.AssertThat(t, len(combined), specta.Equal(len(s1)+len(s2)))
 		}, specta.MaxTests(100))
 
-		if len(spy.Errors) > 0 {
-			t.Errorf("concatenation property should hold: %v", spy.Errors)
-		}
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
 	})
 }
