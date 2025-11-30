@@ -650,3 +650,199 @@ func URL() Gen[string] {
 func UUIDString() Gen[string] {
 	return UUID()
 }
+
+// =============================================================================
+// Choice Generator (OneOf combinator)
+// =============================================================================
+
+// ChoiceGenerator provides fluent API for choosing between alternative generators
+type ChoiceGenerator[T any] struct {
+	alternatives []Gen[T]
+	weights      []int // nil = uniform, non-nil = weighted
+}
+
+// Choice creates a generator that chooses uniformly from the given alternatives.
+// Earlier alternatives are preferred during shrinking.
+//
+// Example:
+//
+//	gen := specta.Choice(
+//	    specta.Int().Range(1, 10),
+//	    specta.Int().Range(100, 200),
+//	)
+func Choice[T any](gens ...Gen[T]) *ChoiceGenerator[T] {
+	if len(gens) == 0 {
+		panic("Choice requires at least one generator")
+	}
+	// Validate no nil generators
+	for i, gen := range gens {
+		if gen == nil {
+			panic(fmt.Sprintf("Choice: generator at index %d is nil", i))
+		}
+	}
+	return &ChoiceGenerator[T]{alternatives: gens}
+}
+
+// Or adds another alternative with equal weight
+func (g *ChoiceGenerator[T]) Or(gen Gen[T]) *ChoiceGenerator[T] {
+	if gen == nil {
+		panic("Choice.Or: generator cannot be nil")
+	}
+	g.alternatives = append(g.alternatives, gen)
+	if g.weights != nil {
+		g.weights = append(g.weights, 1) // default weight
+	}
+	return g
+}
+
+// OrWeighted adds an alternative with a specific weight.
+// The first call to OrWeighted converts to weighted mode (existing alternatives get weight 1).
+//
+// Example:
+//
+//	// 90% small numbers, 10% large numbers
+//	gen := specta.Choice(specta.Int().Range(1, 10)).
+//	    OrWeighted(specta.Int().Range(100, 200), 1)
+func (g *ChoiceGenerator[T]) OrWeighted(gen Gen[T], weight int) *ChoiceGenerator[T] {
+	if gen == nil {
+		panic("Choice.OrWeighted: generator cannot be nil")
+	}
+	if weight <= 0 {
+		panic(fmt.Sprintf("weight must be positive, got %d", weight))
+	}
+
+	// Lazy initialization: first weighted call converts to weighted mode
+	if g.weights == nil {
+		g.weights = make([]int, len(g.alternatives))
+		for i := range g.weights {
+			g.weights[i] = 1 // existing alternatives get weight 1
+		}
+	}
+
+	g.alternatives = append(g.alternatives, gen)
+	g.weights = append(g.weights, weight)
+	return g
+}
+
+// Draw implements Gen[T]
+func (g *ChoiceGenerator[T]) Draw(d conjecture.DataSource) (T, error) {
+	if g.weights == nil {
+		// Uniform: delegate to conjecture.OneOf
+		return conjecture.OneOf(g.alternatives...).Draw(d)
+	}
+
+	// Weighted: delegate to conjecture.Frequency
+	weighted := make([]conjecture.WeightedGen[T], len(g.alternatives))
+	for i, gen := range g.alternatives {
+		weighted[i] = conjecture.WeightedGen[T]{
+			Weight: g.weights[i],
+			Gen:    gen,
+		}
+	}
+	return conjecture.Frequency(weighted...).Draw(d)
+}
+
+// String implements Gen[T]
+func (g *ChoiceGenerator[T]) String() string {
+	if g.weights == nil {
+		return fmt.Sprintf("Choice(%d alternatives)", len(g.alternatives))
+	}
+	return fmt.Sprintf("Choice(%d weighted alternatives)", len(g.alternatives))
+}
+
+// Filter returns a generator that only produces values satisfying the predicate
+func (g *ChoiceGenerator[T]) Filter(pred func(T) bool) Gen[T] {
+	return conjecture.Filter(g, pred)
+}
+
+// =============================================================================
+// Optional Generator (Optional combinator)
+// =============================================================================
+
+// Optional returns a generator that produces either a value or nil (pointer with optional probability).
+// Returns a pointer: nil for no value, *T for a value.
+//
+// By default, generates present values 80% of the time (matching conjecture.Optional).
+// Pass a custom probability to override:
+//
+//	specta.Optional(gen)       // 80% present
+//	specta.Optional(gen, 0.5)  // 50% present
+//	specta.Optional(gen, 0.2)  // 20% present (rare)
+//	specta.Optional(gen, 0.95) // 95% present (common)
+func Optional[T any](gen Gen[T], presentProbability ...float64) Gen[*T] {
+	if gen == nil {
+		panic("Optional: generator cannot be nil")
+	}
+	if len(presentProbability) > 1 {
+		panic(fmt.Sprintf("Optional: expected at most 1 probability argument, got %d", len(presentProbability)))
+	}
+	p := 0.8 // default
+	if len(presentProbability) > 0 {
+		p = presentProbability[0]
+		if p < 0 || p > 1 {
+			panic(fmt.Sprintf("presentProbability must be in [0, 1], got %f", p))
+		}
+	}
+
+	return conjecture.Build(fmt.Sprintf("Optional(p=%.2f)", p), func(d conjecture.DataSource) (*T, error) {
+		present, err := d.DrawBoolean(p)
+		if err != nil {
+			return nil, err
+		}
+		if !present {
+			return nil, nil
+		}
+		v, err := gen.Draw(d)
+		if err != nil {
+			return nil, err
+		}
+		return &v, nil
+	})
+}
+
+// =============================================================================
+// Tuple Generators
+// =============================================================================
+
+// Pair generates a tuple of two values.
+// Returns a struct with fields A and B.
+//
+// Example:
+//
+//	coords := specta.Pair(
+//	    specta.Float64(-180, 180),  // longitude
+//	    specta.Float64(-90, 90),    // latitude
+//	)
+//	pair := specta.Draw(pt, coords, "coords")
+//	lon := pair.A  // float64
+//	lat := pair.B  // float64
+func Pair[A, B any](ga Gen[A], gb Gen[B]) Gen[struct {
+	A A
+	B B
+}] {
+	if ga == nil || gb == nil {
+		panic("Pair: generators cannot be nil")
+	}
+	return conjecture.Tuple2(ga, gb)
+}
+
+// Triple generates a tuple of three values.
+// Returns a struct with fields A, B, and C.
+//
+// Example:
+//
+//	coords3d := specta.Triple(
+//	    specta.Float64(-180, 180),  // longitude
+//	    specta.Float64(-90, 90),    // latitude
+//	    specta.Float64(0, 10000),   // altitude
+//	)
+func Triple[A, B, C any](ga Gen[A], gb Gen[B], gc Gen[C]) Gen[struct {
+	A A
+	B B
+	C C
+}] {
+	if ga == nil || gb == nil || gc == nil {
+		panic("Triple: generators cannot be nil")
+	}
+	return conjecture.Tuple3(ga, gb, gc)
+}

@@ -1013,3 +1013,364 @@ func TestMapGenerator_Deterministic(t *testing.T) {
 		})
 	*/
 }
+
+// =============================================================================
+// Choice Generator Tests
+// =============================================================================
+
+func TestChoiceGenerator(t *testing.T) {
+	t.Run("generates from all alternatives", func(t *testing.T) {
+		seen := make(map[string]bool)
+		specta.Property(t, func(pt *specta.T) {
+			gen := specta.Choice(
+				specta.Int().Range(1, 10),
+				specta.Int().Range(100, 200),
+				specta.Int().Range(1000, 2000),
+			)
+			value := specta.Draw(pt, gen, "value")
+
+			// Categorize by range
+			switch {
+			case value >= 1 && value <= 10:
+				seen["small"] = true
+			case value >= 100 && value <= 200:
+				seen["medium"] = true
+			case value >= 1000 && value <= 2000:
+				seen["large"] = true
+			}
+		}, specta.Seed(12345), specta.MaxTests(300))
+
+		if !seen["small"] || !seen["medium"] || !seen["large"] {
+			t.Errorf("didn't see all alternatives: %v", seen)
+		}
+	})
+
+	t.Run("weighted choices respect weights", func(t *testing.T) {
+		counts := make(map[string]int)
+		specta.Property(t, func(pt *specta.T) {
+			// 9:1 ratio - 90% large, 10% small
+			gen := specta.Choice(specta.Int().Range(1, 10)).
+				OrWeighted(specta.Int().Range(100, 200), 9)
+
+			value := specta.Draw(pt, gen, "value")
+			if value >= 1 && value <= 10 {
+				counts["small"]++
+			} else {
+				counts["large"]++
+			}
+		}, specta.Seed(42), specta.MaxTests(1000))
+
+		// With 1:9 ratio, expect ~100 small, ~900 large (allow 30% tolerance)
+		if counts["small"] < 50 || counts["small"] > 200 {
+			t.Errorf("weighted distribution skewed: small=%d, large=%d (expected ~100 small)",
+				counts["small"], counts["large"])
+		}
+	})
+
+	t.Run("Or chaining works", func(t *testing.T) {
+		seen := make(map[string]bool)
+		specta.Property(t, func(pt *specta.T) {
+			gen := specta.Choice(specta.Int().Range(1, 10)).
+				Or(specta.Int().Range(100, 200)).
+				Or(specta.Int().Range(1000, 2000))
+
+			value := specta.Draw(pt, gen, "value")
+			switch {
+			case value >= 1 && value <= 10:
+				seen["small"] = true
+			case value >= 100 && value <= 200:
+				seen["medium"] = true
+			case value >= 1000 && value <= 2000:
+				seen["large"] = true
+			}
+		}, specta.Seed(99), specta.MaxTests(300))
+
+		if !seen["small"] || !seen["medium"] || !seen["large"] {
+			t.Errorf("Or chaining didn't produce all alternatives: %v", seen)
+		}
+	})
+
+	t.Run("Filter integration", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			gen := specta.Choice(
+				specta.Int().Range(0, 100),
+				specta.Int().Range(1000, 2000),
+			).Filter(func(n int64) bool { return n%2 == 0 })
+
+			value := specta.Draw(pt, gen, "value")
+			specta.AssertThat(pt, value%2, specta.Equal(int64(0)))
+		}, specta.Seed(777), specta.MaxTests(100))
+	})
+
+	t.Run("mixing Or and OrWeighted", func(t *testing.T) {
+		counts := make(map[string]int)
+		specta.Property(t, func(pt *specta.T) {
+			// First with Or (weight 1), second with Or (weight 1), third with OrWeighted (weight 8)
+			// Expected ratio: 1:1:8 (10% small, 10% medium, 80% large)
+			gen := specta.Choice(specta.Int().Range(1, 10)).
+				Or(specta.Int().Range(50, 60)).
+				OrWeighted(specta.Int().Range(100, 200), 8)
+
+			value := specta.Draw(pt, gen, "value")
+			switch {
+			case value >= 1 && value <= 10:
+				counts["small"]++
+			case value >= 50 && value <= 60:
+				counts["medium"]++
+			case value >= 100 && value <= 200:
+				counts["large"]++
+			}
+		}, specta.Seed(9876), specta.MaxTests(1000))
+
+		// With 1:1:8 ratio, expect ~100 small, ~100 medium, ~800 large (allow 40% tolerance for smaller groups)
+		if counts["small"] < 50 || counts["small"] > 200 {
+			t.Errorf("small distribution skewed: small=%d, medium=%d, large=%d (expected ~100 small)",
+				counts["small"], counts["medium"], counts["large"])
+		}
+		if counts["medium"] < 50 || counts["medium"] > 200 {
+			t.Errorf("medium distribution skewed: small=%d, medium=%d, large=%d (expected ~100 medium)",
+				counts["small"], counts["medium"], counts["large"])
+		}
+		if counts["large"] < 600 || counts["large"] > 900 {
+			t.Errorf("large distribution skewed: small=%d, medium=%d, large=%d (expected ~800 large)",
+				counts["small"], counts["medium"], counts["large"])
+		}
+	})
+
+	t.Run("panics with no generators", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic for Choice with no generators")
+			}
+		}()
+		specta.Choice[int64]()
+	})
+
+	t.Run("panics with zero weight", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic for zero weight")
+			}
+		}()
+		gen := specta.Choice(specta.Int())
+		gen.OrWeighted(specta.Int().Range(100, 200), 0)
+	})
+
+	t.Run("panics with negative weight", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic for negative weight")
+			}
+		}()
+		gen := specta.Choice(specta.Int())
+		gen.OrWeighted(specta.Int().Range(100, 200), -1)
+	})
+}
+
+// =============================================================================
+// Optional Generator Tests
+// =============================================================================
+
+func TestOptionalGenerator(t *testing.T) {
+	t.Run("default probability is 80% present", func(t *testing.T) {
+		present := 0
+		total := 1000
+
+		specta.Property(t, func(pt *specta.T) {
+			value := specta.Draw(pt, specta.Optional(specta.Int()), "value")
+			if value != nil {
+				present++
+			}
+		}, specta.Seed(123), specta.MaxTests(total))
+
+		// Expect ~800 present, allow 15% tolerance (680-920)
+		if present < 680 || present > 920 {
+			t.Errorf("present rate: %d/%d (expected ~800)", present, total)
+		}
+	})
+
+	t.Run("custom probability 30% respected", func(t *testing.T) {
+		present := 0
+		total := 1000
+
+		specta.Property(t, func(pt *specta.T) {
+			value := specta.Draw(pt, specta.Optional(specta.Int(), 0.3), "value")
+			if value != nil {
+				present++
+			}
+		}, specta.Seed(456), specta.MaxTests(total))
+
+		// Expect ~300, allow 20% tolerance (240-360)
+		if present < 240 || present > 360 {
+			t.Errorf("30%% probability: %d/%d (expected ~300)", present, total)
+		}
+	})
+
+	t.Run("rare probability 20% respected", func(t *testing.T) {
+		present := 0
+		total := 1000
+
+		specta.Property(t, func(pt *specta.T) {
+			value := specta.Draw(pt, specta.Optional(specta.Int(), 0.2), "value")
+			if value != nil {
+				present++
+			}
+		}, specta.Seed(789), specta.MaxTests(total))
+
+		// Expect ~200, allow 25% tolerance (150-250)
+		if present < 150 || present > 250 {
+			t.Errorf("20%% probability: %d/%d (expected ~200)", present, total)
+		}
+	})
+
+	t.Run("common probability 95% respected", func(t *testing.T) {
+		present := 0
+		total := 1000
+
+		specta.Property(t, func(pt *specta.T) {
+			value := specta.Draw(pt, specta.Optional(specta.Int(), 0.95), "value")
+			if value != nil {
+				present++
+			}
+		}, specta.Seed(321), specta.MaxTests(total))
+
+		// Expect ~950, allow 5% tolerance (900-980)
+		if present < 900 || present > 980 {
+			t.Errorf("95%% probability: %d/%d (expected ~950)", present, total)
+		}
+	})
+
+	t.Run("generated values respect inner generator constraints", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			value := specta.Draw(pt, specta.Optional(specta.Int().Range(10, 20)), "value")
+			if value != nil {
+				if *value < 10 || *value > 20 {
+					t.Errorf("value out of range: %d", *value)
+				}
+			}
+		}, specta.Seed(555), specta.MaxTests(100))
+	})
+
+	t.Run("panics with probability < 0", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic for probability < 0")
+			}
+		}()
+		specta.Optional(specta.Int(), -0.1)
+	})
+
+	t.Run("panics with probability > 1", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("expected panic for probability > 1")
+			}
+		}()
+		specta.Optional(specta.Int(), 1.5)
+	})
+
+	t.Run("probability 0 always nil", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			value := specta.Draw(pt, specta.Optional(specta.Int(), 0.0), "value")
+			if value != nil {
+				t.Errorf("expected nil with probability 0, got %v", *value)
+			}
+		}, specta.Seed(666), specta.MaxTests(100))
+	})
+
+	t.Run("probability 1 always present", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			value := specta.Draw(pt, specta.Optional(specta.Int(), 1.0), "value")
+			if value == nil {
+				t.Error("expected value with probability 1, got nil")
+			}
+		}, specta.Seed(888), specta.MaxTests(100))
+	})
+}
+
+// =============================================================================
+// Pair and Triple Generator Tests
+// =============================================================================
+
+func TestPairGenerator(t *testing.T) {
+	t.Run("generates pairs with correct types", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			pair := specta.Draw(pt, specta.Pair(
+				specta.Int().Range(1, 100),
+				specta.String().Alpha().MaxLen(10),
+			), "pair")
+
+			// Type checks (compile-time)
+			var _ = pair.A // int64
+			var _ = pair.B // string
+
+			// Constraint checks
+			if pair.A < 1 || pair.A > 100 {
+				t.Errorf("A out of range: %d", pair.A)
+			}
+			if len(pair.B) > 10 {
+				t.Errorf("B too long: %d", len(pair.B))
+			}
+		}, specta.Seed(111), specta.MaxTests(100))
+	})
+
+	t.Run("can nest Pair with other generators", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			// Pair of (int, Maybe[string])
+			pair := specta.Draw(pt, specta.Pair(
+				specta.Int().Range(1, 10),
+				specta.Optional(specta.String()),
+			), "nested_pair")
+
+			if pair.A < 1 || pair.A > 10 {
+				t.Errorf("A out of range: %d", pair.A)
+			}
+			// B is *string, can be nil or non-nil
+		}, specta.Seed(222), specta.MaxTests(50))
+	})
+}
+
+func TestTripleGenerator(t *testing.T) {
+	t.Run("generates triples with correct types", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			triple := specta.Draw(pt, specta.Triple(
+				specta.Int().Range(1, 100),
+				specta.String().Alpha().MaxLen(10),
+				specta.Bool(),
+			), "triple")
+
+			// Type checks (compile-time)
+			var _ = triple.A // int64
+			var _ = triple.B // string
+			var _ = triple.C // bool
+
+			// Constraint checks
+			if triple.A < 1 || triple.A > 100 {
+				t.Errorf("A out of range: %d", triple.A)
+			}
+			if len(triple.B) > 10 {
+				t.Errorf("B too long: %d", len(triple.B))
+			}
+		}, specta.Seed(333), specta.MaxTests(100))
+	})
+
+	t.Run("can use Triple for coordinate generation", func(t *testing.T) {
+		specta.Property(t, func(pt *specta.T) {
+			coords3d := specta.Draw(pt, specta.Triple(
+				specta.Float64(-180, 180), // longitude
+				specta.Float64(-90, 90),   // latitude
+				specta.Float64(0, 10000),  // altitude
+			), "coords")
+
+			if coords3d.A < -180 || coords3d.A > 180 {
+				t.Errorf("longitude out of range: %f", coords3d.A)
+			}
+			if coords3d.B < -90 || coords3d.B > 90 {
+				t.Errorf("latitude out of range: %f", coords3d.B)
+			}
+			if coords3d.C < 0 || coords3d.C > 10000 {
+				t.Errorf("altitude out of range: %f", coords3d.C)
+			}
+		}, specta.Seed(444), specta.MaxTests(100))
+	})
+}
