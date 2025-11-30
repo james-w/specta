@@ -282,7 +282,7 @@ func firstCharFromIntervals(intervals []conjecture.CodepointInterval) rune {
 		return 'A'
 	}
 	// Return Low value of first interval
-	firstChar := rune(intervals[0].Low)
+	firstChar := intervals[0].Low
 	// If the first character is non-printable (< space), use 'A' instead
 	// This handles the default charsetAny case which includes ASCII 0-127
 	if firstChar < ' ' {

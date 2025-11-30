@@ -78,10 +78,7 @@ func TestIntGenerator(t *testing.T) {
 		data := conjecture.NewConjectureData(conjecture.WithSeed(12345))
 		pt := &specta.T{Data: data}
 
-		value, err := specta.Int().Draw(pt.Data)
-		if err != nil {
-			t.Fatalf("generator failed: %v", err)
-		}
+		value := specta.Draw(pt, specta.Int(), "value")
 
 		// Should generate some value (could be any int64)
 		_ = value
@@ -92,10 +89,7 @@ func TestIntGenerator(t *testing.T) {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(12345 + i)))
 			pt := &specta.T{Data: data}
 
-			value, err := specta.Int().Range(0, 10).Draw(pt.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(pt, specta.Int().Range(0, 10), "value")
 			if value < 0 || value > 10 {
 				t.Errorf("value %d out of range [0, 10]", value)
 			}
@@ -108,14 +102,8 @@ func TestIntGenerator(t *testing.T) {
 		data2 := conjecture.NewConjectureData(conjecture.WithSeed(12345))
 		pt2 := &specta.T{Data: data2}
 
-		v1, err := specta.Int().Draw(pt1.Data)
-		if err != nil {
-			t.Fatalf("generator failed: %v", err)
-		}
-		v2, err := specta.Int().Draw(pt2.Data)
-		if err != nil {
-			t.Fatalf("generator failed: %v", err)
-		}
+		v1 := specta.Draw(pt1, specta.Int(), "v1")
+		v2 := specta.Draw(pt2, specta.Int(), "v2")
 
 		if v1 != v2 {
 			t.Errorf("expected same values, got %d and %d", v1, v2)
@@ -144,10 +132,7 @@ func TestIntGenerator(t *testing.T) {
 			data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(12345 + i)))
 			pt := &specta.T{Data: data}
 
-			value, err := specta.Int().Range(42, 42).Draw(pt.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(pt, specta.Int().Range(42, 42), "value")
 			if value != 42 {
 				t.Errorf("expected 42, got %d", value)
 			}
@@ -161,10 +146,7 @@ func TestPropertyBasics(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x, err := specta.Int().Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int(), "x")
 			// Property: x + 0 == x (always true)
 			specta.AssertThat(t, x+0, specta.Equal(x))
 		}, specta.MaxTests(10))
@@ -178,10 +160,7 @@ func TestPropertyBasics(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x, err := specta.Int().Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int(), "x")
 			// Property: x >= 0 (will fail on negative values)
 			if x < 0 {
 				t.Fatalf("expected non-negative, got %d", x)
@@ -199,10 +178,7 @@ func TestPropertyBasics(t *testing.T) {
 		// First run: find a failing seed
 		spy1 := testlib.NewSpy()
 		specta.Property(spy1, func(t *specta.T) {
-			x, err := specta.Int().Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int(), "x")
 			if x < 0 {
 				// Capture the seed from the error message
 				t.Fatalf("negative: %d", x)
@@ -219,10 +195,7 @@ func TestPropertyBasics(t *testing.T) {
 		// Second run: reproduce with same seed
 		spy2 := testlib.NewSpy()
 		specta.Property(spy2, func(t *specta.T) {
-			x, err := specta.Int().Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int(), "x")
 			if x < 0 {
 				t.Fatalf("negative: %d", x)
 			}
@@ -237,10 +210,7 @@ func TestPropertyBasics(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x, err := specta.Int().Range(0, 100).Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int().Range(0, 100), "x")
 			// Property: value should be in range
 			if x < 0 || x > 100 {
 				t.Fatalf("value %d out of range", x)
@@ -259,10 +229,7 @@ func TestPropertyShrinking(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x, err := specta.Int().Range(-1000, 1000).Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int().Range(-1000, 1000), "x")
 			// Fail on negative values
 			if x < 0 {
 				t.Fatalf("negative: %d", x)
@@ -289,14 +256,8 @@ func TestPropertyWithMatchers(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x, err := specta.Int().Range(0, 100).Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
-			y, err := specta.Int().Range(0, 100).Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int().Range(0, 100), "x")
+			y := specta.Draw(t, specta.Int().Range(0, 100), "y")
 			// Commutative property of addition
 			specta.AssertThat(t, x+y, specta.Equal(y+x))
 		}, specta.MaxTests(50))
@@ -310,10 +271,7 @@ func TestPropertyWithMatchers(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(t *specta.T) {
-			x, err := specta.Int().Range(0, 100).Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			x := specta.Draw(t, specta.Int().Range(0, 100), "x")
 			// Property: non-negative values are >= 0
 			specta.AssertThat(t, x, specta.GreaterThanOrEqual(int64(0)))
 		}, specta.MaxTests(50))
@@ -411,9 +369,9 @@ func TestProperty_HighSkipRate(t *testing.T) {
 
 		// This should run occasionally
 		if x >= 5 {
-			t.Errorf("Should not happen")
+			pt.Errorf("Should not happen")
 		}
-	}, specta.MaxTests(100))
+	}, specta.MaxTests(100), specta.Seed(12345))
 
 	// Should have a warning about high skip rate
 	if len(spy.Errors) > 0 {

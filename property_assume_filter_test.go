@@ -14,10 +14,7 @@ func TestAssumeSkipsIteration(t *testing.T) {
 
 	specta.Property(t, func(t *specta.T) {
 		totalAttempts++
-		n, err := specta.Int().Range(1, 10).Draw(t.Data)
-		if err != nil {
-			t.Fatalf("generator failed: %v", err)
-		}
+		n := specta.Draw(t, specta.Int().Range(1, 10), "n")
 		t.Assume(n > 5) // Skip if n <= 5
 		testExecuted++
 		// This code only runs for n > 5
@@ -89,14 +86,8 @@ func TestAssumeWithMultipleConditions(t *testing.T) {
 	var executedCount int
 
 	specta.Property(t, func(t *specta.T) {
-		x, err := specta.Int().Range(1, 100).Draw(t.Data)
-		if err != nil {
-			t.Fatalf("generator failed: %v", err)
-		}
-		y, err := specta.Int().Range(1, 100).Draw(t.Data)
-		if err != nil {
-			t.Fatalf("generator failed: %v", err)
-		}
+		x := specta.Draw(t, specta.Int().Range(1, 100), "x")
+		y := specta.Draw(t, specta.Int().Range(1, 100), "y")
 
 		t.Assume(x > 50)   // Skip if x <= 50
 		t.Assume(y < 50)   // Skip if y >= 50

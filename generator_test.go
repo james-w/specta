@@ -14,10 +14,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("generates full range by default", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "random_int")
 			// Should generate any int64 value
 			_ = value
 		}, specta.MaxTests(100))
@@ -26,10 +23,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("respects Range constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(10, 20)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "constrained_int")
 			if value < 10 || value > 20 {
 				t.Errorf("value %d outside range [10, 20]", value)
 			}
@@ -39,10 +33,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("respects Min constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Min(100)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if value < 100 {
 				t.Errorf("value %d less than min 100", value)
 			}
@@ -52,10 +43,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("respects Max constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Max(50)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if value > 50 {
 				t.Errorf("value %d greater than max 50", value)
 			}
@@ -65,10 +53,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("Positive generates values > 0", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Positive()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "positive_int")
 			if value <= 0 {
 				t.Errorf("value %d not positive", value)
 			}
@@ -78,10 +63,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("NonNegative generates values >= 0", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().NonNegative()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "nonneg_int")
 			if value < 0 {
 				t.Errorf("value %d is negative", value)
 			}
@@ -91,10 +73,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("Negative generates values < 0", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Negative()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "negative_int")
 			if value >= 0 {
 				t.Errorf("value %d not negative", value)
 			}
@@ -104,10 +83,7 @@ func TestIntGenerator_Constraints(t *testing.T) {
 	t.Run("chained constraints work", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Min(10).Max(100)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if value < 10 || value > 100 {
 				t.Errorf("value %d outside range [10, 100]", value)
 			}
@@ -120,10 +96,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("generates any bytes by default", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "str")
 			// Should be able to generate any string including invalid UTF-8
 			_ = value
 		}, specta.MaxTests(100))
@@ -132,10 +105,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("NonEmpty generates non-empty strings", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().NonEmpty()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "nonempty_str")
 			if len(value) == 0 {
 				t.Errorf("generated empty string")
 			}
@@ -145,10 +115,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("MinLen respects minimum length", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MinLen(10)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) < 10 {
 				t.Errorf("string length %d less than min 10", len(value))
 			}
@@ -158,10 +125,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("MaxLen respects maximum length", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MaxLen(5)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) > 5 {
 				t.Errorf("string length %d greater than max 5", len(value))
 			}
@@ -171,10 +135,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Len generates exact length", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Len(10)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) != 10 {
 				t.Errorf("string length %d not equal to 10", len(value))
 			}
@@ -184,10 +145,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Prefix adds prefix", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Prefix("test_")
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if !strings.HasPrefix(value, "test_") {
 				t.Errorf("string %q doesn't have prefix 'test_'", value)
 			}
@@ -197,10 +155,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Suffix adds suffix", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Suffix("_end")
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if !strings.HasSuffix(value, "_end") {
 				t.Errorf("string %q doesn't have suffix '_end'", value)
 			}
@@ -210,10 +165,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("ASCII generates only ASCII", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().ASCII().MinLen(1)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "ascii_str")
 			for i, b := range []byte(value) {
 				if b > 0x7F {
 					t.Errorf("byte at index %d (%d) is not ASCII", i, b)
@@ -225,10 +177,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Printable generates only printable ASCII", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Printable().MinLen(1)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "printable_str")
 			for i, r := range value {
 				if r < 0x20 || r > 0x7E {
 					t.Errorf("character at index %d (%c, %d) is not printable ASCII", i, r, r)
@@ -240,10 +189,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("AlphaNum generates only alphanumeric", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().AlphaNum().MinLen(1)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "alphanum_str")
 			for i, r := range value {
 				if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
 					t.Errorf("character at index %d (%c) is not alphanumeric", i, r)
@@ -255,10 +201,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("Alpha generates only alphabetic", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Alpha().MinLen(1)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "alpha_str")
 			for i, r := range value {
 				if !unicode.IsLetter(r) {
 					t.Errorf("character at index %d (%c) is not alphabetic", i, r)
@@ -270,10 +213,7 @@ func TestStringGenerator(t *testing.T) {
 	t.Run("chained constraints work", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().Prefix("user_").AlphaNum().MinLen(10).MaxLen(20)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 
 			if !strings.HasPrefix(value, "user_") {
 				t.Errorf("string %q doesn't have prefix 'user_'", value)
@@ -297,10 +237,7 @@ func TestStringGenerator(t *testing.T) {
 		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
 			specta.Property(t, func(t *specta.T) {
 				gen := specta.String()
-				value, err := gen.Draw(t.Data)
-				if err != nil {
-					t.Fatalf("generator failed: %v", err)
-				}
+				value := specta.Draw(t, gen, "value")
 				if len(value) == 0 {
 					foundEmpty = true
 				}
@@ -322,10 +259,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 		for seed := int64(0); seed < 100 && (!foundMin || !foundMax); seed++ {
 			specta.Property(t, func(t *specta.T) {
 				gen := specta.Int().Range(10, 20)
-				value, err := gen.Draw(t.Data)
-				if err != nil {
-					t.Fatalf("generator failed: %v", err)
-				}
+				value := specta.Draw(t, gen, "value")
 				if value == 10 {
 					foundMin = true
 				}
@@ -346,14 +280,11 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 	t.Run("handles single value range", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(42, 42)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if value != 42 {
 				t.Errorf("expected 42, got %d", value)
 			}
-		}, specta.MaxTests(10))
+		}, specta.MaxTests(100))
 	})
 
 	t.Run("generates negative values by default", func(t *testing.T) {
@@ -361,10 +292,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if value < 0 {
 				foundNegative = true
 			}
@@ -380,10 +308,7 @@ func TestIntGenerator_EdgeCases(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if value < minSeen {
 				minSeen = value
 			}
@@ -415,10 +340,7 @@ func TestIntGenerator_EdgeCaseBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(0, 200)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			found[value]++
 		}, specta.MaxTests(1000))
 
@@ -440,10 +362,7 @@ func TestIntGenerator_EdgeCaseBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(-200, 200)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if value == 0 {
 				foundZero++
 			}
@@ -467,10 +386,7 @@ func TestIntGenerator_EdgeCaseBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Int().Range(0, 200)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			for _, p := range powers {
 				if value == p {
 					foundPowers++
@@ -498,10 +414,7 @@ func TestIntGenerator_EdgeCaseBiasing(t *testing.T) {
 		for seed := int64(0); seed < 50 && !found; seed++ {
 			specta.Property(t, func(t *specta.T) {
 				totalIterations++
-				denominator, err := specta.Int().Range(-10, 10).Draw(t.Data)
-				if err != nil {
-					t.Fatalf("generator failed: %v", err)
-				}
+				denominator := specta.Draw(t, specta.Int().Range(-10, 10), "denominator")
 
 				// Check if we hit the edge case
 				if denominator == 0 {
@@ -530,10 +443,7 @@ func TestSliceGenerator(t *testing.T) {
 	t.Run("generates slices by default", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int())
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "slice")
 			// Should generate a slice (possibly empty)
 			_ = value
 		}, specta.MaxTests(100))
@@ -542,10 +452,7 @@ func TestSliceGenerator(t *testing.T) {
 	t.Run("respects MinLen constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int()).MinLen(5)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "min_slice")
 			if len(value) < 5 {
 				t.Errorf("slice length %d less than min 5", len(value))
 			}
@@ -555,10 +462,7 @@ func TestSliceGenerator(t *testing.T) {
 	t.Run("respects MaxLen constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int()).MaxLen(10)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "max_slice")
 			if len(value) > 10 {
 				t.Errorf("slice length %d greater than max 10", len(value))
 			}
@@ -568,10 +472,7 @@ func TestSliceGenerator(t *testing.T) {
 	t.Run("respects Len constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.String()).Len(7)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "fixed_slice")
 			if len(value) != 7 {
 				t.Errorf("slice length %d not equal to 7", len(value))
 			}
@@ -581,10 +482,7 @@ func TestSliceGenerator(t *testing.T) {
 	t.Run("NonEmpty generates non-empty slices", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Bool()).NonEmpty()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "nonempty_slice")
 			if len(value) == 0 {
 				t.Errorf("generated empty slice")
 			}
@@ -594,10 +492,7 @@ func TestSliceGenerator(t *testing.T) {
 	t.Run("element generator constraints are respected", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int().Range(1, 10))
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			for i, v := range value {
 				if v < 1 || v > 10 {
 					t.Errorf("element %d at index %d outside range [1, 10]", v, i)
@@ -612,10 +507,7 @@ func TestSliceGenerator(t *testing.T) {
 		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
 			specta.Property(t, func(t *specta.T) {
 				gen := specta.Slice(specta.Int())
-				value, err := gen.Draw(t.Data)
-				if err != nil {
-					t.Fatalf("generator failed: %v", err)
-				}
+				value := specta.Draw(t, gen, "value")
 				if len(value) == 0 {
 					foundEmpty = true
 				}
@@ -630,10 +522,7 @@ func TestSliceGenerator(t *testing.T) {
 	t.Run("chained constraints work", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.String().AlphaNum()).MinLen(2).MaxLen(5)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 
 			if len(value) < 2 || len(value) > 5 {
 				t.Errorf("slice length %d outside range [2, 5]", len(value))
@@ -655,10 +544,7 @@ func TestSliceGenerator(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int()).MinLen(0).MaxLen(10)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			lengths[len(value)] = true
 		}, specta.MaxTests(200))
 
@@ -740,10 +626,7 @@ func TestSliceGenerator_SizeBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int()).MinLen(0).MaxLen(100)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			length := len(value)
 
 			switch {
@@ -789,10 +672,7 @@ func TestSliceGenerator_SizeBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.String()).MinLen(0).MaxLen(100)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) >= 0 && len(value) <= 10 {
 				foundSmall++
 			}
@@ -812,10 +692,7 @@ func TestSliceGenerator_SizeBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.Slice(specta.Int()).MinLen(0).MaxLen(50)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			dist[len(value)]++
 		}, specta.MaxTests(1000))
 
@@ -843,10 +720,7 @@ func TestSliceGenerator_SizeBiasing(t *testing.T) {
 		for seed := int64(0); seed < 50 && !found; seed++ {
 			specta.Property(t, func(t *specta.T) {
 				totalIterations++
-				slice, err := specta.Slice(specta.Int()).MinLen(0).MaxLen(20).Draw(t.Data)
-				if err != nil {
-					t.Fatalf("generator failed: %v", err)
-				}
+				slice := specta.Draw(t, specta.Slice(specta.Int()).MinLen(0).MaxLen(20), "slice")
 
 				// Check if we hit the edge case
 				if len(slice) == 0 {
@@ -874,10 +748,7 @@ func TestStringGenerator_LengthBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MinLen(0).MaxLen(50)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			dist[len(value)]++
 		}, specta.MaxTests(1000))
 
@@ -910,10 +781,7 @@ func TestStringGenerator_LengthBiasing(t *testing.T) {
 		for seed := int64(0); seed < 50 && !found; seed++ {
 			specta.Property(t, func(t *specta.T) {
 				totalIterations++
-				str, err := specta.String().MinLen(0).MaxLen(20).Draw(t.Data)
-				if err != nil {
-					t.Fatalf("generator failed: %v", err)
-				}
+				str := specta.Draw(t, specta.String().MinLen(0).MaxLen(20), "str")
 
 				// Check if we hit the edge case
 				if len(str) == 0 {
@@ -938,10 +806,7 @@ func TestStringGenerator_LengthBiasing(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.String().MinLen(0).MaxLen(100)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) == 100 {
 				foundMax++
 			}
@@ -962,10 +827,7 @@ func TestMapGenerator(t *testing.T) {
 	t.Run("generates maps by default", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String(), specta.Int())
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			// Should generate a map (possibly empty)
 			_ = value
 		}, specta.MaxTests(100))
@@ -974,10 +836,7 @@ func TestMapGenerator(t *testing.T) {
 	t.Run("respects MinLen constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String(), specta.Int()).MinLen(5)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) < 5 {
 				t.Errorf("map length %d less than min 5", len(value))
 			}
@@ -987,10 +846,7 @@ func TestMapGenerator(t *testing.T) {
 	t.Run("respects MaxLen constraint", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String(), specta.Bool()).MaxLen(10)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) > 10 {
 				t.Errorf("map length %d greater than max 10", len(value))
 			}
@@ -1001,10 +857,7 @@ func TestMapGenerator(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			// Use String keys to avoid collision issues during shrinking
 			gen := specta.MapOf(specta.String(), specta.Int()).MinLen(7).MaxLen(7)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			// Note: May be less than 7 if key collisions occur
 			if len(value) > 7 {
 				t.Errorf("map length %d greater than exact 7", len(value))
@@ -1015,10 +868,7 @@ func TestMapGenerator(t *testing.T) {
 	t.Run("NonEmpty generates non-empty maps", func(t *testing.T) {
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String().AlphaNum(), specta.Float64(0.0, 1.0)).NonEmpty()
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			if len(value) == 0 {
 				t.Errorf("generated empty map")
 			}
@@ -1031,10 +881,7 @@ func TestMapGenerator(t *testing.T) {
 				specta.String().Prefix("key_"),
 				specta.Int().Range(1, 10),
 			)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			for k, v := range value {
 				if !strings.HasPrefix(k, "key_") {
 					t.Errorf("key %q doesn't have prefix 'key_'", k)
@@ -1052,10 +899,7 @@ func TestMapGenerator(t *testing.T) {
 		for seed := int64(0); seed < 100 && !foundEmpty; seed++ {
 			specta.Property(t, func(t *specta.T) {
 				gen := specta.MapOf(specta.String(), specta.Int())
-				value, err := gen.Draw(t.Data)
-				if err != nil {
-					t.Fatalf("generator failed: %v", err)
-				}
+				value := specta.Draw(t, gen, "value")
 				if len(value) == 0 {
 					foundEmpty = true
 				}
@@ -1072,10 +916,7 @@ func TestMapGenerator(t *testing.T) {
 
 		specta.Property(t, func(t *specta.T) {
 			gen := specta.MapOf(specta.String(), specta.Int()).MinLen(0).MaxLen(10)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 			sizes[len(value)] = true
 		}, specta.MaxTests(200))
 
@@ -1116,10 +957,7 @@ func TestMapGenerator(t *testing.T) {
 				specta.Int().Range(0, 5), // Only 6 possible keys
 				specta.String(),
 			).MinLen(3).MaxLen(10)
-			value, err := gen.Draw(t.Data)
-			if err != nil {
-				t.Fatalf("generator failed: %v", err)
-			}
+			value := specta.Draw(t, gen, "value")
 
 			// Should generate a map, possibly smaller than MaxLen due to collisions
 			if len(value) > 6 {

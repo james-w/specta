@@ -167,6 +167,50 @@ Generated files are automatically committed when pls regenerates them.
 
 `Gen` type implements it with configurable start value, base time, step, prefix.
 
+## Property Testing
+
+Property tests verify that invariants hold across many random inputs using the `Property()` function. The framework handles generation, shrinking, and error reporting.
+
+**Drawing values:** Use the `Draw()` helper for all property test value generation:
+
+```go
+specta.Property(t, func(pt *specta.T) {
+    x := specta.Draw(pt, specta.Int().Range(0, 100), "x")
+    y := specta.Draw(pt, specta.String().MinLen(5), "name")
+
+    // Test property...
+    specta.AssertThat(pt, x+y, ...)
+})
+```
+
+**Key points:**
+- Always use `specta.Draw(pt, generator, "label")` - never call `.Draw(pt.Data)` directly
+- Labels are required and appear in error messages during shrinking
+- The helper handles errors automatically (panics with `skipTest{}` for filtering)
+- Provides better error messages by tracking values for shrink reporting
+
+**Filtering:** Use `pt.Assume(condition)` to skip test cases that don't meet preconditions:
+
+```go
+specta.Property(t, func(pt *specta.T) {
+    x := specta.Draw(pt, specta.Int(), "x")
+    pt.Assume(x > 0)  // Skip non-positive values
+
+    result := 100 / x  // Safe - x is always positive
+    // ...
+})
+```
+
+High skip rates (>90%) trigger warnings. Consider using `.Filter()` or narrower generators instead of heavy filtering.
+
+**Determinism:** Always use explicit seeds for property tests to ensure reproducibility:
+
+```go
+specta.Property(t, func(pt *specta.T) {
+    // test code...
+}, specta.Seed(12345), specta.MaxTests(100))
+```
+
 ## Key Patterns
 
 **Composition**: Build matchers from simple pieces. Reuse them.
