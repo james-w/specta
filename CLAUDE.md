@@ -203,13 +203,26 @@ specta.Property(t, func(pt *specta.T) {
 
 High skip rates (>90%) trigger warnings. Consider using `.Filter()` or narrower generators instead of heavy filtering.
 
-**Determinism:** Always use explicit seeds for property tests to ensure reproducibility:
+**Randomness and Reproducibility:** Property tests use random seeds by default (`time.Now().UnixNano()`), providing different test coverage on each run. This is intentional - non-deterministic tests explore more of the input space over time.
 
+**When to use explicit seeds:**
+- Reproducing specific failures (copy seed from failure output)
+- Framework tests that need deterministic behavior
+- Tests in documentation that need consistent output
+
+**Configuration options:**
 ```go
 specta.Property(t, func(pt *specta.T) {
     // test code...
-}, specta.Seed(12345), specta.MaxTests(100))
+}, specta.Seed(42))  // Optional: explicit seed for reproducibility
+
+// Optional: adjust iteration count (default 100)
+specta.Property(t, func(pt *specta.T) {
+    // expensive test...
+}, specta.MaxTests(20))
 ```
+
+Most tests should NOT specify Seed or MaxTests - rely on sensible defaults.
 
 ## Key Patterns
 

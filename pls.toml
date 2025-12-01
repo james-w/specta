@@ -1,9 +1,10 @@
 # specta - Task Runner Configuration
 
 # Build the code generator binary
-[artifact.exec.build]
+[artifact.go.build]
+subcommand = "build"
 description = "Build the specta code generator"
-command = "go build -o specta ./cmd/main.go"
+args = "-o specta ./cmd/main.go"
 if_files_changed = ["cmd/**/*.go", "*.go", "go.mod", "go.sum"]
 updates_paths = ["specta"]
 dir = "."
@@ -31,29 +32,33 @@ description = "Generate code for all modules"
 requires = ["generate-example", "generate-showcase"]
 
 # Testing
-[command.exec.test]
-description = "Run tests for main module"
-command = "go test {args}"
+[command.go.test]
+subcommand = "test"
+description = "Run tests in current dir"
 
-[command.exec.test-main]
-description = "Generate and test all tests in main module"
-command = "go test ./... {args}"
+[command.go.test-main]
+subcommand = "test"
+description = "Run all tests in main module"
+args = "./..."
 dir = "."
 
-[command.exec.test-docs]
-description = "Generate and test all tests in docs"
-command = "go test ./... {args}"
+[command.go.test-docs]
+subcommand = "test"
+description = "Run all tests in docs"
+args = "./..."
 dir = "docs"
 
-[command.exec.test-example]
+[command.go.test-example]
+subcommand = "test"
 description = "Generate and test example module"
-command = "go test ./... {args}"
+args = "./..."
 dir = "example"
 requires = ["generate-example"]
 
-[command.exec.test-showcase]
+[command.go.test-showcase]
+subcommand = "test"
 description = "Generate and test showcase module"
-command = "go test ./... {args}"
+args = "./..."
 dir = "showcase"
 requires = ["generate-showcase"]
 
@@ -63,8 +68,8 @@ requires = ["test-main", "test-docs", "test-example", "test-showcase"]
 
 # Code quality
 [command.exec.format]
-description = "Format all Go code"
 command = "gofmt -s -w ."
+description = "Format all Go code"
 
 [command.exec.lint]
 description = "Run golangci-lint"

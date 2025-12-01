@@ -18,7 +18,7 @@ func TestPropertyBasicGenerators(t *testing.T) {
 			expectedLen := len(s1) + len(s2)
 
 			specta.AssertThat(t, len(combined), specta.Equal(expectedLen))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("integer addition is commutative", func(t *testing.T) {
@@ -27,7 +27,7 @@ func TestPropertyBasicGenerators(t *testing.T) {
 			y := specta.Draw(t, specta.Int().Range(-1000, 1000), "y")
 
 			specta.AssertThat(t, x+y, specta.Equal(y+x))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("boolean negation is involutive", func(t *testing.T) {
@@ -36,7 +36,7 @@ func TestPropertyBasicGenerators(t *testing.T) {
 
 			// Applying NOT twice should return original value
 			specta.AssertThat(t, !(!b), specta.Equal(b))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("strings with AlphaNum charset contain only letters and digits", func(t *testing.T) {
@@ -50,7 +50,7 @@ func TestPropertyBasicGenerators(t *testing.T) {
 					(ch >= '0' && ch <= '9')
 				specta.AssertThat(t, isAlphaNum, specta.IsTrue())
 			}
-		}, specta.MaxTests(50))
+		})
 	})
 }
 
@@ -66,7 +66,7 @@ func TestPropertySliceOperations(t *testing.T) {
 
 			specta.AssertThat(t, len(xs), specta.Equal(originalLen+1))
 			specta.AssertThat(t, xs[len(xs)-1], specta.Equal(newElem))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("reversing a slice twice returns original", func(t *testing.T) {
@@ -86,7 +86,7 @@ func TestPropertySliceOperations(t *testing.T) {
 			for i := range xs {
 				specta.AssertThat(t, xs[i], specta.Equal(original[i]))
 			}
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("slice length is within specified bounds", func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestPropertySliceOperations(t *testing.T) {
 
 			specta.AssertThat(t, len(xs), specta.GreaterThanOrEqual(5))
 			specta.AssertThat(t, len(xs), specta.Not(specta.GreaterThan(10)))
-		}, specta.MaxTests(50))
+		})
 	})
 }
 
@@ -108,7 +108,7 @@ func TestPropertyUserFactory(t *testing.T) {
 
 			// Generated user should have non-empty ID
 			specta.AssertThat(t, user.ID, specta.Not(specta.Equal("")))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("configured recipe as generator with Draw", func(t *testing.T) {
@@ -118,7 +118,7 @@ func TestPropertyUserFactory(t *testing.T) {
 
 			specta.AssertThat(t, activeUser.Active, specta.IsTrue())
 			specta.AssertThat(t, activeUser.ID, specta.Not(specta.Equal("")))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("nested recipe as generator", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestPropertyUserFactory(t *testing.T) {
 				"user")
 
 			specta.AssertThat(t, user.Address.City, specta.Equal(city))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("generated users always have valid IDs", func(t *testing.T) {
@@ -143,7 +143,7 @@ func TestPropertyUserFactory(t *testing.T) {
 
 			// ID should be non-empty
 			specta.AssertThat(t, user.ID, specta.Not(specta.Equal("")))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("custom email always contains specified domain", func(t *testing.T) {
@@ -155,7 +155,7 @@ func TestPropertyUserFactory(t *testing.T) {
 			user := factory.User().Email(email).Build(p)
 
 			specta.AssertThat(t, user.Email, specta.Contains("@"+domain+".com"))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("active flag is preserved through factory", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestPropertyUserFactory(t *testing.T) {
 			user := factory.User().Active(isActive).Build(p)
 
 			specta.AssertThat(t, user.Active, specta.Equal(isActive))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("many users have unique IDs", func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestPropertyMatchers(t *testing.T) {
 
 			// Every value equals itself
 			specta.AssertThat(t, x, specta.Equal(x))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("Contains matcher works with any substring", func(t *testing.T) {
@@ -212,7 +212,7 @@ func TestPropertyMatchers(t *testing.T) {
 			specta.AssertThat(t, fullString, specta.Contains(base))
 			specta.AssertThat(t, fullString, specta.Contains(prefix))
 			specta.AssertThat(t, fullString, specta.Contains(suffix))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("GreaterThan and LessThan are transitive", func(t *testing.T) {
@@ -225,7 +225,7 @@ func TestPropertyMatchers(t *testing.T) {
 			specta.AssertThat(t, a, specta.LessThan(b))
 			specta.AssertThat(t, b, specta.LessThan(c))
 			specta.AssertThat(t, a, specta.LessThan(c))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("Not matcher inverts result", func(t *testing.T) {
@@ -240,7 +240,7 @@ func TestPropertyMatchers(t *testing.T) {
 			} else {
 				specta.AssertThat(t, x, specta.Not(specta.Equal(y)))
 			}
-		}, specta.MaxTests(50))
+		})
 	})
 }
 
@@ -265,7 +265,7 @@ func TestPropertyNestedStructures(t *testing.T) {
 				).Matcher()
 
 			specta.AssertThat(t, user, matcher)
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("order total is always non-negative", func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestPropertyNestedStructures(t *testing.T) {
 
 			specta.AssertThat(t, order.Total, specta.GreaterThanOrEqual(0.0))
 			specta.AssertThat(t, order.Total, specta.Equal(total))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("order with generated user has consistent nested structure", func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestPropertyNestedStructures(t *testing.T) {
 				).Matcher()
 
 			specta.AssertThat(t, order, matcher)
-		}, specta.MaxTests(50))
+		})
 	})
 }
 
@@ -318,7 +318,7 @@ func TestPropertyBankAccount(t *testing.T) {
 
 			specta.AssertThat(t, account.GetName(), specta.Equal(name))
 			specta.AssertThat(t, account.GetBalance(), specta.Equal(int(balance)))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("multiple accounts with same balance are equal via matcher", func(t *testing.T) {
@@ -336,7 +336,7 @@ func TestPropertyBankAccount(t *testing.T) {
 
 			specta.AssertThat(t, account1, balanceMatcher)
 			specta.AssertThat(t, account2, balanceMatcher)
-		}, specta.MaxTests(50))
+		})
 	})
 }
 
@@ -349,7 +349,7 @@ func TestPropertyCustomMatchers(t *testing.T) {
 
 			specta.AssertThat(t, admin, factory.IsAdmin())
 			specta.AssertThat(t, admin.FirstName, specta.Equal("Admin"))
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("active users always match IsActive", func(t *testing.T) {
@@ -359,7 +359,7 @@ func TestPropertyCustomMatchers(t *testing.T) {
 
 			specta.AssertThat(t, user, factory.IsActive())
 			specta.AssertThat(t, user.Active, specta.IsTrue())
-		}, specta.MaxTests(50))
+		})
 	})
 
 	t.Run("test emails always match HasTestEmail", func(t *testing.T) {
@@ -371,7 +371,7 @@ func TestPropertyCustomMatchers(t *testing.T) {
 
 			specta.AssertThat(t, user, factory.HasTestEmail())
 			specta.AssertThat(t, user.Email, specta.Contains("@test.example.com"))
-		}, specta.MaxTests(50))
+		})
 	})
 }
 
