@@ -260,9 +260,9 @@ func TestPropertyNestedStructures(t *testing.T) {
 
 			// User should match the partial matcher
 			matcher := factory.UserMatches().
-				AddressMatches(
+				Address(
 					factory.AddressMatches().City(specta.Equal(city)),
-				).Matcher()
+				)
 
 			specta.AssertThat(t, user, matcher)
 		})
@@ -294,9 +294,9 @@ func TestPropertyNestedStructures(t *testing.T) {
 
 			// Order should match the nested partial matcher
 			matcher := factory.OrderMatches().
-				UserMatches(
+				User(
 					factory.UserMatches().FirstName(specta.Equal(firstName)),
-				).Matcher()
+				)
 
 			specta.AssertThat(t, order, matcher)
 		})
@@ -331,8 +331,7 @@ func TestPropertyBankAccount(t *testing.T) {
 
 			// Both should match a matcher checking only balance
 			balanceMatcher := factory.BankAccountMatches().
-				Balance(specta.Equal(int(balance))).
-				Matcher()
+				Balance(specta.Equal(int(balance)))
 
 			specta.AssertThat(t, account1, balanceMatcher)
 			specta.AssertThat(t, account2, balanceMatcher)

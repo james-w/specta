@@ -34,8 +34,7 @@ type UserViewMatcher struct {
 //
 //	matcher := factory.UserViewMatches().
 //	    ID(specta.Equal("expected_value")).
-//	    Name(specta.Contains("substring")).
-//	    Matcher()
+//	    Name(specta.Contains("substring"))
 //
 //	specta.AssertThat(t, actualUserView, matcher)
 func UserViewMatches() UserViewMatcher {
@@ -66,67 +65,65 @@ func (m UserViewMatcher) Score(matcher specta.Matcher[int]) UserViewMatcher {
 	return m
 }
 
-// Matcher returns the composed matcher for UserView.
-func (m UserViewMatcher) Matcher() specta.Matcher[example.UserView] {
-	return specta.MatcherFunc[example.UserView](func(actual example.UserView) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		iDValue := actual.ID
-		nameValue := actual.Name
-		activeValue := actual.Active
-		scoreValue := actual.Score
+// Matches implements the Matcher[UserView] interface.
+func (m UserViewMatcher) Matches(actual example.UserView) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	iDValue := actual.ID
+	nameValue := actual.Name
+	activeValue := actual.Active
+	scoreValue := actual.Score
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"ID":     iDValue,
-			"Name":   nameValue,
-			"Active": activeValue,
-			"Score":  scoreValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"ID":     iDValue,
+		"Name":   nameValue,
+		"Active": activeValue,
+		"Score":  scoreValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.iDMatcher != nil {
+		result := m.iDMatcher.Matches(iDValue)
+		fieldResults["ID"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(iDValue)
-			fieldResults["ID"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.nameMatcher != nil {
+		result := m.nameMatcher.Matches(nameValue)
+		fieldResults["Name"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.nameMatcher != nil {
-			result := m.nameMatcher.Matches(nameValue)
-			fieldResults["Name"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.activeMatcher != nil {
+		result := m.activeMatcher.Matches(activeValue)
+		fieldResults["Active"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.activeMatcher != nil {
-			result := m.activeMatcher.Matches(activeValue)
-			fieldResults["Active"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.scoreMatcher != nil {
+		result := m.scoreMatcher.Matches(scoreValue)
+		fieldResults["Score"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.scoreMatcher != nil {
-			result := m.scoreMatcher.Matches(scoreValue)
-			fieldResults["Score"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("UserView", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("UserView", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

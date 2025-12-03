@@ -30,6 +30,10 @@ func findDocFiles() ([]string, error) {
 	for _, m := range append(matches, singleLevel...) {
 		if !seen[m] {
 			seen[m] = true
+			// Skip auto-generated API reference (gomarkdoc output contains only signatures)
+			if strings.Contains(m, "api-reference") {
+				continue
+			}
 			result = append(result, m)
 		}
 	}

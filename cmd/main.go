@@ -1088,7 +1088,7 @@ var recipeTmpl = template.Must(template.New("recipe").Funcs(commonFuncMap()).Fun
 // Assert with matchers:
 //
 //	matcher := {{.TypeName}}Matches().{{if .HasConstructor}}{{with index .ConstructorParams 0}}{{.Name}}(specta.Equal({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}})){{end}}{{else}}{{with index .Fields 0}}{{.Name}}(specta.Equal({{if eq .TypeExpr "string"}}"expected"{{else if eq .TypeExpr "int"}}42{{else}}value{{end}})){{end}}{{end}}
-//	specta.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher)
 //
 // Combine both with partial matching:
 //
@@ -1358,7 +1358,7 @@ func (r {{.RecipeName}}) AsEqualMatcher() specta.Matcher[{{.ParentPackage}}.{{.T
 		{{- end}}
 	}
 	{{- end}}
-	return m.Matcher()
+	return m
 	{{- else if .HasConstructor}}
 	// Constructor-based types without matchers: use deep equality
 	s := spec.New{{.SpecName}}()
@@ -1411,7 +1411,7 @@ func (r {{.RecipeName}}) AsEqualMatcher() specta.Matcher[{{.ParentPackage}}.{{.T
 	}
 	{{- end}}
 
-	return m.Matcher()
+	return m
 	{{- end}}
 }
 `))
@@ -1507,11 +1507,10 @@ type {{.TypeName}}Matcher struct {
 {{- end}}
 {{- if gt (len .Fields) 1}}
 {{- with index .Fields 1}}
-//	    {{.Name}}(specta.{{if eq .TypeExpr "string"}}Contains("substring"){{else if eq .TypeExpr "int"}}GreaterThan(0){{else}}Equal(expectedValue){{end}}).
+//	    {{.Name}}(specta.{{if eq .TypeExpr "string"}}Contains("substring"){{else if eq .TypeExpr "int"}}GreaterThan(0){{else}}Equal(expectedValue){{end}})
 {{- end}}
 {{- end}}
 {{- end}}
-//	    Matcher()
 //
 //	specta.AssertThat(t, actual{{.TypeName}}, matcher)
 func {{.TypeName}}Matches() {{.TypeName}}Matcher {
@@ -1524,13 +1523,6 @@ func (m {{$.TypeName}}Matcher) {{.Name}}(matcher specta.Matcher[{{qualifiedType 
 	m.{{lower .Name}}Matcher = matcher
 	return m
 }
-{{if and .IsCustomType (not (hasPrefix .TypeExpr "[]")) (not (hasPrefix .TypeExpr "*"))}}
-// {{.Name}}Matches is a convenience method that accepts a {{.UnqualifiedTypeName}}Matcher.
-func (m {{$.TypeName}}Matcher) {{.Name}}Matches(matcher {{.UnqualifiedTypeName}}Matcher) {{$.TypeName}}Matcher {
-	m.{{lower .Name}}Matcher = matcher.Matcher()
-	return m
-}
-{{end}}
 {{end}}
 
 {{range .GetterMatchers}}
@@ -1542,61 +1534,59 @@ func (m {{$.TypeName}}Matcher) {{.Name}}(matcher specta.Matcher[{{qualifiedRetur
 }
 {{end}}
 
-// Matcher returns the composed matcher for {{.TypeName}}.
-func (m {{.TypeName}}Matcher) Matcher() specta.Matcher[{{.ParentPackage}}.{{.TypeName}}] {
-	return specta.MatcherFunc[{{.ParentPackage}}.{{.TypeName}}](func(actual {{.ParentPackage}}.{{.TypeName}}) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
+// Matches implements the Matcher[{{.TypeName}}] interface.
+func (m {{.TypeName}}Matcher) Matches(actual {{.ParentPackage}}.{{.TypeName}}) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	{{- range .Fields}}
+	{{lower .Name}}Value := actual.{{.Name}}
+	{{- end}}
+	{{- range .GetterMatchers}}
+	{{lower .Name}}Value := actual.{{.Getter}}()
+	{{- end}}
+
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
 		{{- range .Fields}}
-		{{lower .Name}}Value := actual.{{.Name}}
+		"{{.Name}}": {{lower .Name}}Value,
 		{{- end}}
 		{{- range .GetterMatchers}}
-		{{lower .Name}}Value := actual.{{.Getter}}()
+		"{{.Name}}": {{lower .Name}}Value,
 		{{- end}}
+	}
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			{{- range .Fields}}
-			"{{.Name}}": {{lower .Name}}Value,
-			{{- end}}
-			{{- range .GetterMatchers}}
-			"{{.Name}}": {{lower .Name}}Value,
-			{{- end}}
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+	{{- range .Fields}}
+
+	if m.{{lower .Name}}Matcher != nil {
+		result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
+		fieldResults["{{.Name}}"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
+	{{- end}}
+	{{- range .GetterMatchers}}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-		{{- range .Fields}}
-
-		if m.{{lower .Name}}Matcher != nil {
-			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
-			fieldResults["{{.Name}}"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.{{lower .Name}}Matcher != nil {
+		result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
+		fieldResults["{{.Name}}"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
-		{{- end}}
-		{{- range .GetterMatchers}}
+	}
+	{{- end}}
 
-		if m.{{lower .Name}}Matcher != nil {
-			result := m.{{lower .Name}}Matcher.Matches({{lower .Name}}Value)
-			fieldResults["{{.Name}}"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("{{.TypeName}}", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-		{{- end}}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("{{.TypeName}}", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }
 `))
 

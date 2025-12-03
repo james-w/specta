@@ -22,7 +22,7 @@ func TestUserMatcher(t *testing.T) {
 			FirstName(specta.Equal("Alice")).
 			Active(specta.IsTrue())
 
-		specta.AssertThat(t, user, matcher.Matcher())
+		specta.AssertThat(t, user, matcher)
 	})
 
 	t.Run("fails when field doesn't match", func(t *testing.T) {
@@ -31,7 +31,7 @@ func TestUserMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Email(specta.Equal("bob@example.com"))
 
-		specta.AssertThat(t, user, specta.Not(matcher.Matcher()))
+		specta.AssertThat(t, user, specta.Not(matcher))
 	})
 
 	t.Run("only checks specified fields", func(t *testing.T) {
@@ -44,7 +44,7 @@ func TestUserMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Email(specta.Equal("alice@example.com"))
 
-		specta.AssertThat(t, user, matcher.Matcher())
+		specta.AssertThat(t, user, matcher)
 	})
 
 	t.Run("works with string matchers", func(t *testing.T) {
@@ -53,7 +53,7 @@ func TestUserMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Email(specta.Contains("@example.com"))
 
-		specta.AssertThat(t, user, matcher.Matcher())
+		specta.AssertThat(t, user, matcher)
 	})
 
 	t.Run("works with nested matchers", func(t *testing.T) {
@@ -65,11 +65,11 @@ func TestUserMatcher(t *testing.T) {
 		}
 
 		matcher := factory.UserMatches().
-			AddressMatches(
+			Address(
 				factory.AddressMatches().City(specta.Equal("Boston")),
 			)
 
-		specta.AssertThat(t, user, matcher.Matcher())
+		specta.AssertThat(t, user, matcher)
 	})
 }
 
@@ -86,7 +86,7 @@ func TestAddressMatcher(t *testing.T) {
 			City(specta.Equal("Springfield")).
 			State(specta.Equal("IL"))
 
-		specta.AssertThat(t, addr, matcher.Matcher())
+		specta.AssertThat(t, addr, matcher)
 	})
 
 	t.Run("works with partial matching", func(t *testing.T) {
@@ -100,7 +100,7 @@ func TestAddressMatcher(t *testing.T) {
 		matcher := factory.AddressMatches().
 			City(specta.Equal("Boston"))
 
-		specta.AssertThat(t, addr, matcher.Matcher())
+		specta.AssertThat(t, addr, matcher)
 	})
 }
 
@@ -117,7 +117,7 @@ func TestProductMatcher(t *testing.T) {
 			Price(specta.GreaterThan(10.0)).
 			InStock(specta.IsTrue())
 
-		specta.AssertThat(t, product, matcher.Matcher())
+		specta.AssertThat(t, product, matcher)
 	})
 
 	t.Run("fails with wrong price", func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestProductMatcher(t *testing.T) {
 		matcher := factory.ProductMatches().
 			Price(specta.GreaterThan(10.0))
 
-		specta.AssertThat(t, product, specta.Not(matcher.Matcher()))
+		specta.AssertThat(t, product, specta.Not(matcher))
 	})
 }
 
@@ -141,14 +141,14 @@ func TestOrderMatcher(t *testing.T) {
 		}
 
 		matcher := factory.OrderMatches().
-			UserMatches(
+			User(
 				factory.UserMatches().
 					Email(specta.Equal("customer@example.com")),
 			).
 			Status(specta.Equal("pending")).
 			Total(specta.GreaterThan(100.0))
 
-		specta.AssertThat(t, order, matcher.Matcher())
+		specta.AssertThat(t, order, matcher)
 	})
 
 	t.Run("provides detailed error on nested mismatch", func(t *testing.T) {
@@ -159,12 +159,12 @@ func TestOrderMatcher(t *testing.T) {
 		}
 
 		matcher := factory.OrderMatches().
-			UserMatches(
+			User(
 				factory.UserMatches().
 					Email(specta.Equal("right@example.com")),
 			)
 
-		specta.AssertThat(t, order, specta.Not(matcher.Matcher()))
+		specta.AssertThat(t, order, specta.Not(matcher))
 	})
 }
 
@@ -177,11 +177,9 @@ func TestMatcherCombinations(t *testing.T) {
 
 		matcher := specta.AllOf(
 			factory.UserMatches().
-				Email(specta.Contains("@example.com")).
-				Matcher(),
+				Email(specta.Contains("@example.com")),
 			factory.UserMatches().
-				FirstName(specta.Equal("Alice")).
-				Matcher(),
+				FirstName(specta.Equal("Alice")),
 		)
 
 		specta.AssertThat(t, user, matcher)
@@ -192,11 +190,9 @@ func TestMatcherCombinations(t *testing.T) {
 
 		matcher := specta.AnyOf(
 			factory.UserMatches().
-				Email(specta.Equal("bob@example.com")).
-				Matcher(),
+				Email(specta.Equal("bob@example.com")),
 			factory.UserMatches().
-				Email(specta.Equal("alice@example.com")).
-				Matcher(),
+				Email(specta.Equal("alice@example.com")),
 		)
 
 		specta.AssertThat(t, user, matcher)
@@ -211,7 +207,7 @@ func TestNotMatcher(t *testing.T) {
 		matcher := factory.UserMatches().
 			Active(specta.Not(specta.IsTrue()))
 
-		specta.AssertThat(t, user, matcher.Matcher())
+		specta.AssertThat(t, user, matcher)
 	})
 }
 
@@ -226,7 +222,7 @@ func TestTimeMatcher(t *testing.T) {
 		matcher := factory.ProductMatches().
 			CreatedAt(specta.Equal(now))
 
-		specta.AssertThat(t, product, matcher.Matcher())
+		specta.AssertThat(t, product, matcher)
 	})
 }
 
@@ -240,7 +236,7 @@ func TestBankAccountMatcher(t *testing.T) {
 			Name(specta.Equal("Alice")).
 			Balance(specta.Equal(1000))
 
-		specta.AssertThat(t, account, matcher.Matcher())
+		specta.AssertThat(t, account, matcher)
 	})
 
 	t.Run("fails when getter value doesn't match", func(t *testing.T) {
@@ -249,7 +245,7 @@ func TestBankAccountMatcher(t *testing.T) {
 		matcher := factory.BankAccountMatches().
 			Name(specta.Equal("Bob"))
 
-		specta.AssertThat(t, account, specta.Not(matcher.Matcher()))
+		specta.AssertThat(t, account, specta.Not(matcher))
 	})
 
 	t.Run("partial matching - only checks specified getters", func(t *testing.T) {
@@ -259,7 +255,7 @@ func TestBankAccountMatcher(t *testing.T) {
 		matcher := factory.BankAccountMatches().
 			Name(specta.Equal("Alice"))
 
-		specta.AssertThat(t, account, matcher.Matcher())
+		specta.AssertThat(t, account, matcher)
 	})
 
 	t.Run("works with numeric matchers", func(t *testing.T) {
@@ -268,7 +264,7 @@ func TestBankAccountMatcher(t *testing.T) {
 		matcher := factory.BankAccountMatches().
 			Balance(specta.GreaterThan(1000))
 
-		specta.AssertThat(t, account, matcher.Matcher())
+		specta.AssertThat(t, account, matcher)
 	})
 }
 
@@ -280,7 +276,7 @@ func TestEmailMatcher(t *testing.T) {
 		matcher := factory.EmailMatches().
 			Address(specta.Equal("alice@example.com"))
 
-		specta.AssertThat(t, email, matcher.Matcher())
+		specta.AssertThat(t, email, matcher)
 	})
 
 	t.Run("fails when getter value doesn't match", func(t *testing.T) {
@@ -290,7 +286,7 @@ func TestEmailMatcher(t *testing.T) {
 		addressIsBob := factory.EmailMatches().
 			Address(specta.Equal("bob@example.com"))
 
-		specta.AssertThat(t, email, specta.Not(addressIsBob.Matcher()))
+		specta.AssertThat(t, email, specta.Not(addressIsBob))
 	})
 }
 
@@ -342,7 +338,7 @@ func TestFieldExtractor(t *testing.T) {
 		)
 
 		combined := specta.AllOf(
-			genMatcher.Matcher(),
+			genMatcher,
 			fieldMatcher,
 		)
 

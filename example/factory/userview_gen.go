@@ -128,5 +128,5 @@ func (r UserViewRecipe) AsEqualMatcher() specta.Matcher[example.UserView] {
 		m = m.Score(specta.DeepEqual(s.Score.GetValue(p, "Score")))
 	}
 
-	return m.Matcher()
+	return m
 }

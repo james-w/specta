@@ -7,12 +7,10 @@ weight: 4
 package doctest
 
 import (
-	"testing"
+	"fmt"
 	"time"
 	"github.com/james-w/specta"
 )
-
-var _ = testing.Verbose
 
 type User struct {
 	ID        string
@@ -24,47 +22,49 @@ type User struct {
 	UpdatedAt time.Time
 }
 
-// Mock factory
-type factoryType struct{}
-
-type userBuilder struct {
-	p    specta.Source
+// Mock factory - Recipe pattern
+type UserRecipe struct {
 	name string
 	role string
 }
 
-func (b *userBuilder) WithName(name string) *userBuilder {
-	b.name = name
-	return b
+func (r UserRecipe) Name(name string) UserRecipe {
+	r.name = name
+	return r
 }
 
-func (b *userBuilder) WithRole(role string) *userBuilder {
-	b.role = role
-	return b
+func (r UserRecipe) Role(role string) UserRecipe {
+	r.role = role
+	return r
 }
 
-func (b *userBuilder) Build() User {
-	name := b.name
+func (r UserRecipe) Build(s specta.Source) User {
+	// Use Source for deterministic generation - simplified mock
+	counter := s.DrawBits(32)
+
+	name := r.name
 	if name == "" {
-		name = b.p.StringWith("user")
+		name = fmt.Sprintf("name-%d", counter)
 	}
-	role := b.role
+	role := r.role
 	if role == "" {
 		role = "user"
 	}
 	return User{
-		ID:        b.p.ID(),
+		ID:        fmt.Sprintf("user-%d", counter),
 		Name:      name,
-		Email:     b.p.StringWith("user") + "@example.com",
+		Email:     fmt.Sprintf("email-%d", counter),
 		Age:       30,
 		Role:      role,
-		CreatedAt: b.p.Time(),
-		UpdatedAt: b.p.Time(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 }
 
-func (f factoryType) NewUser(p specta.Source) *userBuilder {
-	return &userBuilder{p: p}
+type factoryType struct{}
+
+func (f factoryType) User() UserRecipe {
+	return UserRecipe{}
 }
 
 var factory = factoryType{}
@@ -116,17 +116,20 @@ You have to read the whole test to figure out what actually matters. Most of the
 
 ### The Factory Solution
 
-<!-- skip-test -->
 ```go
 func TestUserWorkflow(t *testing.T) {
     p := specta.New()
 
     // Crystal clear: this test cares about roles
-    alice := factory.NewUser(p).WithRole("admin").Build()
-    bob := factory.NewUser(p).WithRole("user").Build()
+    alice := factory.User().Role("admin").Build(p)
+    bob := factory.User().Role("user").Build(p)
 
     // Everything else gets sensible defaults
     // IDs, emails, names, timestamps - all deterministic, not random
+
+    // Verify we got users with the roles we specified
+    specta.AssertThat(t, alice.Role, specta.Equal("admin"))
+    specta.AssertThat(t, bob.Role, specta.Equal("user"))
 }
 ```
 
@@ -138,39 +141,36 @@ func TestUserWorkflow(t *testing.T) {
 
 With factories, `alice` and `bob` will have different IDs, emails, names (generated deterministically), but you only specified roles because **that's what the test actually cares about**.
 
-## Primitives System
+## Source and Deterministic Generation
 
-The `Primitives` interface provides deterministic test data generation:
+The `Source` interface provides deterministic test data generation. The main implementation is `PrimitivesGen`, which generates friendly, sequential values.
 
-<!-- skip-test -->
+**Why deterministic?**
+- **Reproducible tests** - Same test run produces same data (no flakiness)
+- **Debuggable** - When a test fails, you can reproduce the exact scenario
+- **Sequential values** - Each call generates a unique, sequential value
+
+### Using `specta.New()`
+
 ```go
-type Primitives interface {
-    Next() int                    // Counter-based: 0, 1, 2, 3...
-    String(prefix string) string  // "prefix-0", "prefix-1", ...
-    Time() time.Time              // Base + increments
-    UUID() string                 // Deterministic UUIDs
-    ID(prefix string) string      // "prefix-0", "prefix-1", ...
+func TestFactories(t *testing.T) {
+    p := specta.New()  // Returns a Source backed by PrimitivesGen
+
+    // Factories use Source for deterministic generation
+    user1 := factory.User().Build(p)
+    user2 := factory.User().Build(p)
+
+    // Each user gets unique values automatically
+    // Use the generated values - don't predict what they'll be
+    specta.AssertThat(t, user1.ID, specta.Not(specta.Equal("")))
+    specta.AssertThat(t, user2.ID, specta.Not(specta.Equal("")))
+    specta.AssertThat(t, user1.ID, specta.Not(specta.Equal(user2.ID)))  // Different users
+
+    // Same order, same data every time - no test flakiness!
 }
 ```
 
-### Using `Gen`
-
-`Gen` is the standard implementation:
-
-<!-- skip-test -->
-```go
-p := specta.New()
-
-// Deterministic generation
-id1 := p.ID()   // "user-0"
-id2 := p.ID()   // "user-1"
-email1 := p.StringWith("user") + "@example.com"  // "user-0@example.com"
-email2 := p.StringWith("user") + "@example.com"  // "user-1@example.com"
-
-// Times increment from base
-t1 := p.Time()  // 2024-01-01 00:00:00
-t2 := p.Time()  // 2024-01-01 00:00:01
-```
+Values are deterministic and sequential - same order, same data every time. Use the generated values without predicting what they'll be.
 
 ## Generated Factories
 
@@ -202,12 +202,7 @@ p := specta.New()
 
 // Build with all defaults
 user := factory.User().Build(p)
-// Result:
-//   ID: "user-0"
-//   Name: "name-0"
-//   Email: "email-0"
-//   Age: 0
-//   CreatedAt: <base time>
+// Result: All fields populated with deterministic values
 
 // Override specific fields
 alice := factory.User().
@@ -215,11 +210,9 @@ alice := factory.User().
     Email("alice@example.com").
     Build(p)
 // Result:
-//   ID: "user-1"          ← Auto-generated
 //   Name: "Alice"         ← Specified
 //   Email: "alice@example.com"  ← Specified
-//   Age: 1                ← Auto-incremented
-//   CreatedAt: <base time + 1s>  ← Auto-incremented
+//   Other fields (ID, Age, CreatedAt) auto-generated deterministically
 ```
 
 ### Recipe Pattern
@@ -306,7 +299,7 @@ func TestPermissions(t *testing.T) {
 
 ### Composing Factories
 
-Build complex object graphs:
+Build complex object graphs using the `FromRecipe` pattern:
 
 <!-- skip-test -->
 ```go
@@ -314,48 +307,45 @@ func TestOrderProcessing(t *testing.T) {
     p := specta.New()
 
     // Build an entire order graph
-    order := factory.NewOrder(p).
-        WithUser(factory.NewUser(p).WithName("Alice").Build()).
-        WithShippingAddress(factory.NewAddress(p).
-            WithCity("Seattle").
-            Build()).
-        WithBillingAddress(factory.NewAddress(p).
-            WithCity("Portland").
-            Build()).
-        WithItems([]Item{
-            factory.NewItem(p).WithPrice(1999).Build(),
-            factory.NewItem(p).WithPrice(2999).Build(),
-        }).
-        Build()
+    // Use FromRecipe to nest factory recipes without building intermediate values
+    order := factory.Order().
+        UserFromRecipe(factory.User().Name("Alice")).
+        ShippingAddressFromRecipe(factory.Address().City("Seattle")).
+        BillingAddressFromRecipe(factory.Address().City("Portland")).
+        Build(p)
 
     // Test order processing logic
     ProcessOrder(order)
 }
 ```
 
+**Key pattern**: Use `FromRecipe` methods to compose nested factories. Pass recipes, not built objects. The parent factory builds everything together with the same Source.
+
 ## Determinism and Reproducibility
 
-Factories with primitives give you **reproducible test data**:
+Factories with Source give you **reproducible test data**:
 
-<!-- skip-test -->
 ```go
-func TestSomething(t *testing.T) {
+func TestDeterminism(t *testing.T) {
     // Same starting point = same data every time
     p := specta.New()
 
-    user1 := factory.NewUser(p).Build()
-    user2 := factory.NewUser(p).Build()
+    user1 := factory.User().Build(p)
+    user2 := factory.User().Build(p)
 
-    // user1.ID == "user-0" (always)
-    // user2.ID == "user-1" (always)
+    // Verify values are populated and unique
+    specta.AssertThat(t, user1.ID, specta.Not(specta.Equal("")))
+    specta.AssertThat(t, user2.ID, specta.Not(specta.Equal("")))
+    specta.AssertThat(t, user1.ID, specta.Not(specta.Equal(user2.ID)))
 
-    // Tests are reproducible!
+    // Use generated values as inputs - don't predict what they'll be
+    // Tests are reproducible - same inputs = same behavior every time!
 }
 ```
 
 This is crucial for:
-- Debugging flaky tests
-- Consistent test environments
+- **Debugging flaky tests** - Reproduce exact failure scenarios
+- **Consistent test environments** - Same data in CI and locally
 
 ## Next Steps
 

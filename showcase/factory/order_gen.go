@@ -195,5 +195,5 @@ func (r OrderRecipe) AsEqualMatcher() specta.Matcher[showcase.Order] {
 		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

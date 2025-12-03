@@ -32,8 +32,7 @@ type OrderItemMatcher struct {
 //
 //	matcher := factory.OrderItemMatches().
 //	    Product(specta.Equal(expectedValue)).
-//	    Quantity(specta.GreaterThan(0)).
-//	    Matcher()
+//	    Quantity(specta.GreaterThan(0))
 //
 //	specta.AssertThat(t, actualOrderItem, matcher)
 func OrderItemMatches() OrderItemMatcher {
@@ -43,12 +42,6 @@ func OrderItemMatches() OrderItemMatcher {
 // Product adds a matcher for the Product field.
 func (m OrderItemMatcher) Product(matcher specta.Matcher[showcase.Product]) OrderItemMatcher {
 	m.productMatcher = matcher
-	return m
-}
-
-// ProductMatches is a convenience method that accepts a ProductMatcher.
-func (m OrderItemMatcher) ProductMatches(matcher ProductMatcher) OrderItemMatcher {
-	m.productMatcher = matcher.Matcher()
 	return m
 }
 
@@ -64,57 +57,55 @@ func (m OrderItemMatcher) Price(matcher specta.Matcher[float64]) OrderItemMatche
 	return m
 }
 
-// Matcher returns the composed matcher for OrderItem.
-func (m OrderItemMatcher) Matcher() specta.Matcher[showcase.OrderItem] {
-	return specta.MatcherFunc[showcase.OrderItem](func(actual showcase.OrderItem) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		productValue := actual.Product
-		quantityValue := actual.Quantity
-		priceValue := actual.Price
+// Matches implements the Matcher[OrderItem] interface.
+func (m OrderItemMatcher) Matches(actual showcase.OrderItem) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	productValue := actual.Product
+	quantityValue := actual.Quantity
+	priceValue := actual.Price
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"Product":  productValue,
-			"Quantity": quantityValue,
-			"Price":    priceValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"Product":  productValue,
+		"Quantity": quantityValue,
+		"Price":    priceValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.productMatcher != nil {
+		result := m.productMatcher.Matches(productValue)
+		fieldResults["Product"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.productMatcher != nil {
-			result := m.productMatcher.Matches(productValue)
-			fieldResults["Product"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.quantityMatcher != nil {
+		result := m.quantityMatcher.Matches(quantityValue)
+		fieldResults["Quantity"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.quantityMatcher != nil {
-			result := m.quantityMatcher.Matches(quantityValue)
-			fieldResults["Quantity"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.priceMatcher != nil {
+		result := m.priceMatcher.Matches(priceValue)
+		fieldResults["Price"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.priceMatcher != nil {
-			result := m.priceMatcher.Matches(priceValue)
-			fieldResults["Price"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("OrderItem", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("OrderItem", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

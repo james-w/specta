@@ -77,5 +77,5 @@ func (r BankAccountRecipe) AsEqualMatcher() specta.Matcher[showcase.BankAccount]
 	if s.Balance.IsSet() {
 		m = m.Balance(specta.Equal(s.Balance.GetValue(p, "Balance")))
 	}
-	return m.Matcher()
+	return m
 }

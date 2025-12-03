@@ -28,7 +28,6 @@ type ParentMatcher struct {
 //
 //	matcher := factory.ParentMatches().
 //	    Child(specta.Equal(expectedValue)).
-//	    Matcher()
 //
 //	specta.AssertThat(t, actualParent, matcher)
 func ParentMatches() ParentMatcher {
@@ -41,43 +40,35 @@ func (m ParentMatcher) Child(matcher specta.Matcher[example.UserView]) ParentMat
 	return m
 }
 
-// ChildMatches is a convenience method that accepts a UserViewMatcher.
-func (m ParentMatcher) ChildMatches(matcher UserViewMatcher) ParentMatcher {
-	m.childMatcher = matcher.Matcher()
-	return m
-}
+// Matches implements the Matcher[Parent] interface.
+func (m ParentMatcher) Matches(actual example.Parent) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	childValue := actual.Child
 
-// Matcher returns the composed matcher for Parent.
-func (m ParentMatcher) Matcher() specta.Matcher[example.Parent] {
-	return specta.MatcherFunc[example.Parent](func(actual example.Parent) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		childValue := actual.Child
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"Child": childValue,
+	}
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"Child": childValue,
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.childMatcher != nil {
+		result := m.childMatcher.Matches(childValue)
+		fieldResults["Child"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.childMatcher != nil {
-			result := m.childMatcher.Matches(childValue)
-			fieldResults["Child"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Parent", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Parent", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

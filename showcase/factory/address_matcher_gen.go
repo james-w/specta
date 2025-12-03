@@ -36,8 +36,7 @@ type AddressMatcher struct {
 //
 //	matcher := factory.AddressMatches().
 //	    Street(specta.Equal("expected_value")).
-//	    City(specta.Contains("substring")).
-//	    Matcher()
+//	    City(specta.Contains("substring"))
 //
 //	specta.AssertThat(t, actualAddress, matcher)
 func AddressMatches() AddressMatcher {
@@ -74,77 +73,75 @@ func (m AddressMatcher) Country(matcher specta.Matcher[string]) AddressMatcher {
 	return m
 }
 
-// Matcher returns the composed matcher for Address.
-func (m AddressMatcher) Matcher() specta.Matcher[showcase.Address] {
-	return specta.MatcherFunc[showcase.Address](func(actual showcase.Address) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		streetValue := actual.Street
-		cityValue := actual.City
-		stateValue := actual.State
-		zipCodeValue := actual.ZipCode
-		countryValue := actual.Country
+// Matches implements the Matcher[Address] interface.
+func (m AddressMatcher) Matches(actual showcase.Address) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	streetValue := actual.Street
+	cityValue := actual.City
+	stateValue := actual.State
+	zipCodeValue := actual.ZipCode
+	countryValue := actual.Country
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"Street":  streetValue,
-			"City":    cityValue,
-			"State":   stateValue,
-			"ZipCode": zipCodeValue,
-			"Country": countryValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"Street":  streetValue,
+		"City":    cityValue,
+		"State":   stateValue,
+		"ZipCode": zipCodeValue,
+		"Country": countryValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.streetMatcher != nil {
+		result := m.streetMatcher.Matches(streetValue)
+		fieldResults["Street"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.streetMatcher != nil {
-			result := m.streetMatcher.Matches(streetValue)
-			fieldResults["Street"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.cityMatcher != nil {
+		result := m.cityMatcher.Matches(cityValue)
+		fieldResults["City"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.cityMatcher != nil {
-			result := m.cityMatcher.Matches(cityValue)
-			fieldResults["City"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.stateMatcher != nil {
+		result := m.stateMatcher.Matches(stateValue)
+		fieldResults["State"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.stateMatcher != nil {
-			result := m.stateMatcher.Matches(stateValue)
-			fieldResults["State"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.zipCodeMatcher != nil {
+		result := m.zipCodeMatcher.Matches(zipCodeValue)
+		fieldResults["ZipCode"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.zipCodeMatcher != nil {
-			result := m.zipCodeMatcher.Matches(zipCodeValue)
-			fieldResults["ZipCode"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.countryMatcher != nil {
+		result := m.countryMatcher.Matches(countryValue)
+		fieldResults["Country"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.countryMatcher != nil {
-			result := m.countryMatcher.Matches(countryValue)
-			fieldResults["Country"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Address", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Address", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

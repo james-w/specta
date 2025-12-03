@@ -45,31 +45,6 @@ func CreateUser(email string) User {
 	return User{Email: email, Status: "active"}
 }
 
-// Stub matchers referenced in examples
-func MatchRegex(pattern string) specta.Matcher[string] {
-	return specta.Equal("") // stub
-}
-
-func ContainString(substr string) specta.Matcher[string] {
-	return specta.Equal("") // stub
-}
-
-func IsEmpty() specta.Matcher[string] {
-	return specta.Equal("") // stub
-}
-
-func HaveSuffix(suffix string) specta.Matcher[string] {
-	return specta.Equal("") // stub
-}
-
-func BeNil() specta.Matcher[error] {
-	return specta.Equal[error](nil)
-}
-
-func ContainAll(items ...string) specta.Matcher[[]string] {
-	return nil // stub
-}
-
 // Mock matcher builder
 type UserMatcher struct{}
 
@@ -118,6 +93,56 @@ var (
 	y        = 5
 	z        = 20
 )
+
+// Order types for table-driven test example
+type Order struct {
+	Items int
+	Total float64
+}
+
+type OrderResult struct {
+	Status   string
+	Discount float64
+}
+
+func ProcessOrder(o Order) OrderResult {
+	if o.Items == 0 {
+		return OrderResult{Status: "rejected"}
+	}
+	if o.Total >= 100 {
+		return OrderResult{Status: "confirmed", Discount: o.Total * 0.1}
+	}
+	return OrderResult{Status: "confirmed"}
+}
+
+type OrderResultMatcher struct{}
+
+func MatchOrderResult() *OrderResultMatcher { return &OrderResultMatcher{} }
+
+func (m *OrderResultMatcher) WithStatus(matcher specta.Matcher[string]) *OrderResultMatcher {
+	return m
+}
+
+func (m *OrderResultMatcher) WithDiscount(matcher specta.Matcher[float64]) *OrderResultMatcher {
+	return m
+}
+
+func (m *OrderResultMatcher) Matches(r OrderResult) specta.MatchResult {
+	return specta.MatchResult{Matched: true}
+}
+
+// Error types for error testing example
+var ErrNotFound = fmt.Errorf("not found")
+
+type ValidationError struct {
+	Field string
+}
+
+func (e *ValidationError) Error() string {
+	return fmt.Sprintf("validation failed: %s", e.Field)
+}
+
+var err error = &ValidationError{Field: "email"}
 -->
 
 # Advanced Topics
@@ -132,17 +157,48 @@ While code generation handles most cases, sometimes you need a custom matcher.
 
 The `Matcher` interface is defined as:
 
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
 type Matcher[T any] interface {
-    Match(value T) MatchResult
+    Matches(actual T) MatchResult
 }
 
 type MatchResult struct {
-    Matched bool
-    Message string
+    Matched  bool     // Whether the match succeeded
+    Message  string   // Human-readable description
+    Details  []string // Additional failure details
+    Expected any      // Expected value (for diffs)
+    Actual   any      // Actual value (for diffs)
+    Path     string   // Field path for nested failures
 }
 ```
+
+For simple matchers, you only need to set `Matched` and `Message`. The other fields enhance error output:
+- `Details` for multi-line failure reasons
+- `Expected`/`Actual` for structured diffs
+- `Path` for nested struct field errors
+
+### Using MatcherFunc for Simple Matchers
+
+For one-off matchers, you can use `MatcherFunc` instead of defining a struct:
+
+<!-- compile-only -->
+```go
+// Simple inline matcher
+containsHello := specta.MatcherFunc(func(s string) specta.MatchResult {
+    if strings.Contains(s, "hello") {
+        return specta.MatchResult{Matched: true}
+    }
+    return specta.MatchResult{
+        Matched: false,
+        Message: fmt.Sprintf("expected string to contain 'hello', got: %s", s),
+    }
+})
+
+specta.AssertThat(t, "hello world", containsHello)
+```
+
+Use `MatcherFunc` for simple, one-off matchers. For reusable matchers, define a proper type as shown in the examples below.
 
 ### Example: Custom String Matcher
 
@@ -156,9 +212,9 @@ func ContainsAny(substrings ...string) *containsAnyMatcher {
     return &containsAnyMatcher{substrings: substrings}
 }
 
-func (m *containsAnyMatcher) Match(value string) specta.MatchResult {
+func (m *containsAnyMatcher) Matches(actual string) specta.MatchResult {
     for _, substr := range m.substrings {
-        if strings.Contains(value, substr) {
+        if strings.Contains(actual, substr) {
             return specta.MatchResult{
                 Matched: true,
                 Message: fmt.Sprintf("string contains '%s'", substr),
@@ -170,7 +226,7 @@ func (m *containsAnyMatcher) Match(value string) specta.MatchResult {
         Matched: false,
         Message: fmt.Sprintf(
             "expected string to contain any of %v, got: %s",
-            m.substrings, value,
+            m.substrings, actual,
         ),
     }
 }
@@ -178,7 +234,7 @@ func (m *containsAnyMatcher) Match(value string) specta.MatchResult {
 
 Usage:
 
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
 specta.AssertThat(t, message, ContainsAny("error", "warning", "failure"))
 ```
@@ -187,81 +243,123 @@ specta.AssertThat(t, message, ContainsAny("error", "warning", "failure"))
 
 <!-- compile-only -->
 ```go
-type validUserMatcher struct{}
+// BeValidUser returns a matcher that validates multiple user fields.
+// This demonstrates composing matchers - we manually extract field values
+// but use matchers for the actual checks instead of if statements.
+func BeValidUser() specta.Matcher[User] {
+    return specta.MatcherFunc(func(actual User) specta.MatchResult {
+        // Define matchers for each field
+        idMatcher := specta.Not(specta.IsEmpty[string]())
+        emailMatcher := specta.Contains("@")
+        ageMatcher := specta.AllOf(
+            specta.GreaterThanOrEqual(0),
+            specta.LessThanOrEqual(150),
+        )
 
-func BeValidUser() *validUserMatcher {
-    return &validUserMatcher{}
-}
-
-func (m *validUserMatcher) Match(user User) specta.MatchResult {
-    var failures []string
-
-    if user.ID == "" {
-        failures = append(failures, "ID is empty")
-    }
-
-    if !strings.Contains(user.Email, "@") {
-        failures = append(failures, "Email is invalid")
-    }
-
-    if user.Age < 0 || user.Age > 150 {
-        failures = append(failures, "Age is out of range")
-    }
-
-    if len(failures) > 0 {
-        return specta.MatchResult{
-            Matched: false,
-            Message: "User validation failed:\n  " +
-                     strings.Join(failures, "\n  "),
+        // Apply matchers to extracted field values
+        if result := idMatcher.Matches(actual.ID); !result.Matched {
+            result.Path = "ID"
+            return result
         }
-    }
 
-    return specta.MatchResult{
-        Matched: true,
-        Message: "User is valid",
-    }
+        if result := emailMatcher.Matches(actual.Email); !result.Matched {
+            result.Path = "Email"
+            return result
+        }
+
+        if result := ageMatcher.Matches(actual.Age); !result.Matched {
+            result.Path = "Age"
+            return result
+        }
+
+        return specta.MatchResult{
+            Matched: true,
+            Message: "User is valid",
+        }
+    })
 }
 ```
 
 Usage:
 
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
 specta.AssertThat(t, user, BeValidUser())
+```
+
+### Field() Matcher for Specific Fields
+
+Instead of writing a full custom matcher, use `Field()` to test specific fields:
+
+<!-- skip-test -->
+```go
+// Test that user's age is positive
+specta.AssertThat(t, user,
+    specta.Field("Age", func(u User) int { return u.Age }, specta.GreaterThan(0)))
+
+// Test computed values
+specta.AssertThat(t, account,
+    specta.Field("balance*2", func(a Account) int { return a.Balance * 2 }, specta.Equal(2000)))
+
+// Test nested fields
+specta.AssertThat(t, order,
+    specta.Field("User.Email", func(o Order) string { return o.User.Email },
+        specta.Contains("@example.com")))
+```
+
+The first parameter is just a label for error messages - you can describe what you're testing.
+
+Assign Field matchers to variables for reuse:
+
+<!-- compile-only -->
+```go
+var (
+    PositiveAge = specta.Field("Age", func(u User) int { return u.Age }, specta.GreaterThan(0))
+    ValidEmail  = specta.Field("Email", func(u User) string { return u.Email }, specta.Contains("@"))
+)
+
+// Reuse across tests
+specta.AssertThat(t, user1, PositiveAge)
+specta.AssertThat(t, user2, specta.AllOf(PositiveAge, ValidEmail))
 ```
 
 ## Testing Patterns
 
 ### Table-Driven Tests with Matchers
 
-<!-- skip-test -->
+The matcher column lets you express different expected behaviors per test case:
+
+<!-- compile-only -->
 ```go
-func TestValidation(t *testing.T) {
+func TestProcessOrder(t *testing.T) {
     tests := []struct {
         name    string
-        input   string
-        matcher specta.Matcher[string]
+        order   Order
+        matcher specta.Matcher[OrderResult]
     }{
         {
-            name:    "valid email",
-            input:   "user@example.com",
-            matcher: MatchRegex(`^[^@]+@[^@]+\.[^@]+$`),
+            name:    "standard order",
+            order:   Order{Items: 3, Total: 50.00},
+            matcher: MatchOrderResult().WithStatus(specta.Equal("confirmed")),
         },
         {
-            name:    "contains @",
-            input:   "user@example.com",
-            matcher: ContainString("@"),
+            name:    "large order gets discount",
+            order:   Order{Items: 10, Total: 500.00},
+            matcher: MatchOrderResult().
+                WithDiscount(specta.GreaterThan(0.0)).
+                WithStatus(specta.Equal("confirmed")),
         },
         {
-            name:    "not empty",
-            input:   "hello",
-            matcher: specta.Not(IsEmpty()),
+            name:    "empty order rejected",
+            order:   Order{Items: 0},
+            matcher: MatchOrderResult().WithStatus(specta.Equal("rejected")),
         },
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            specta.AssertThat(t, tt.input, tt.matcher)
+            result := ProcessOrder(tt.order)
+            specta.AssertThat(t, result, tt.matcher)
         })
     }
 }
@@ -271,18 +369,18 @@ func TestValidation(t *testing.T) {
 
 Define matchers as package-level variables:
 
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
 var (
     // Email matchers
     ValidEmail = specta.AllOf(
-        ContainString("@"),
-        MatchRegex(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`),
+        specta.Contains("@"),
+        specta.MatchesRegex(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`),
     )
 
     CompanyEmail = specta.AllOf(
         ValidEmail,
-        HaveSuffix("@company.com"),
+        specta.HasSuffix("@company.com"),
     )
 
     // User matchers
@@ -291,13 +389,13 @@ var (
 
     AdminUser = MatchUser().
         WithRole(specta.Equal("admin")).
-        WithPermissions(ContainAll("read", "write", "delete"))
+        WithPermissions(specta.ContainsAllElements[string]("read", "write", "delete"))
 )
 ```
 
 Usage:
 
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
 func TestUserCreation(t *testing.T) {
     user := CreateUser("alice@company.com")
@@ -309,7 +407,7 @@ func TestUserCreation(t *testing.T) {
 
 ### Error Testing Patterns
 
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
 func TestErrorConditions(t *testing.T) {
     tests := []struct {
@@ -320,17 +418,17 @@ func TestErrorConditions(t *testing.T) {
         {
             name:    "missing email",
             input:   User{Name: "Alice"},
-            wantErr: specta.Not(BeNil()),
+            wantErr: specta.IsError(),  // Expect an error
         },
         {
             name:    "invalid age",
             input:   User{Name: "Alice", Email: "alice@example.com", Age: -1},
-            wantErr: specta.Not(BeNil()),
+            wantErr: specta.IsError(),  // Expect an error
         },
         {
             name:    "valid user",
             input:   User{Name: "Alice", Email: "alice@example.com", Age: 30},
-            wantErr: BeNil(),
+            wantErr: specta.NoErr(),  // No error expected
         },
     }
 
@@ -343,56 +441,19 @@ func TestErrorConditions(t *testing.T) {
 }
 ```
 
-## Performance Considerations
+For more specific error checks beyond presence, use `ErrorContains`, `ErrorIs`, or `ErrorAs`:
 
-### Matcher Composition Overhead
-
-Matchers are lightweight, but deeply nested compositions can add overhead:
-
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
-// Fine for most tests
-matcher := specta.AllOf(
-    specta.Equal(x),
-    specta.GreaterThan(y),
-    specta.LessThan(z),
-)
+// Check error message
+specta.AssertThat(t, err, specta.ErrorContains("invalid"))
 
-// Consider simplifying if performance-critical
-// Or write a custom matcher
-```
+// Check error identity (errors.Is)
+specta.AssertThat(t, err, specta.ErrorIs(ErrNotFound))
 
-### Factory Generation Performance
-
-Factories are fast, but building large object graphs has cost:
-
-<!-- skip-test -->
-```go
-// Fine: a few hundred objects
-users := make([]User, 100)
-for i := range users {
-    users[i] = factory.NewUser(p).Build()
-}
-
-// Consider caching for thousands of objects
-// Or use a more efficient approach for bulk generation
-```
-
-### Benchmarking
-
-Use Go's built-in benchmarking with matchers:
-
-<!-- skip-test -->
-```go
-func BenchmarkUserValidation(b *testing.B) {
-    p := specta.New()
-    user := factory.NewUser(p).Build()
-
-    b.ResetTimer()
-    for i := 0; i < b.N; i++ {
-        ValidateUser(user)
-    }
-}
+// Check error type (errors.As)
+var validationErr *ValidationError
+specta.AssertThat(t, err, specta.ErrorAs(&validationErr))
 ```
 
 ## Integration with Standard Testing
@@ -418,20 +479,20 @@ func TestSomething(t *testing.T) {
 
 ### Subtests Organization
 
-<!-- skip-test -->
+<!-- compile-only -->
 ```go
 func TestUserWorkflow(t *testing.T) {
     p := specta.New()
 
     t.Run("creation", func(t *testing.T) {
         user := factory.NewUser(p).Build()
-        specta.AssertThat(t, user.ID, specta.Not(IsEmpty()))
+        specta.AssertThat(t, user.ID, specta.Not(specta.IsEmpty[string]()))
     })
 
     t.Run("validation", func(t *testing.T) {
         user := factory.NewUser(p).Build()
         err := ValidateUser(user)
-        specta.AssertThat(t, err, BeNil())
+        specta.AssertThat(t, err, specta.NoErr())
     })
 }
 ```
@@ -450,9 +511,9 @@ Generated code (`*_gen.go`) is excluded from coverage by build tags.
 
 ## Code Generation Advanced
 
-### Custom Templates
+### Extending Generated Code
 
-The generator uses embedded templates. For custom behavior, fork and modify `cmd/main.go`.
+The generator uses embedded templates that cover common use cases. You can extend generated matchers and factories with custom code in the same package - see [Combining with Factory Recipes]({{< relref "/docs/property-based-testing/#combining-with-factory-recipes" >}}) for examples of adding custom matchers and factory methods alongside generated code.
 
 ### Type Checking
 
@@ -469,17 +530,7 @@ If generation fails, it's usually because:
 - Type in YAML doesn't match source
 - Import paths are incorrect
 - Unsupported type (fix: add to generator)
-
-### Incremental Generation
-
-<!-- skip-test -->
-```bash
-# Generate for specific types
-go run github.com/james-w/specta/cmd/main.go -config specta.yaml -types User,Order
-
-# Full regeneration
-go run github.com/james-w/specta/cmd/main.go -config specta.yaml
-```
+- Custom defaults or extensions are out of sync with generated code
 
 ## Best Practices Summary
 

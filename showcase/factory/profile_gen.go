@@ -161,5 +161,5 @@ func (r ProfileRecipe) AsEqualMatcher() specta.Matcher[showcase.Profile] {
 		m = m.IsPublic(specta.DeepEqual(s.IsPublic.GetValue(p, "IsPublic")))
 	}
 
-	return m.Matcher()
+	return m
 }

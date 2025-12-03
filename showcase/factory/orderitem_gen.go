@@ -129,5 +129,5 @@ func (r OrderItemRecipe) AsEqualMatcher() specta.Matcher[showcase.OrderItem] {
 		m = m.Price(specta.DeepEqual(s.Price.GetValue(p, "Price")))
 	}
 
-	return m.Matcher()
+	return m
 }

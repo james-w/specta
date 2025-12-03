@@ -41,15 +41,13 @@ func (m *UserMatcher) WithEmail(matcher specta.Matcher[string]) *UserMatcher {
 
 func (m *UserMatcher) Matches(u User) specta.MatchResult {
 	if m.nameMatcher != nil {
-		result := m.nameMatcher.Matches(u.Name)
-		if !result.Matched {
-			return specta.MatchResult{Matched: false, Message: "name did not match"}
+		if result := m.nameMatcher.Matches(u.Name); !result.Matched {
+			return specta.MatchResult{Matched: false, Message: "name: " + result.Message}
 		}
 	}
 	if m.emailMatcher != nil {
-		result := m.emailMatcher.Matches(u.Email)
-		if !result.Matched {
-			return specta.MatchResult{Matched: false, Message: "email did not match"}
+		if result := m.emailMatcher.Matches(u.Email); !result.Matched {
+			return specta.MatchResult{Matched: false, Message: "email: " + result.Message}
 		}
 	}
 	return specta.MatchResult{Matched: true}
@@ -58,10 +56,16 @@ func (m *UserMatcher) Matches(u User) specta.MatchResult {
 var (
 	value    = 42
 	expected = 42
+	age      = 25
+	active   = true
 	list     = []string{"a", "b", "c"}
 	name     = "Alice"
 	user     = User{Name: "Alice", Email: "alice@example.com", Age: 30}
 )
+
+func registerUser(email string, age int) User {
+	return User{Name: "Alice", Email: email, Age: age}
+}
 -->
 
 # Introduction to specta
@@ -93,24 +97,12 @@ go get github.com/james-w/specta
 Here's a simple example showing the power of matchers:
 
 ```go
-package mypackage_test
+func TestUserValidation(t *testing.T) {
+    user := registerUser("alice@example.com", 30)
 
-import (
-    "testing"
-    "github.com/james-w/specta"
-)
-
-func TestUser(t *testing.T) {
-    user := User{
-        Name:  "Alice",
-        Email: "alice@example.com",
-        Age:   30,
-    }
-
-    // Compose matchers for readable assertions
-    specta.AssertThat(t, user.Name, specta.Equal("Alice"))
-    specta.AssertThat(t, user.Email, specta.Contains("example.com"))
+    // Match individual values with built-in matchers
     specta.AssertThat(t, user.Age, specta.GreaterThan(18))
+    specta.AssertThat(t, user.Email, specta.Contains("@example.com"))
 
     // Combine matchers with AllOf
     specta.AssertThat(t, user.Email, specta.AllOf(
@@ -121,6 +113,13 @@ func TestUser(t *testing.T) {
 }
 ```
 
+**When tests fail**, you see clear error messages:
+
+```
+user.Age: expected value > 18 but got 15
+user.Email: expected string to contain "@example.com" but got "alice@test.org"
+```
+
 ## Core Concepts
 
 ### Matchers
@@ -129,7 +128,8 @@ Matchers are reusable predicates that test values and provide detailed failure m
 
 ```go
 specta.AssertThat(t, value, specta.Equal(expected))
-specta.AssertThat(t, list, specta.ContainsAllElements("a", "b", "c"))
+specta.AssertThat(t, age, specta.GreaterThanOrEqual(21))
+specta.AssertThat(t, active, specta.IsTrue())
 specta.AssertThat(t, name, specta.Not(specta.Equal("")))
 ```
 
@@ -146,12 +146,25 @@ validEmail := specta.AllOf(
 specta.AssertThat(t, user.Email, validEmail)
 ```
 
+### Available Built-in Matchers
+
+specta includes matchers for common scenarios:
+
+- **Equality**: `Equal`, `DeepEqual`, `Is`
+- **Numeric**: `GreaterThan`, `LessThan`, `GreaterThanOrEqual`, `LessThanOrEqual`
+- **Strings**: `Contains`, `HasPrefix`, `HasSuffix`, `MatchesRegex`
+- **Boolean**: `IsTrue`, `IsFalse`
+- **Composition**: `AllOf`, `AnyOf`, `Not`
+
+See [Core Matchers]({{< relref "/docs/core-matchers/" >}}) for the complete list including error matchers, time matchers, collection matchers, and more.
+
 ### Partial Matching
 
 Only assert what matters for each test:
 
 ```go
 // Only care about the name and email, other fields can have any value
+// This test won't break when new fields (like PhoneNumber, Address) are added
 specta.AssertThat(t, user, MatchUser().
     WithName(specta.Equal("Alice")).
     WithEmail(specta.Contains("example.com")))
@@ -167,4 +180,4 @@ specta.AssertThat(t, user, MatchUser().
 
 - **Module**: `github.com/james-w/specta`
 - **Go Version**: 1.22+
-- **License**: Apache 2.0
+- **License**: MIT

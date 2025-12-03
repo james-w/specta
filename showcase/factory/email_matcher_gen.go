@@ -28,7 +28,6 @@ type EmailMatcher struct {
 //
 //	matcher := factory.EmailMatches().
 //	    Address(specta.Equal("expected_value")).
-//	    Matcher()
 //
 //	specta.AssertThat(t, actualEmail, matcher)
 func EmailMatches() EmailMatcher {
@@ -42,37 +41,35 @@ func (m EmailMatcher) Address(matcher specta.Matcher[string]) EmailMatcher {
 	return m
 }
 
-// Matcher returns the composed matcher for Email.
-func (m EmailMatcher) Matcher() specta.Matcher[showcase.Email] {
-	return specta.MatcherFunc[showcase.Email](func(actual showcase.Email) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		addressValue := actual.GetAddress()
+// Matches implements the Matcher[Email] interface.
+func (m EmailMatcher) Matches(actual showcase.Email) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	addressValue := actual.GetAddress()
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"Address": addressValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"Address": addressValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.addressMatcher != nil {
+		result := m.addressMatcher.Matches(addressValue)
+		fieldResults["Address"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.addressMatcher != nil {
-			result := m.addressMatcher.Matches(addressValue)
-			fieldResults["Address"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Email", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Email", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

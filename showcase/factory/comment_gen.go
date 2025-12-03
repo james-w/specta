@@ -180,5 +180,5 @@ func (r CommentRecipe) AsEqualMatcher() specta.Matcher[showcase.Comment] {
 		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

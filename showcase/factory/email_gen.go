@@ -90,5 +90,5 @@ func (r EmailRecipe) AsEqualMatcher() specta.Matcher[showcase.Email] {
 	if s.Address.IsSet() {
 		m = m.Address(specta.Equal(s.Address.GetValue(p, "Address")))
 	}
-	return m.Matcher()
+	return m
 }

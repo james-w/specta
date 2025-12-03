@@ -25,6 +25,23 @@ Generated: `example/` and `showcase/` have `factory/` directories with `*_gen.go
 
 Generated code is type-checked before writing. All generated files have `//go:build !ignore_testgen` tags and are excluded from linting.
 
+## API Documentation (gomarkdoc)
+
+The API reference (`docs/content/docs/api-reference/_index.md`) is auto-generated from godoc comments using **gomarkdoc**.
+
+**Generation:** `pls run generate-api-docs` - Regenerates API docs from source
+**Verification:** `pls run check-api-docs` - Checks if docs match current code
+
+Configuration is in `docs/.gomarkdoc.yml`:
+- Repository URL and default branch for stable GitHub links
+- Output path and header file for Hugo frontmatter
+- Both generate and check commands use the same config (no duplication)
+
+**Never edit the API reference manually** - it will be overwritten. Instead:
+- Add or update godoc comments in source code
+- Run `pls run generate-api-docs` to regenerate
+- CI verifies docs are up to date (same as generated code verification)
+
 ## Task Runner (pls)
 
 This project uses `pls` (github.com/james-w/pls) as a task runner. **Always use pls commands instead of running tools directly** to ensure consistency and proper dependency management.
@@ -36,9 +53,11 @@ This project uses `pls` (github.com/james-w/pls) as a task runner. **Always use 
 - `pls run test-showcase` - Generate and test showcase module
 - `pls run test-all` - Test all modules (automatically generates code first)
 - `pls run generate` - Regenerate code for all modules
+- `pls run generate-api-docs` - Generate API reference documentation with gomarkdoc
+- `pls run check-api-docs` - Check if API docs are up to date
 - `pls run format` - Format all code with gofmt
 - `pls run lint` - Run golangci-lint
-- `pls run ci` - Full CI check (format + generate + test-all + lint)
+- `pls run ci` - Full CI check (format + generate + API docs + test-all + lint)
 
 **Passing extra arguments:**
 You can pass additional flags to test commands:
@@ -143,6 +162,7 @@ This single command will:
 2. Regenerate code for all modules (if needed)
 3. Run all tests (main + example + showcase with `-v -race`)
 4. Run linter (`golangci-lint run`)
+5. Check API docs are up to date (verify only, doesn't regenerate)
 
 **Then ask yourself:**
 5. Should README.md be updated?
@@ -150,11 +170,12 @@ This single command will:
 
 **Manual workflow (if needed):**
 - Regenerate code: `pls run generate` (builds generator first, runs in all modules)
+- Regenerate API docs: `pls run generate-api-docs` (after changing godoc comments)
 - Format: `pls run format`
 - Test: `pls run test-all` (generates code automatically before testing)
 - Lint: `pls run lint`
 
-Generated files are automatically committed when pls regenerates them.
+Generated files (code and API docs) must be committed when regenerated.
 
 ## Primitives System
 

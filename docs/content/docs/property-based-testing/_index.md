@@ -5,9 +5,11 @@ weight: 6
 
 # Property-Based Testing
 
-We've been using factories to specify only what matters for each test. But how do you know your code works with *different* values for the fields you didn't specify?
+We've been using factories to specify only what matters for each test. But how do you know your code works with *different* values for the fields you didn't specify? Maybe it only works for strings up to a certain length, and the test string you are specifying happens to be OK?
 
-**Property-based testing** verifies that properties hold across many varied inputs, automatically.
+**Property-based testing** verifies that properties hold across many varied inputs, without you having to think of examples for each edge case.
+
+It's similar to fuzzing in that you are testing with random data, but it is a little more controlled.
 
 ## From Example-Based to Property-Based
 
@@ -32,7 +34,7 @@ Instead of writing many individual test cases, use property-based testing:
 func TestReverse(t *testing.T) {
     specta.Property(t, func(pt *specta.T) {
         // Generate a random string
-        s := specta.String().Draw(pt, "s")
+        s := specta.Draw(pt, specta.String(), "s")
 
         // Test the property
         reversed := Reverse(Reverse(s))
@@ -44,10 +46,13 @@ func TestReverse(t *testing.T) {
 **What happens:**
 1. `Property()` runs your test function 100 times (by default)
 2. Each time, generators produce different values (`String()` generates varied strings)
-3. If a test fails, specta automatically **shrinks** to find the minimal failing input
-4. The failure report shows the exact input that failed
+3. The failure report shows the exact input that failed
 
-This is property-based testing: verify properties hold across many generated inputs, with automatic shrinking.
+This is property-based testing: verify properties hold across many generated inputs.
+
+It does not replace example-based testing, but it supplements it. You still want to have example-based tests to verify specific behaviour, ensure that edge cases are covered, but some tests are more readable as property based tests as the intent is clearer, plus you test more examples and find edge cases automatically.
+
+The failure that specta shows you for a property goes through a process called "shrinking". This attempts to find a simpler version of the inputs that caused the property to fail. As the input is random the propoerty may fail for a very complex input, and it's not clear what matters. Through shrinking specta aims to make it easier for you to debug the problem. The process isn't perfect, so it's not necessarily the simplest input possible, and in fact that's not even something that can be defined for all properties, but it aims to be as useful as possible. For example, if you have a bug in a string function when the input is over 10 characters long, specta will hopefully show you a failing input that is 11 characters long, and has simple printable characters, rather than obscure unicode.
 
 ## Generators
 
@@ -56,17 +61,17 @@ Generators produce values for property-based tests. specta provides built-in gen
 <!-- skip-test -->
 ```go
 specta.Property(t, func(pt *specta.T) {
-    // Generate integers
-    n := specta.Int().Range(1, 100).Draw(pt, "n")
+    // Generate integers between 1 and 100
+    n := specta.Draw(pt, specta.Int().Range(1, 100), "n")
 
-    // Generate strings
-    name := specta.String().AlphaNum().MinLen(1).MaxLen(50).Draw(pt, "name")
+    // Generate alpha-numeric ascii strings, between 1 and 50 characters long
+    name := specta.Draw(pt, specta.String().AlphaNum().MinLen(1).MaxLen(50), "name")
 
     // Generate booleans
-    flag := specta.Bool().Draw(pt, "flag")
+    flag := specta.Draw(pt, specta.Bool(), "flag")
 
-    // Generate slices
-    numbers := specta.Slice(specta.Int().NonNegative()).MinLen(1).MaxLen(10).Draw(pt, "numbers")
+    // Generate slices of non-negative integers with between 1 and 10 elements
+    numbers := specta.Draw(pt, specta.Slice(specta.Int().NonNegative()).MinLen(1).MaxLen(10), "numbers")
 
     // Test your code with these generated values
 })
@@ -74,16 +79,30 @@ specta.Property(t, func(pt *specta.T) {
 
 ### Available Generators
 
-- **`Int()`** - Integers with constraints: `.Range(min, max)`, `.Positive()`, `.NonNegative()`, `.Negative()`
-- **`String()`** - Strings with constraints: `.AlphaNum()`, `.Alpha()`, `.Printable()`, `.MinLen()`, `.MaxLen()`, `.Prefix()`, `.Suffix()`
+**Basic Types:**
+- **`Int()`** - Integers with constraints: `.Range(min, max)`, `.Min(n)`, `.Max(n)`, `.Positive()`, `.NonNegative()`, `.Negative()`
+- **`String()`** - Strings with constraints: `.AlphaNum()`, `.Alpha()`, `.Printable()`, `.ASCII()`, `.MinLen()`, `.MaxLen()`, `.Len(n)`, `.NonEmpty()`, `.Prefix()`, `.Suffix()`, `.ExampleHint()`
 - **`Bool()`** - Boolean values
-- **`Float64()`** - Floating point numbers
-- **`Time()`** - Time values with `.BaseTime()`
-- **`Duration()`** - Time durations
-- **`Bytes()`** - Byte slices with `.Len()`
-- **`UUID()`** - UUID values
-- **`Slice(elementGen)`** - Slices of any type: `.MinLen()`, `.MaxLen()`, `.NonEmpty()`
-- **`Map(keyGen, valueGen)`** - Maps with generated keys and values
+- **`Float64(min, max)`** - Floating point numbers in range
+
+**Time/Data:**
+- **`Time()`** - Time values (Unix epoch to 9999-12-31)
+- **`Duration()`** - Time durations (0 to 24 hours)
+- **`Bytes()`** - Byte slices (0-100 bytes)
+- **`BytesLen(min, max)`** - Byte slices with specific length range
+- **`UUID()`** - UUID v4 values (string format)
+- **`Email()`** - Generated email addresses (user_N@example.com)
+- **`URL()`** - Generated URLs (https://example.com/path_N)
+
+**Collections:**
+- **`Slice(elementGen)`** - Slices of any type: `.MinLen()`, `.MaxLen()`, `.Len(n)`, `.NonEmpty()`
+- **`MapOf(keyGen, valueGen)`** - Maps with generated keys and values: `.MinLen()`, `.MaxLen()`, `.NonEmpty()`
+
+**Combinators:**
+- **`Choice(gen1, gen2, ...)`** - Uniform choice from generators: `.Or(gen)`, `.OrWeighted(gen, weight)`
+- **`Optional(gen)`** - Generate present (80%) or absent (20%) values: `Optional(gen, probability)`
+- **`Pair(genA, genB)`** - Generate tuples of two values
+- **`Triple(genA, genB, genC)`** - Generate tuples of three values
 
 ### Generator Constraints
 
@@ -92,14 +111,102 @@ Chain methods to constrain generated values:
 <!-- skip-test -->
 ```go
 // Positive integers between 1 and 100
-age := specta.Int().Range(1, 100).Draw(pt, "age")
+age := specta.Draw(pt, specta.Int().Range(1, 100), "age")
 
 // Non-empty alphanumeric strings
-username := specta.String().AlphaNum().NonEmpty().MaxLen(20).Draw(pt, "username")
+username := specta.Draw(pt, specta.String().AlphaNum().NonEmpty().MaxLen(20), "username")
 
 // Slices with 5-10 elements
-items := specta.Slice(specta.Int().Positive()).MinLen(5).MaxLen(10).Draw(pt, "items")
+items := specta.Draw(pt, specta.Slice(specta.Int().Positive()).MinLen(5).MaxLen(10), "items")
+
+// Choice between multiple generators
+status := specta.Draw(pt, specta.Choice(
+    specta.String().Const("active"),
+    specta.String().Const("inactive"),
+    specta.String().Const("pending"),
+), "status")
+
+// Optional values (80% present by default)
+middleName := specta.Draw(pt, specta.Optional(specta.String().Alpha()), "middleName")
+// middleName is *string - nil when absent, &value when present
+
+// Tuples of values
+coords := specta.Draw(pt, specta.Pair(
+    specta.Int().Range(0, 100),
+    specta.Int().Range(0, 100),
+), "coords")
+// coords is struct{A int64; B int64}
 ```
+
+### Understanding Draw()
+
+All the examples above use `specta.Draw(pt, generator, "label")` to generate values. This is the **canonical pattern** for property-based testing in specta.
+
+**Why use Draw()?**
+
+<!-- skip-test -->
+```go
+// ALWAYS use this pattern:
+s := specta.Draw(pt, specta.String(), "s")
+
+// DON'T call .Draw() directly on generators:
+s := specta.String().Draw(pt.Data, "s")  // ❌ Don't do this
+```
+
+The `Draw()` helper provides three critical benefits:
+
+**1. Automatic Error Handling**
+
+When generators filter values (via `.Filter()`) or when you use `pt.Assume()`, some test iterations need to be skipped. `Draw()` handles this automatically:
+
+<!-- skip-test -->
+```go
+specta.Property(t, func(pt *specta.T) {
+    // Generator might fail to produce a value after filtering
+    x := specta.Draw(pt, specta.Int().Filter(isPrime), "x")
+    // Draw() automatically skips the test iteration if filtering fails
+
+    // No need to handle errors - Draw() does it for you
+})
+```
+
+**2. Better Error Messages**
+
+Labels in `Draw()` calls appear in failure messages, showing you exactly which generated values caused the failure:
+
+```
+Property failed after 23 tests with seed 1234567890
+
+Generated values:
+  s: "hello"
+  n: 42
+  numbers: [1, 2, 3]
+
+Assertion failed:
+  expected: 100
+  got: 84
+```
+
+Without labels, you'd see cryptic failures without knowing what inputs caused them.
+
+**3. Value Tracking for Shrinking**
+
+When a test fails, specta automatically tries to find the **minimal failing input** (shrinking). `Draw()` tracks generated values so shrinking can work:
+
+<!-- skip-test -->
+```go
+// Test fails with a large string
+s := specta.Draw(pt, specta.String(), "s")  // Generated: "abcdefghijklmnopqrstuvwxyz"
+
+// Shrinking finds minimal failure
+// Shrunk to: "ab"
+
+// Final error shows both:
+// Property failed with shrunk input:
+//   s: "ab"
+```
+
+**Best Practice:** Always use `specta.Draw(pt, generator, "label")` in property tests. Choose descriptive labels that make error messages clear.
 
 ## When to Use Property-Based Testing
 
@@ -117,66 +224,31 @@ items := specta.Slice(specta.Int().Positive()).MinLen(5).MaxLen(10).Draw(pt, "it
 
 **Use both!** They complement each other.
 
-## Property Examples
+## Common Types of Properties
 
-### Commutativity
+Here are common patterns for property-based tests:
 
-Test that operations are order-independent:
+### Round-Trip Operations
 
-<!-- skip-test -->
-```go
-func TestAddCommutative(t *testing.T) {
-    specta.Property(t, func(pt *specta.T) {
-        x := specta.Int().Draw(pt, "x")
-        y := specta.Int().Draw(pt, "y")
-
-        // Property: x + y == y + x
-        specta.AssertThat(pt, Add(x, y), specta.Equal(Add(y, x)))
-    })
-}
-```
-
-### Idempotence
-
-Test that applying an operation multiple times equals applying it once:
-
-<!-- skip-test -->
-```go
-func TestNormalizeIdempotent(t *testing.T) {
-    specta.Property(t, func(pt *specta.T) {
-        s := specta.String().Draw(pt, "s")
-
-        once := Normalize(s)
-        twice := Normalize(Normalize(s))
-
-        // Property: normalizing twice == normalizing once
-        specta.AssertThat(pt, twice, specta.Equal(once))
-    })
-}
-```
-
-### Round-Trip Properties
-
-Encode and decode should be inverses:
+Operations that reverse each other (encode/decode, serialize/deserialize):
 
 <!-- skip-test -->
 ```go
 func TestJSONRoundTrip(t *testing.T) {
     specta.Property(t, func(pt *specta.T) {
-        // Generate a map
-        original := specta.Map(
+        original := specta.Draw(pt, specta.MapOf(
             specta.String().AlphaNum(),
             specta.Int(),
-        ).Draw(pt, "data")
+        ), "data")
 
         // Encode to JSON
         jsonData, err := json.Marshal(original)
-        specta.AssertThat(pt, err, specta.BeNil())
+        specta.AssertThat(pt, err, specta.NoErr())
 
         // Decode from JSON
         var decoded map[string]int
         err = json.Unmarshal(jsonData, &decoded)
-        specta.AssertThat(pt, err, specta.BeNil())
+        specta.AssertThat(pt, err, specta.NoErr())
 
         // Property: decoded == original
         specta.AssertThat(pt, decoded, specta.Equal(original))
@@ -184,29 +256,101 @@ func TestJSONRoundTrip(t *testing.T) {
 }
 ```
 
-### Invariants
+Similar patterns: encrypt/decrypt, compress/decompress, parse/print, rotate left/right.
 
-Properties that must always hold:
+Properties like this will catch any cases that don't round-trip correctly, but don't require
+knowing what the intermediate state is. Given any struct you can check that you get the
+same thing if you encode/decode it to JSON, without having to say anything about what
+the JSON looks like.
+
+### Operations Maintain Invariants
+
+Verify that operations preserve important properties:
 
 <!-- skip-test -->
 ```go
-func TestSortedSlice(t *testing.T) {
+func TestSortPreservesLength(t *testing.T) {
     specta.Property(t, func(pt *specta.T) {
-        // Generate a slice of integers
-        numbers := specta.Slice(specta.Int()).Draw(pt, "numbers")
-
+        numbers := specta.Draw(pt, specta.Slice(specta.Int()), "numbers")
         sorted := Sort(numbers)
 
-        // Invariant 1: Sorted slice has same length
+        // Invariants that must hold
         specta.AssertThat(pt, len(sorted), specta.Equal(len(numbers)))
-
-        // Invariant 2: Elements are in order
         for i := 1; i < len(sorted); i++ {
             specta.AssertThat(pt, sorted[i], specta.GreaterThanOrEqual(sorted[i-1]))
         }
     })
 }
 ```
+
+Other examples:
+- Balance stays same in money transfers: `before.total == after.total`
+- Shopping cart total matches items: `cart.total == sum(item.price)`
+- Database foreign keys stay valid after updates
+- Reference counts stay consistent
+- Function doesn't panic
+
+### Comparing with Simpler Implementation
+
+Test optimized code against simple reference version:
+
+<!-- skip-test -->
+```go
+func TestFastSumMatchesSimpleSum(t *testing.T) {
+    specta.Property(t, func(pt *specta.T) {
+        numbers := specta.Draw(pt, specta.Slice(specta.Int()).MaxLen(100), "numbers")
+
+        // Compare optimized vs simple
+        specta.AssertThat(pt, FastSum(numbers), specta.Equal(SimpleSum(numbers)))
+    })
+}
+```
+
+Other examples:
+- Optimized algorithm vs straightforward version
+- Parallel version vs sequential version
+- Custom data structure vs standard library equivalent
+- New regex engine vs known-good implementation
+
+### Order Doesn't Matter (Commutativity)
+
+Operations that should work the same regardless of input order:
+
+- `Add(x, y) == Add(y, x)` - addition works either way
+- `distance(a, b) == distance(b, a)` - distance is symmetric
+- `set.union(a, b) == set.union(b, a)` - set operations
+- Search results should be same regardless of query term order
+
+### Applying Multiple Times = Applying Once (Idempotence)
+
+Operations where repeating has no additional effect:
+
+- Normalize string: `normalize(normalize(s)) == normalize(s)`
+- Add to set: `set.add(x).add(x) == set.add(x)`
+- HTTP PUT requests: multiple identical PUTs = one PUT
+- Close file: `close(close(f))` safe to call multiple times
+- Database migrations: running twice = running once
+
+### Predictable Transformations
+
+When you transform the input, outputs have predictable relationships even if you don't know exact values:
+
+- More specific search returns fewer results: `search("ABC") ⊆ search("AB")`
+- Processing larger input takes more time: `time(process(data + data)) > time(process(data))`
+- Scaling image 2x then 0.5x returns approximately original size
+- If you insert item X into collection, searching for X should find it
+
+This is useful when you can't compute the exact output, but know how different inputs relate to each other
+
+### Operations Compose Correctly (Associativity)
+
+Multiple operations combine in expected ways:
+
+- `append(a, append(b, c)) == append(append(a, b), c)` - grouping doesn't matter
+- `filter(f, filter(g, xs)) == filter(f and g, xs)` - filters combine
+- `map(f, map(g, xs)) == map(f∘g, xs)` - maps combine
+
+**Start simple:** Begin with "doesn't panic" or "result length matches input length", then add more specific properties as you understand the behavior.
 
 ## Advanced Patterns
 
@@ -218,8 +362,8 @@ Skip test iterations that don't meet preconditions:
 ```go
 func TestDivision(t *testing.T) {
     specta.Property(t, func(pt *specta.T) {
-        x := specta.Int().Draw(pt, "x")
-        y := specta.Int().Draw(pt, "y")
+        x := specta.Draw(pt, specta.Int(), "x")
+        y := specta.Draw(pt, specta.Int(), "y")
 
         // Skip if y is zero
         pt.Assume(y != 0)
@@ -230,6 +374,9 @@ func TestDivision(t *testing.T) {
     })
 }
 ```
+
+It's better to constrain a generator to prevent the value being generated in the first place as skips waste iterations, but it's not always possible or convient to do that. specta will warn if your property is skipping too many iterations as it's not giving the coverage that you think it is and is wasteful. In those cases try and rewrite the tests to constrain a generator instead.
+
 
 ### Constraining Generated Values
 
@@ -242,8 +389,8 @@ Use built-in constraints when possible - they're fast and always succeed:
 <!-- skip-test -->
 ```go
 // Good: constrain the generator directly
-age := specta.Int().Range(0, 120).Draw(pt, "age")
-username := specta.String().AlphaNum().MinLen(3).MaxLen(20).Draw(pt, "username")
+age := specta.Draw(pt, specta.Int().Range(0, 120), "age")
+username := specta.Draw(pt, specta.String().AlphaNum().MinLen(3).MaxLen(20), "username")
 ```
 
 #### 2. Filtering (When Constraints Don't Suffice)
@@ -253,9 +400,9 @@ Use `.Filter()` for conditions that can't be expressed as generator constraints:
 <!-- skip-test -->
 ```go
 // Generate an even number (50% of integers pass - good for filtering)
-n := specta.Int().Range(0, 100).Filter(func(x int64) bool {
+n := specta.Draw(pt, specta.Int().Range(0, 100).Filter(func(x int64) bool {
     return x % 2 == 0
-}).Draw(pt, "n")
+}), "n")
 ```
 
 **Caveat**: The generator retries up to 100 times, then skips the test iteration. If your filter has a low success rate, generation will be slower and you'll skip more tests. Keep the success rate reasonably high (aim for >10%).
@@ -266,8 +413,8 @@ Use `pt.Assume()` for complex preconditions, especially those involving relation
 
 <!-- skip-test -->
 ```go
-x := specta.Int().Range(0, 100).Draw(pt, "x")
-y := specta.Int().Range(0, 100).Draw(pt, "y")
+x := specta.Draw(pt, specta.Int().Range(0, 100), "x")
+y := specta.Draw(pt, specta.Int().Range(0, 100), "y")
 
 // Skip this test if x >= y (correlation between two generated values)
 pt.Assume(x < y)
@@ -280,8 +427,8 @@ pt.Assume(x < y)
 <!-- skip-test -->
 ```go
 // Generate x, then generate y > x
-x := specta.Int().Range(0, 99).Draw(pt, "x")
-y := specta.Int().Range(x+1, 100).Draw(pt, "y")
+x := specta.Draw(pt, specta.Int().Range(0, 99), "x")
+y := specta.Draw(pt, specta.Int().Range(x+1, 100), "y")
 // Now x < y is always true, no Assume() needed
 ```
 
@@ -300,6 +447,45 @@ func TestExpensive(t *testing.T) {
 }
 ```
 
+### Understanding Randomness and Seeds
+
+**By default, property tests use random seeds** (`time.Now().UnixNano()`). This means each test run explores different parts of the input space:
+
+<!-- skip-test -->
+```go
+func TestStringReverse(t *testing.T) {
+    // No explicit seed - uses time.Now().UnixNano()
+    specta.Property(t, func(pt *specta.T) {
+        s := specta.Draw(pt, specta.String(), "s")
+        // Different random strings on each test run
+    })
+}
+```
+
+**This is intentional and beneficial:**
+- Each CI run tests different inputs
+- Over time, you get broader coverage
+- Non-determinism helps find edge cases you didn't think of
+
+**When to use explicit seeds:**
+
+1. **Reproducing failures** - Copy the seed from the failure message:
+   <!-- skip-test -->
+   ```go
+   // Property failed with seed 1234567890
+   specta.Property(t, func(pt *specta.T) { ... }, specta.Seed(1234567890))
+   ```
+
+2. **Documentation examples** - For consistent output in docs:
+   <!-- skip-test -->
+   ```go
+   specta.Property(t, func(pt *specta.T) { ... }, specta.Seed(42))
+   ```
+
+3. **Framework/library tests** - When you need deterministic behavior for meta-testing
+
+**Don't use explicit seeds for regular tests** - random seeds provide better long-term coverage. If you find a bug, reproduce it with the seed from the failure message, fix it, then remove the explicit seed.
+
 ### Combining with Factory Recipes
 
 Factory recipes work seamlessly with property-based testing to build complex types with deterministic generation:
@@ -310,8 +496,8 @@ func TestUserProcessing(t *testing.T) {
     specta.Property(t, func(pt *specta.T) {
         // Use pt as the Source for factory recipes
         user := factory.User().
-            Name(specta.String().Alpha().MinLen(1).MaxLen(50).Draw(pt, "name")).
-            Age(specta.Int().Range(18, 120).Draw(pt, "age")).
+            NameFromGenerator(specta.String().Alpha().MinLen(1).MaxLen(50)).
+            AgeFromGenerator(specta.Int().Range(18, 120)).
             Build(pt)
 
         // Test property with the generated user
@@ -335,7 +521,7 @@ func TestAdminPermissions(t *testing.T) {
         // Variable: other fields are generated
         user := factory.User().
             Role("admin").  // Fixed literal
-            Name(specta.String().AlphaNum().NonEmpty().Draw(pt, "name")).
+            NameFromGenerator(specta.String().AlphaNum().NonEmpty()).
             Build(pt)
 
         // Property: admins can always access admin panel
@@ -356,8 +542,8 @@ func TestNestedStructures(t *testing.T) {
         user := factory.User().
             NameFromRecipe(
                 factory.Name().
-                    First(specta.String().Alpha().MinLen(1).Draw(pt, "first")).
-                    Last(specta.String().Alpha().MinLen(1).Draw(pt, "last")),
+                    FirstFromGenerator(specta.String().Alpha().MinLen(1)).
+                    LastFromGenerator(specta.String().Alpha().MinLen(1)),
             ).
             Build(pt)
 
@@ -369,6 +555,8 @@ func TestNestedStructures(t *testing.T) {
 ```
 
 #### Customizing Default Generators
+
+> **Note:** This section covers customizing generators in the context of property-based testing. For more details on factory customization and additional patterns, see the [Factories documentation]({{< relref "/docs/factories/" >}}).
 
 Generated factories create default generators for each field using the `factory/spec/*_gen.go` files. For example:
 
@@ -472,7 +660,7 @@ package factory
 
 // IsActive matches users where Active is true
 func IsActive() specta.Matcher[User] {
-    return UserMatches().Active(specta.Equal(true)).Matcher()
+    return UserMatches().Active(specta.Equal(true))
 }
 ```
 
@@ -500,7 +688,7 @@ Use matchers to express properties clearly:
 ```go
 func TestStringProperties(t *testing.T) {
     specta.Property(t, func(pt *specta.T) {
-        s := specta.String().Printable().Draw(pt, "s")
+        s := specta.Draw(pt, specta.String().Printable(), "s")
 
         upper := strings.ToUpper(s)
 
@@ -521,7 +709,7 @@ When a property fails, specta automatically shrinks the input to find the minima
 ```go
 func TestBuggyReverse(t *testing.T) {
     specta.Property(t, func(pt *specta.T) {
-        s := specta.String().Draw(pt, "s")
+        s := specta.Draw(pt, specta.String(), "s")
 
         reversed := BuggyReverse(s) // Has a bug with certain inputs
 
@@ -535,10 +723,62 @@ func TestBuggyReverse(t *testing.T) {
 2. Try progressively simpler strings
 3. Report the minimal failing input (e.g., `"a"` or `""`)
 
-The failure message shows:
-- The seed for reproducibility
-- The shrunk input that caused the failure
-- All generated values with their labels
+### Understanding Failure Messages
+
+When a property test fails, specta provides a detailed error message showing exactly what went wrong:
+
+```
+=== Property Test Failed ===
+Seed: 7
+Attempts: 1/100
+
+Generated values:
+  a = 0
+  b = 0
+  c = 0
+
+Failure:
+  buggySum([]int64{a, b, c}): expected 0 but got 1
+
+Reproduce: Property(t, check, Seed(7))
+```
+
+**What this tells you:**
+
+1. **Seed** - Use this to reproduce the exact failure: `specta.Property(t, check, Seed(7))`
+
+2. **Attempts** - How many iterations ran before failure (1/100 means it failed on the first test)
+
+3. **Generated values** - All values from `Draw()` calls with their labels. These are the **shrunk** values - specta automatically found the minimal failing case.
+
+4. **Failure** - The assertion that failed, showing expected vs actual values
+
+**Example with struct formatting:**
+
+```
+=== Property Test Failed ===
+Seed: 42
+Attempts: 1/1
+
+Generated values:
+  parent = Parent{
+    Child: UserView{
+      ID: "a",
+      Name: "a",
+      Active: false,
+      Score: 0,
+    },
+  }
+
+Failure:
+  parent.Child.Name: expected "deliberately-wrong" but got "a"
+
+Reproduce: Property(t, check, Seed(42))
+```
+
+Structs are pretty-printed with proper indentation for readability.
+
+**Why labels matter:** Without descriptive labels in `Draw()` calls, you'd see unhelpful output. Always use meaningful labels that describe what the value represents
 
 ## Best Practices
 

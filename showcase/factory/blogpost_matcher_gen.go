@@ -44,8 +44,7 @@ type BlogPostMatcher struct {
 //
 //	matcher := factory.BlogPostMatches().
 //	    ID(specta.Equal("expected_value")).
-//	    Title(specta.Contains("substring")).
-//	    Matcher()
+//	    Title(specta.Contains("substring"))
 //
 //	specta.AssertThat(t, actualBlogPost, matcher)
 func BlogPostMatches() BlogPostMatcher {
@@ -76,12 +75,6 @@ func (m BlogPostMatcher) Author(matcher specta.Matcher[showcase.User]) BlogPostM
 	return m
 }
 
-// AuthorMatches is a convenience method that accepts a UserMatcher.
-func (m BlogPostMatcher) AuthorMatches(matcher UserMatcher) BlogPostMatcher {
-	m.authorMatcher = matcher.Matcher()
-	return m
-}
-
 // Published adds a matcher for the Published field.
 func (m BlogPostMatcher) Published(matcher specta.Matcher[bool]) BlogPostMatcher {
 	m.publishedMatcher = matcher
@@ -106,107 +99,105 @@ func (m BlogPostMatcher) UpdatedAt(matcher specta.Matcher[time.Time]) BlogPostMa
 	return m
 }
 
-// Matcher returns the composed matcher for BlogPost.
-func (m BlogPostMatcher) Matcher() specta.Matcher[showcase.BlogPost] {
-	return specta.MatcherFunc[showcase.BlogPost](func(actual showcase.BlogPost) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		iDValue := actual.ID
-		titleValue := actual.Title
-		contentValue := actual.Content
-		authorValue := actual.Author
-		publishedValue := actual.Published
-		publishedAtValue := actual.PublishedAt
-		createdAtValue := actual.CreatedAt
-		updatedAtValue := actual.UpdatedAt
+// Matches implements the Matcher[BlogPost] interface.
+func (m BlogPostMatcher) Matches(actual showcase.BlogPost) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	iDValue := actual.ID
+	titleValue := actual.Title
+	contentValue := actual.Content
+	authorValue := actual.Author
+	publishedValue := actual.Published
+	publishedAtValue := actual.PublishedAt
+	createdAtValue := actual.CreatedAt
+	updatedAtValue := actual.UpdatedAt
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"ID":          iDValue,
-			"Title":       titleValue,
-			"Content":     contentValue,
-			"Author":      authorValue,
-			"Published":   publishedValue,
-			"PublishedAt": publishedAtValue,
-			"CreatedAt":   createdAtValue,
-			"UpdatedAt":   updatedAtValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"ID":          iDValue,
+		"Title":       titleValue,
+		"Content":     contentValue,
+		"Author":      authorValue,
+		"Published":   publishedValue,
+		"PublishedAt": publishedAtValue,
+		"CreatedAt":   createdAtValue,
+		"UpdatedAt":   updatedAtValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.iDMatcher != nil {
+		result := m.iDMatcher.Matches(iDValue)
+		fieldResults["ID"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(iDValue)
-			fieldResults["ID"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.titleMatcher != nil {
+		result := m.titleMatcher.Matches(titleValue)
+		fieldResults["Title"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.titleMatcher != nil {
-			result := m.titleMatcher.Matches(titleValue)
-			fieldResults["Title"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.contentMatcher != nil {
+		result := m.contentMatcher.Matches(contentValue)
+		fieldResults["Content"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.contentMatcher != nil {
-			result := m.contentMatcher.Matches(contentValue)
-			fieldResults["Content"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.authorMatcher != nil {
+		result := m.authorMatcher.Matches(authorValue)
+		fieldResults["Author"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.authorMatcher != nil {
-			result := m.authorMatcher.Matches(authorValue)
-			fieldResults["Author"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.publishedMatcher != nil {
+		result := m.publishedMatcher.Matches(publishedValue)
+		fieldResults["Published"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.publishedMatcher != nil {
-			result := m.publishedMatcher.Matches(publishedValue)
-			fieldResults["Published"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.publishedAtMatcher != nil {
+		result := m.publishedAtMatcher.Matches(publishedAtValue)
+		fieldResults["PublishedAt"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.publishedAtMatcher != nil {
-			result := m.publishedAtMatcher.Matches(publishedAtValue)
-			fieldResults["PublishedAt"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.createdAtMatcher != nil {
+		result := m.createdAtMatcher.Matches(createdAtValue)
+		fieldResults["CreatedAt"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(createdAtValue)
-			fieldResults["CreatedAt"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.updatedAtMatcher != nil {
+		result := m.updatedAtMatcher.Matches(updatedAtValue)
+		fieldResults["UpdatedAt"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.updatedAtMatcher != nil {
-			result := m.updatedAtMatcher.Matches(updatedAtValue)
-			fieldResults["UpdatedAt"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("BlogPost", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("BlogPost", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

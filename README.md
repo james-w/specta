@@ -31,54 +31,94 @@ The documentation includes:
 
 ## Quick Start
 
+### Built-in Matchers (Works Immediately)
+
 ```go
 import "github.com/james-w/specta"
 
-func TestUserRegistration(t *testing.T) {
-    // Register a new user
+func TestUserValidation(t *testing.T) {
     user := registerUser("alice@example.com", 30)
 
-    // Match multiple fields at once
+    // Match individual values with built-in matchers
+    specta.AssertThat(t, user.Age, specta.GreaterThan(18))
+    specta.AssertThat(t, user.Email, specta.Contains("@example.com"))
+    specta.AssertThat(t, user.Active, specta.IsTrue())
+}
+```
+
+**When tests fail**, you see clear error messages:
+
+```
+user.Age: expected value > 18 but got 15
+user.Email: expected string to contain "@example.com" but got "alice@test.org"
+```
+
+**Available built-in matchers:**
+- Equality: `Equal`, `DeepEqual`, `Is`
+- Numeric: `GreaterThan`, `LessThan`, `GreaterThanOrEqual`, `LessThanOrEqual`
+- Strings: `Contains`, `HasPrefix`, `HasSuffix`
+- Boolean: `IsTrue`, `IsFalse`
+- Other: `IsZero`, `Not`, `AllOf`, `AnyOf`
+
+### Generated Matchers (Requires Code Generation)
+
+For structured matching of your types, specta can generate type-safe matchers:
+
+**Setup** (one-time):
+
+1. Create `specta.yaml`:
+   ```yaml
+   targets:
+     - name: myapp
+       types:
+         - name: User
+           fields:
+             - name: Age
+             - name: Email
+             - name: Active
+   ```
+
+2. Generate code:
+   ```bash
+   go run github.com/james-w/specta/cmd/main.go
+   ```
+
+**Usage:**
+
+```go
+import (
+    "github.com/james-w/specta"
+    "yourmodule/factory"  // Generated package
+)
+
+func TestUserRegistration(t *testing.T) {
+    user := registerUser("alice@example.com", 30)
+
+    // Match multiple fields at once with structured matchers
     specta.AssertThat(t, user,
-        UserMatches().
-            Name(specta.Equal("Alice")).
+        factory.UserMatches().
             Age(specta.GreaterThan(18)).
             Email(specta.Contains("@example.com")).
+            Active(specta.IsTrue()).
             Matcher())
 }
 ```
 
-**When tests fail**, you see exactly what went wrong with structured diffs:
+**Structured diff output** shows exactly what failed:
 
 ```
 user didn't match:
 User {
-  ✗ Age: expected > 18 but got 15
-  ✗ Email: expected to contain "@example.com" but got "alice@test.org"
-  ✓ Name: "Alice"
-  ~ Active: true
+  ✗ Age: expected value > 18 but got 15
+  ✗ Email: expected string to contain "@example.com" but got "alice@test.org"
+  ✓ Active: true
   ~ ID: "user-123"
-  ~ Score: 50
 }
 ```
 
 ✓ = matched, ✗ = failed, ~ = not checked (shown for context). Colors automatically enabled in terminals.
 
-**Error messages include the actual expression tested** via AST parsing:
-
-```go
-// When this fails:
-specta.AssertThat(t, user.GetEmail(), specta.Equal("alice@example.com"))
-
-// You see:
-// user.GetEmail(): expected "alice@example.com" but got "bob@example.com"
-
-// Complex expressions work too:
-specta.AssertThat(t, len(user.Tags), specta.GreaterThan(0))
-// len(user.Tags): expected value > 0 but got 0
-```
-
-This makes debugging significantly faster—you see both what expression failed and why it failed.
+**Key benefit**: Only specify fields that matter to your test—other fields are ignored. This prevents brittle tests when adding new fields.
 
 ## Why Composition Matters
 
@@ -193,7 +233,7 @@ var ValidOrderRecipe = factory.Order().
 
 var IsValidOrder = OrderMatches().
     Total(specta.GreaterThan(0.0)).
-    UserMatches(IsValidUser).  // Reuse the user matcher!
+    User(IsValidUser).  // Reuse the user matcher!
     Matcher()
 
 func TestOrderCreation(t *testing.T) {
@@ -362,7 +402,7 @@ specta.AssertThat(t, order,
         Total(specta.GreaterThan(100.0)).
         Status(specta.Equal("shipped")).
         // Match nested user fields
-        UserMatches(
+        User(
             UserMatches().
                 Email(specta.Contains("@premium.com")).
                 AccountType(specta.Equal("premium")),

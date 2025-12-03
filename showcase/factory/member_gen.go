@@ -145,5 +145,5 @@ func (r MemberRecipe) AsEqualMatcher() specta.Matcher[showcase.Member] {
 		}
 	}
 
-	return m.Matcher()
+	return m
 }

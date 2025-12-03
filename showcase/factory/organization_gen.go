@@ -177,5 +177,5 @@ func (r OrganizationRecipe) AsEqualMatcher() specta.Matcher[showcase.Organizatio
 		m = m.Metadata(specta.DeepEqual(s.Metadata.GetValue(p, "Metadata")))
 	}
 
-	return m.Matcher()
+	return m
 }

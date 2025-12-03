@@ -211,5 +211,5 @@ func (r UserRecipe) AsEqualMatcher() specta.Matcher[showcase.User] {
 		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

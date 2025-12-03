@@ -27,10 +27,10 @@ func TestUserCreation(t *testing.T) {
     result := CreateUser(input)
 
     // Match: assert only what we care about
-    specta.AssertThat(t, result, factory.MatchUser().
-        WithName(specta.Equal("Alice")).
-        WithEmail(specta.Equal("alice@example.com")).
-        WithID(specta.Not(IsEmpty())))
+    specta.AssertThat(t, result, factory.UserMatches().
+        Name(specta.Equal("Alice")).
+        Email(specta.Equal("alice@example.com")).
+        ID(specta.Not(specta.IsEmpty[string]())))
 }
 ```
 
@@ -79,8 +79,8 @@ func TestNameNormalization(t *testing.T) {
         Name("  ALICE  ").
         Build(p))
 
-    specta.AssertThat(t, user, factory.MatchUser().
-        WithName(specta.Equal("Alice")))
+    specta.AssertThat(t, user, factory.UserMatches().
+        Name(specta.Equal("Alice")))
 }
 
 // Test 2: Only care about email domain validation
@@ -91,8 +91,8 @@ func TestEmailDomain(t *testing.T) {
         Email("alice@company.com").
         Build(p))
 
-    specta.AssertThat(t, user, factory.MatchUser().
-        WithEmail(HaveSuffix("@company.com")))
+    specta.AssertThat(t, user, factory.UserMatches().
+        Email(specta.HasSuffix("@company.com")))
 }
 ```
 
@@ -116,11 +116,11 @@ func TestCreateUser(t *testing.T) {
     created := db.CreateUser(userData)
 
     // Assert: Validate result
-    specta.AssertThat(t, created, factory.MatchUser().
-        WithID(specta.Not(IsEmpty())).              // DB generated
-        WithName(specta.Equal(userData.Name)).
-        WithEmail(specta.Equal(userData.Email)).
-        WithCreatedAt(specta.Not(IsZero())))        // DB timestamp
+    specta.AssertThat(t, created, factory.UserMatches().
+        ID(specta.Not(specta.IsEmpty[string]())).              // DB generated
+        Name(specta.Equal(userData.Name)).
+        Email(specta.Equal(userData.Email)).
+        CreatedAt(specta.Not(specta.IsZero[time.Time]())))
 }
 
 func TestUpdateUser(t *testing.T) {
@@ -138,11 +138,11 @@ func TestUpdateUser(t *testing.T) {
     updated := db.UpdateUser(user.ID, updates)
 
     // Assert only what changed
-    specta.AssertThat(t, updated, factory.MatchUser().
-        WithID(specta.Equal(user.ID)).                  // Same ID
-        WithName(specta.Equal(updates.Name)).           // Updated
-        WithCreatedAt(specta.Equal(user.CreatedAt)).    // Unchanged
-        WithUpdatedAt(specta.GreaterThan(user.UpdatedAt))) // Changed
+    specta.AssertThat(t, updated, factory.UserMatches().
+        ID(specta.Equal(user.ID)).                  // Same ID
+        Name(specta.Equal(updates.Name)).           // Updated
+        CreatedAt(specta.Equal(user.CreatedAt)).    // Unchanged
+        UpdatedAt(specta.GreaterThan(user.UpdatedAt)))
 }
 ```
 
@@ -168,10 +168,10 @@ func TestGetUserAPI(t *testing.T) {
     json.Unmarshal(resp.Body, &result)
 
     // Validate response
-    specta.AssertThat(t, result, factory.MatchUser().
-        WithID(specta.Equal(user.ID)).
-        WithName(specta.Equal(user.Name)).
-        WithEmail(specta.Equal(user.Email)))
+    specta.AssertThat(t, result, factory.UserMatches().
+        ID(specta.Equal(user.ID)).
+        Name(specta.Equal(user.Name)).
+        Email(specta.Equal(user.Email)))
 }
 ```
 
@@ -179,11 +179,11 @@ func TestGetUserAPI(t *testing.T) {
 
 <!-- skip-test -->
 ```go
-func MatchesDBUser(user User) factory.UserMatcher {
-    return factory.MatchUser().
-        WithID(specta.Equal(user.ID)).
-        WithName(specta.Equal(user.Name)).
-        WithEmail(specta.Equal(user.Email))
+func MatchesDBUser(user User) specta.Matcher[User] {
+    return factory.UserMatches().
+        ID(specta.Equal(user.ID)).
+        Name(specta.Equal(user.Name)).
+        Email(specta.Equal(user.Email))
 }
 
 // Usage
@@ -233,14 +233,78 @@ func TestValidation(t *testing.T) {
         t.Run(tt.name, func(t *testing.T) {
             err := ValidateUser(tt.user)
             if tt.wantError {
-                specta.AssertThat(t, err, NotBeNil())
+                specta.AssertThat(t, err, specta.IsError())
             } else {
-                specta.AssertThat(t, err, BeNil())
+                specta.AssertThat(t, err, specta.NoErr())
             }
         })
     }
 }
 ```
+
+### Recursive Partial Matching with AsEqualMatcher
+
+One of the most powerful patterns is using `AsEqualMatcher()` with nested recipes. Partial matching works recursively - if you set specific fields on nested types, only those nested fields will be checked:
+
+<!-- skip-test -->
+```go
+func TestOrderWithPartialUserMatch(t *testing.T) {
+    p := specta.New()
+
+    // Create test data - full objects with all fields
+    order := factory.Order().
+        Total(150.0).
+        Status("pending").
+        UserFromRecipe(
+            factory.User().
+                FirstName("Alice").
+                Email("alice@example.com"),
+        ).
+        Build(p)
+
+    // Act
+    result := processOrder(order)
+
+    // Assert with partial matching - only check what matters
+    // This checks:
+    // - Order.Status
+    // - Order.User.FirstName (ONLY this user field)
+    // Everything else (Order.Total, Order.ID, User.Email, User.LastName, etc.) is ignored
+    specta.AssertThat(t, result, factory.Order().
+        Status("completed").
+        UserFromRecipe(
+            factory.User().FirstName("Alice"),  // Only FirstName is checked
+        ).
+        AsEqualMatcher())
+}
+```
+
+**How it differs from DeepEqual:**
+
+<!-- skip-test -->
+```go
+// DeepEqual checks EVERYTHING
+user := factory.User().FirstName("Alice").Build(p)
+specta.AssertThat(t, result, specta.DeepEqual(user))
+// Fails if ANY field differs (ID, Email, LastName, CreatedAt, etc.)
+
+// AsEqualMatcher checks ONLY what you set
+matcher := factory.User().FirstName("Alice").AsEqualMatcher()
+specta.AssertThat(t, result, matcher)
+// Only checks FirstName, ignores all other fields
+```
+
+This recursive partial matching is especially useful for:
+
+1. **Testing data transformations** - Only assert what the transformation should change
+2. **API response validation** - Check critical fields, ignore server-generated metadata
+3. **Integration tests** - Focus on business logic, ignore infrastructure details
+
+**When to use each approach:**
+
+- **Explicit matchers** (`factory.UserMatches().FirstName(...)`) - When you want fine-grained control over matching logic (e.g., `Contains`, `GreaterThan`)
+- **AsEqualMatcher** - When you want partial equality checking with nested objects
+- **DeepEqual** - When you need exact equality of entire objects
 
 ## Benefits Summary
 

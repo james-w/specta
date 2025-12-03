@@ -22,7 +22,7 @@
 // Assert with matchers:
 //
 //	matcher := AccountMatches().User(specta.Equal(value))
-//	specta.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher)
 //
 // Combine both with partial matching:
 //
@@ -130,5 +130,5 @@ func (r AccountRecipe) AsEqualMatcher() specta.Matcher[showcase.Account] {
 	if s.Status.IsSet() {
 		m = m.Status(specta.Equal(s.Status.GetValue(p, "Status")))
 	}
-	return m.Matcher()
+	return m
 }

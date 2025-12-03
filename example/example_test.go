@@ -9,13 +9,13 @@ import (
 	"github.com/james-w/specta/testlib"
 )
 
-// ExampleUserViewMatcher_singleFieldMismatch demonstrates the structured diff output when a single field doesn't match.
-// The output shows: ✓ for matched fields, ✗ for failed fields, ~ for unchecked fields.
+// ExampleUserViewMatcher_singleFieldMismatch demonstrates the structured diff output when a single field doesn't match
+// The output shows: ✓ for matched fields, ✗ for failed fields, ~ for unchecked fields
 func ExampleUserViewMatcher_singleFieldMismatch() {
 	p := specta.New()
 	user := factory.UserView().Name("foo").Build(p)
 
-	matcher := factory.UserViewMatches().Name(specta.Equal("bar")).Matcher()
+	matcher := factory.UserViewMatches().Name(specta.Equal("bar"))
 	result := matcher.Matches(user)
 
 	if !result.Matched {
@@ -30,7 +30,7 @@ func ExampleUserViewMatcher_singleFieldMismatch() {
 	// }
 }
 
-// ExampleUserViewMatcher_multipleFieldMismatches demonstrates structured diff with multiple field failures.
+// ExampleUserViewMatcher_multipleFieldMismatches demonstrates structured diff with multiple field failures
 func ExampleUserViewMatcher_multipleFieldMismatches() {
 	p := specta.New()
 	user := factory.UserView().Name("Bob").Score(85).Active(false).Build(p)
@@ -38,8 +38,7 @@ func ExampleUserViewMatcher_multipleFieldMismatches() {
 	matcher := factory.UserViewMatches().
 		Name(specta.HasPrefix("A")).
 		Score(specta.GreaterThan(90)).
-		Active(specta.IsTrue()).
-		Matcher()
+		Active(specta.IsTrue())
 
 	result := matcher.Matches(user)
 	if !result.Matched {
@@ -54,13 +53,13 @@ func ExampleUserViewMatcher_multipleFieldMismatches() {
 	// }
 }
 
-// ExampleUserViewMatcher_partialMatch demonstrates that unchecked fields are shown with ~ symbol.
+// ExampleUserViewMatcher_partialMatch demonstrates that unchecked fields are shown with ~ symbol
 func ExampleUserViewMatcher_partialMatch() {
 	p := specta.New()
 	user := factory.UserView().Name("Alice").Score(50).Build(p)
 
 	// Only check the name - other fields are unchecked
-	matcher := factory.UserViewMatches().Name(specta.Equal("Alice")).Matcher()
+	matcher := factory.UserViewMatches().Name(specta.Equal("Alice"))
 
 	result := matcher.Matches(user)
 	if !result.Matched {
@@ -73,7 +72,7 @@ func ExampleUserViewMatcher_partialMatch() {
 	// Match succeeded - Name was checked
 }
 
-// ExampleDeepEqual_structMismatch demonstrates DeepEqual's structured diff for struct comparisons.
+// ExampleDeepEqual_structMismatch demonstrates DeepEqual's structured diff for struct comparisons
 func ExampleDeepEqual_structMismatch() {
 	expected := example.UserView{
 		ID:     "123",
@@ -104,9 +103,9 @@ func ExampleDeepEqual_structMismatch() {
 	// }
 }
 
-// ExampleDeepEqual_nestedStruct demonstrates diff output for nested struct mismatches.
+// ExampleDeepEqual_nestedStruct demonstrates diff output for nested struct mismatches
 // Nested structures show full structured diff recursively, allowing you to see exactly
-// which fields differ at any level of nesting.
+// which fields differ at any level of nesting
 func ExampleDeepEqual_nestedStruct() {
 	expected := example.Parent{
 		Child: example.UserView{
@@ -140,8 +139,8 @@ func ExampleDeepEqual_nestedStruct() {
 	// }
 }
 
-// ExampleDeepEqual_sliceDifference demonstrates diff output for slice mismatches.
-// Slices show simple format without field-by-field breakdown.
+// ExampleDeepEqual_sliceDifference demonstrates diff output for slice mismatches
+// Slices show simple format without field-by-field breakdown
 func ExampleDeepEqual_sliceDifference() {
 	expected := []string{"apple", "banana", "cherry"}
 	actual := []string{"apple", "blueberry", "cherry"}
@@ -156,7 +155,7 @@ func ExampleDeepEqual_sliceDifference() {
 	// expected []string{"apple", "banana", "cherry"} but got []string{"apple", "blueberry", "cherry"}
 }
 
-// ExampleGreaterThan_failure demonstrates numeric constraint matcher failure output.
+// ExampleGreaterThan_failure demonstrates numeric constraint matcher failure output
 func ExampleGreaterThan_failure() {
 	matcher := specta.GreaterThan(100)
 	result := matcher.Matches(50)
@@ -168,7 +167,7 @@ func ExampleGreaterThan_failure() {
 	// expected value > 100 but got 50
 }
 
-// ExampleLessThan_failure demonstrates numeric less-than matcher failure output.
+// ExampleLessThan_failure demonstrates numeric less-than matcher failure output
 func ExampleLessThan_failure() {
 	matcher := specta.LessThan(10)
 	result := matcher.Matches(25)
@@ -180,7 +179,7 @@ func ExampleLessThan_failure() {
 	// expected value < 10 but got 25
 }
 
-// ExampleGreaterThanOrEqual_failure demonstrates >= matcher failure output.
+// ExampleGreaterThanOrEqual_failure demonstrates >= matcher failure output
 func ExampleGreaterThanOrEqual_failure() {
 	matcher := specta.GreaterThanOrEqual(100)
 	result := matcher.Matches(99)
@@ -192,7 +191,7 @@ func ExampleGreaterThanOrEqual_failure() {
 	// expected value >= 100 but got 99
 }
 
-// ExampleEqual_failure demonstrates equality matcher failure output.
+// ExampleEqual_failure demonstrates equality matcher failure output
 func ExampleEqual_failure() {
 	matcher := specta.Equal(42)
 	result := matcher.Matches(99)
@@ -204,7 +203,7 @@ func ExampleEqual_failure() {
 	// expected 42 but got 99
 }
 
-// ExampleContains_failure demonstrates string Contains matcher failure output.
+// ExampleContains_failure demonstrates string Contains matcher failure output
 func ExampleContains_failure() {
 	matcher := specta.Contains("hello")
 	result := matcher.Matches("goodbye world")
@@ -216,7 +215,7 @@ func ExampleContains_failure() {
 	// expected string to contain "hello" but got "goodbye world"
 }
 
-// ExampleHasPrefix_failure demonstrates string prefix matcher failure output.
+// ExampleHasPrefix_failure demonstrates string prefix matcher failure output
 func ExampleHasPrefix_failure() {
 	matcher := specta.HasPrefix("admin_")
 	result := matcher.Matches("user_123")
@@ -228,7 +227,7 @@ func ExampleHasPrefix_failure() {
 	// expected string to start with "admin_" but got "user_123"
 }
 
-// ExampleHasSuffix_failure demonstrates string suffix matcher failure output.
+// ExampleHasSuffix_failure demonstrates string suffix matcher failure output
 func ExampleHasSuffix_failure() {
 	matcher := specta.HasSuffix(".json")
 	result := matcher.Matches("config.yaml")
@@ -240,7 +239,7 @@ func ExampleHasSuffix_failure() {
 	// expected string to end with ".json" but got "config.yaml"
 }
 
-// ExampleIsTrue_failure demonstrates boolean true matcher failure output.
+// ExampleIsTrue_failure demonstrates boolean true matcher failure output
 func ExampleIsTrue_failure() {
 	matcher := specta.IsTrue()
 	result := matcher.Matches(false)
@@ -252,7 +251,7 @@ func ExampleIsTrue_failure() {
 	// expected true but got false
 }
 
-// ExampleIsFalse_failure demonstrates boolean false matcher failure output.
+// ExampleIsFalse_failure demonstrates boolean false matcher failure output
 func ExampleIsFalse_failure() {
 	matcher := specta.IsFalse()
 	result := matcher.Matches(true)
@@ -264,8 +263,8 @@ func ExampleIsFalse_failure() {
 	// expected false but got true
 }
 
-// ExampleIsZero_failure demonstrates zero value matcher failure output.
-// Shows the actual value received (quoted for strings).
+// ExampleIsZero_failure demonstrates zero value matcher failure output
+// Shows the actual value received (quoted for strings)
 func ExampleIsZero_failure() {
 	matcher := specta.IsZero[string]()
 	result := matcher.Matches("not empty")
@@ -277,8 +276,8 @@ func ExampleIsZero_failure() {
 	// expected zero value but got "not empty"
 }
 
-// ExampleAnyOf_failure demonstrates AnyOf matcher failure when no branches match.
-// Shows all failure messages (up to 3) so you can see what was tried.
+// ExampleAnyOf_failure demonstrates AnyOf matcher failure when no branches match
+// Shows all failure messages (up to 3) so you can see what was tried
 func ExampleAnyOf_failure() {
 	matcher := specta.AnyOf(
 		specta.Equal("admin"),
@@ -297,7 +296,7 @@ func ExampleAnyOf_failure() {
 	//   option 3: expected "editor" but got "guest"
 }
 
-// ExampleNot_failure demonstrates Not matcher failure output.
+// ExampleNot_failure demonstrates Not matcher failure output
 func ExampleNot_failure() {
 	matcher := specta.Not(specta.Contains("test"))
 
@@ -309,8 +308,8 @@ func ExampleNot_failure() {
 	// expected not to match, but it did
 }
 
-// ExampleAllOf_failure demonstrates AllOf matcher failure output.
-// Shows which matchers failed and which succeeded, making it easy to see what went wrong.
+// ExampleAllOf_failure demonstrates AllOf matcher failure output
+// Shows which matchers failed and which succeeded, making it easy to see what went wrong
 func ExampleAllOf_failure() {
 	matcher := specta.AllOf(
 		specta.HasPrefix("user_"),
@@ -329,7 +328,7 @@ func ExampleAllOf_failure() {
 }
 
 // ExampleAssertThat_expressionCapture demonstrates how AssertThat captures and displays
-// the actual expression that was tested using AST parsing.
+// the actual expression that was tested using AST parsing
 func ExampleAssertThat_expressionCapture() {
 	spy := testlib.NewSpy()
 	user := example.UserView{Name: "Bob"}
@@ -343,7 +342,7 @@ func ExampleAssertThat_expressionCapture() {
 	// user.Name: expected "Alice" but got "Bob"
 }
 
-// ExampleAssertThat_complexExpression demonstrates AST capture with a complex expression.
+// ExampleAssertThat_complexExpression demonstrates AST capture with a complex expression
 func ExampleAssertThat_complexExpression() {
 	spy := testlib.NewSpy()
 	p := specta.New()
@@ -358,7 +357,7 @@ func ExampleAssertThat_complexExpression() {
 }
 
 // ExampleAssertThat_structuredDiffWithExpression demonstrates how the expression
-// is displayed as a header for multi-line structured diffs.
+// is displayed as a header for multi-line structured diffs
 func ExampleAssertThat_structuredDiffWithExpression() {
 	spy := testlib.NewSpy()
 	p := specta.New()
@@ -367,8 +366,7 @@ func ExampleAssertThat_structuredDiffWithExpression() {
 	// For structured diffs, the expression appears as a labeled header
 	matcher := factory.UserViewMatches().
 		Name(specta.Equal("Alice")).
-		Score(specta.GreaterThan(90)).
-		Matcher()
+		Score(specta.GreaterThan(90))
 
 	specta.AssertThat(spy, actual, matcher)
 

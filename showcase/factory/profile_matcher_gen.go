@@ -36,8 +36,7 @@ type ProfileMatcher struct {
 //
 //	matcher := factory.ProfileMatches().
 //	    ID(specta.Equal("expected_value")).
-//	    Name(specta.Contains("substring")).
-//	    Matcher()
+//	    Name(specta.Contains("substring"))
 //
 //	specta.AssertThat(t, actualProfile, matcher)
 func ProfileMatches() ProfileMatcher {
@@ -74,77 +73,75 @@ func (m ProfileMatcher) IsPublic(matcher specta.Matcher[bool]) ProfileMatcher {
 	return m
 }
 
-// Matcher returns the composed matcher for Profile.
-func (m ProfileMatcher) Matcher() specta.Matcher[showcase.Profile] {
-	return specta.MatcherFunc[showcase.Profile](func(actual showcase.Profile) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		iDValue := actual.ID
-		nameValue := actual.Name
-		descriptionValue := actual.Description
-		managerValue := actual.Manager
-		isPublicValue := actual.IsPublic
+// Matches implements the Matcher[Profile] interface.
+func (m ProfileMatcher) Matches(actual showcase.Profile) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	iDValue := actual.ID
+	nameValue := actual.Name
+	descriptionValue := actual.Description
+	managerValue := actual.Manager
+	isPublicValue := actual.IsPublic
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"ID":          iDValue,
-			"Name":        nameValue,
-			"Description": descriptionValue,
-			"Manager":     managerValue,
-			"IsPublic":    isPublicValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"ID":          iDValue,
+		"Name":        nameValue,
+		"Description": descriptionValue,
+		"Manager":     managerValue,
+		"IsPublic":    isPublicValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.iDMatcher != nil {
+		result := m.iDMatcher.Matches(iDValue)
+		fieldResults["ID"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(iDValue)
-			fieldResults["ID"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.nameMatcher != nil {
+		result := m.nameMatcher.Matches(nameValue)
+		fieldResults["Name"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.nameMatcher != nil {
-			result := m.nameMatcher.Matches(nameValue)
-			fieldResults["Name"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.descriptionMatcher != nil {
+		result := m.descriptionMatcher.Matches(descriptionValue)
+		fieldResults["Description"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.descriptionMatcher != nil {
-			result := m.descriptionMatcher.Matches(descriptionValue)
-			fieldResults["Description"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.managerMatcher != nil {
+		result := m.managerMatcher.Matches(managerValue)
+		fieldResults["Manager"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.managerMatcher != nil {
-			result := m.managerMatcher.Matches(managerValue)
-			fieldResults["Manager"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.isPublicMatcher != nil {
+		result := m.isPublicMatcher.Matches(isPublicValue)
+		fieldResults["IsPublic"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.isPublicMatcher != nil {
-			result := m.isPublicMatcher.Matches(isPublicValue)
-			fieldResults["IsPublic"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Profile", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Profile", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

@@ -31,6 +31,19 @@ updates_paths = ["showcase/factory/*.go", "showcase/factory/spec/*.go"]
 description = "Generate code for all modules"
 requires = ["generate-example", "generate-showcase"]
 
+# API documentation
+[artifact.exec.generate-api-docs]
+description = "Generate API reference documentation with gomarkdoc"
+command = "gomarkdoc .."
+dir = "docs"
+updates_paths = ["docs/content/docs/api-reference/_index.md"]
+if_files_changed = ["../**/*.go", "../go.mod"]
+
+[command.exec.check-api-docs]
+description = "Check if API docs are up to date"
+command = "gomarkdoc --check .."
+dir = "docs"
+
 # Testing
 [command.go.test]
 subcommand = "test"
@@ -77,8 +90,8 @@ command = "golangci-lint run"
 
 # Composite tasks
 [group.ci]
-description = "Full CI check (format, generate, test all, lint)"
-requires = ["format", "generate", "test-all", "lint"]
+description = "Full CI check (format, generate, test all, lint, check API docs)"
+requires = ["format", "generate", "test-all", "lint", "check-api-docs"]
 
 [command.exec.serve-docs]
 description = "Run a local docs server"

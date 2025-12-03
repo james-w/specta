@@ -112,5 +112,5 @@ func (r TeamRecipe) AsEqualMatcher() specta.Matcher[showcase.Team] {
 		m = m.Members(specta.DeepEqual(s.Members.GetValue(p, "Members")))
 	}
 
-	return m.Matcher()
+	return m
 }

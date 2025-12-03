@@ -31,7 +31,6 @@ type BankAccountMatcher struct {
 //	matcher := factory.BankAccountMatches().
 //	    Name(specta.Equal("expected_value")).
 //	    Balance(specta.GreaterThan(0)).
-//	    Matcher()
 //
 //	specta.AssertThat(t, actualBankAccount, matcher)
 func BankAccountMatches() BankAccountMatcher {
@@ -52,47 +51,45 @@ func (m BankAccountMatcher) Balance(matcher specta.Matcher[int]) BankAccountMatc
 	return m
 }
 
-// Matcher returns the composed matcher for BankAccount.
-func (m BankAccountMatcher) Matcher() specta.Matcher[showcase.BankAccount] {
-	return specta.MatcherFunc[showcase.BankAccount](func(actual showcase.BankAccount) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		nameValue := actual.GetName()
-		balanceValue := actual.GetBalance()
+// Matches implements the Matcher[BankAccount] interface.
+func (m BankAccountMatcher) Matches(actual showcase.BankAccount) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	nameValue := actual.GetName()
+	balanceValue := actual.GetBalance()
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"Name":    nameValue,
-			"Balance": balanceValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"Name":    nameValue,
+		"Balance": balanceValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.nameMatcher != nil {
+		result := m.nameMatcher.Matches(nameValue)
+		fieldResults["Name"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.nameMatcher != nil {
-			result := m.nameMatcher.Matches(nameValue)
-			fieldResults["Name"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.balanceMatcher != nil {
+		result := m.balanceMatcher.Matches(balanceValue)
+		fieldResults["Balance"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.balanceMatcher != nil {
-			result := m.balanceMatcher.Matches(balanceValue)
-			fieldResults["Balance"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("BankAccount", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("BankAccount", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

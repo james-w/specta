@@ -144,5 +144,5 @@ func (r AddressRecipe) AsEqualMatcher() specta.Matcher[showcase.Address] {
 		m = m.Country(specta.DeepEqual(s.Country.GetValue(p, "Country")))
 	}
 
-	return m.Matcher()
+	return m
 }

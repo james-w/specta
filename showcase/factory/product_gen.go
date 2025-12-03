@@ -162,5 +162,5 @@ func (r ProductRecipe) AsEqualMatcher() specta.Matcher[showcase.Product] {
 		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

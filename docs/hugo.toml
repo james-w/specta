@@ -4,6 +4,8 @@ title = 'specta'
 
 [params]
   description = "Composable Testing for Go"
+  # Color theme: light, dark, or auto (follows browser/OS preference)
+  BookTheme = "auto"
 
   [params.footer]
     copyright = "© 2024 specta"
@@ -20,7 +22,7 @@ title = 'specta'
 [markup]
   [markup.goldmark]
     [markup.goldmark.renderer]
-      unsafe = false
+      unsafe = true  # Allow HTML for gomarkdoc anchor tags
   [markup.highlight]
     noClasses = false
   [markup.tableOfContents]

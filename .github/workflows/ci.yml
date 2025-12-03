@@ -159,6 +159,36 @@ jobs:
             exit 1
           fi
 
+  verify-api-docs:
+    name: Verify API Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            example/go.sum
+            showcase/go.sum
+
+      - name: Install gomarkdoc
+        run: go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
+
+      - name: Check API docs are up to date
+        working-directory: docs
+        run: |
+          gomarkdoc --check ..
+          if [ $? -ne 0 ]; then
+            echo "::error::API documentation is out of date. Please run 'pls run generate-api-docs' and commit the changes"
+            exit 1
+          fi
+
   integration-tests:
     name: Integration Tests (${{ matrix.platform }} / Go ${{ matrix.go-version }})
     needs: build

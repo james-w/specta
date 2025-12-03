@@ -22,7 +22,7 @@
 // Assert with matchers:
 //
 //	matcher := ParentMatches().Child(specta.Equal(value))
-//	specta.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher)
 //
 // Combine both with partial matching:
 //
@@ -133,5 +133,5 @@ func (r ParentRecipe) AsEqualMatcher() specta.Matcher[example.Parent] {
 		}
 	}
 
-	return m.Matcher()
+	return m
 }
