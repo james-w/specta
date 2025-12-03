@@ -35,6 +35,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      # NOTE: Keep hugo-version in sync with .github/workflows/ci.yml
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
