@@ -35,7 +35,7 @@ func TestPropertyBasicGenerators(t *testing.T) {
 			b := specta.Draw(t, specta.Bool(), "b")
 
 			// Applying NOT twice should return original value
-			specta.AssertThat(t, !(!b), specta.Equal(b))
+			specta.AssertThat(t, !(!b), specta.Equal(b)) //nolint:staticcheck // intentionally testing double negation
 		})
 	})
 

@@ -85,13 +85,29 @@ command = "gofmt -s -w ."
 description = "Format all Go code"
 
 [command.exec.lint]
-description = "Run golangci-lint"
+description = "Run golangci-lint on main module"
 command = "golangci-lint run"
+
+[command.exec.lint-example]
+description = "Run golangci-lint on example module"
+command = "golangci-lint run"
+dir = "example"
+requires = ["generate-example"]
+
+[command.exec.lint-showcase]
+description = "Run golangci-lint on showcase module"
+command = "golangci-lint run"
+dir = "showcase"
+requires = ["generate-showcase"]
+
+[group.lint-all]
+description = "Run golangci-lint on all modules"
+requires = ["lint", "lint-example", "lint-showcase"]
 
 # Composite tasks
 [group.ci]
 description = "Full CI check (format, generate, test all, lint, check API docs)"
-requires = ["format", "generate", "test-all", "lint", "check-api-docs"]
+requires = ["format", "generate", "test-all", "lint-all", "check-api-docs"]
 
 [command.exec.serve-docs]
 description = "Run a local docs server"
