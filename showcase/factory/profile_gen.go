@@ -43,15 +43,33 @@ func (r ProfileRecipe) ID(v string) ProfileRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r ProfileRecipe) IDFromGenerator(gen specta.Generator[string]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r ProfileRecipe) Name(v string) ProfileRecipe {
 	r.opts = append(r.opts, spec.WithProfileName(v))
 	return r
 }
 
+// NameFromGenerator sets the Name field using a Generator.
+func (r ProfileRecipe) NameFromGenerator(gen specta.Generator[string]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileNameFromGenerator(gen))
+	return r
+}
+
 // Description sets the Description field.
 func (r ProfileRecipe) Description(v string) ProfileRecipe {
 	r.opts = append(r.opts, spec.WithProfileDescription(v))
+	return r
+}
+
+// DescriptionFromGenerator sets the Description field using a Generator.
+func (r ProfileRecipe) DescriptionFromGenerator(gen specta.Generator[string]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileDescriptionFromGenerator(gen))
 	return r
 }
 
@@ -62,11 +80,18 @@ func (r ProfileRecipe) Manager(v *showcase.User) ProfileRecipe {
 	return r
 }
 
+// ManagerFromGenerator sets the Manager field using a Generator.
+func (r ProfileRecipe) ManagerFromGenerator(gen specta.Generator[*showcase.User]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileManagerFromGenerator(gen))
+	r.managerRecipe = nil
+	return r
+}
+
 // ManagerFromRecipe sets the Manager field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r ProfileRecipe) ManagerFromRecipe(v UserRecipe) ProfileRecipe {
-	r.opts = append(r.opts, spec.WithProfileManagerFromProvider(specta.PtrOf(v.Provider())))
+	r.opts = append(r.opts, spec.WithProfileManagerFromGenerator(specta.PtrOfGen(v.Gen())))
 	r.managerRecipe = &v
 	return r
 }
@@ -77,19 +102,25 @@ func (r ProfileRecipe) IsPublic(v bool) ProfileRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r ProfileRecipe) Provider() specta.Provider[showcase.Profile] {
-	return specta.FromSpec(spec.BuildProfile, spec.NewProfileSpec, r.opts...)
+// IsPublicFromGenerator sets the IsPublic field using a Generator.
+func (r ProfileRecipe) IsPublicFromGenerator(gen specta.Generator[bool]) ProfileRecipe {
+	r.opts = append(r.opts, spec.WithProfileIsPublicFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r ProfileRecipe) Gen() specta.Gen[showcase.Profile] {
+	return specta.FromSpecGen(spec.BuildProfile, spec.NewProfileSpec, r.opts...)
 }
 
 // Build creates a single Profile instance.
-func (r ProfileRecipe) Build(p specta.Primitives) showcase.Profile {
-	return spec.NewProfileFactory(p).Make(r.opts...)
+func (r ProfileRecipe) Build(s specta.Source) showcase.Profile {
+	return spec.NewProfileFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Profile instances with unique generated values.
-func (r ProfileRecipe) Many(n int, p specta.Primitives) []showcase.Profile {
-	return spec.NewProfileFactory(p).Many(n, r.opts...)
+func (r ProfileRecipe) Many(n int, s specta.Source) []showcase.Profile {
+	return spec.NewProfileFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -103,32 +134,32 @@ func (r ProfileRecipe) AsEqualMatcher() specta.Matcher[showcase.Profile] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := ProfileMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Description.IsSet() {
-		m = m.Description(specta.DeepEqual(s.Description.Value(p)))
+		m = m.Description(specta.DeepEqual(s.Description.GetValue(p, "Description")))
 	}
 	if s.Manager.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.managerRecipe != nil {
 			m = m.Manager(specta.PointsTo(r.managerRecipe.AsEqualMatcher()))
 		} else {
-			m = m.Manager(specta.DeepEqual(s.Manager.Value(p)))
+			m = m.Manager(specta.DeepEqual(s.Manager.GetValue(p, "Manager")))
 		}
 	}
 	if s.IsPublic.IsSet() {
-		m = m.IsPublic(specta.DeepEqual(s.IsPublic.Value(p)))
+		m = m.IsPublic(specta.DeepEqual(s.IsPublic.GetValue(p, "IsPublic")))
 	}
 
-	return m.Matcher()
+	return m
 }

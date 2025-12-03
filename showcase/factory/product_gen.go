@@ -45,9 +45,21 @@ func (r ProductRecipe) ID(v string) ProductRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r ProductRecipe) IDFromGenerator(gen specta.Generator[string]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r ProductRecipe) Name(v string) ProductRecipe {
 	r.opts = append(r.opts, spec.WithProductName(v))
+	return r
+}
+
+// NameFromGenerator sets the Name field using a Generator.
+func (r ProductRecipe) NameFromGenerator(gen specta.Generator[string]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductNameFromGenerator(gen))
 	return r
 }
 
@@ -57,9 +69,21 @@ func (r ProductRecipe) Description(v string) ProductRecipe {
 	return r
 }
 
+// DescriptionFromGenerator sets the Description field using a Generator.
+func (r ProductRecipe) DescriptionFromGenerator(gen specta.Generator[string]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductDescriptionFromGenerator(gen))
+	return r
+}
+
 // Price sets the Price field.
 func (r ProductRecipe) Price(v float64) ProductRecipe {
 	r.opts = append(r.opts, spec.WithProductPrice(v))
+	return r
+}
+
+// PriceFromGenerator sets the Price field using a Generator.
+func (r ProductRecipe) PriceFromGenerator(gen specta.Generator[float64]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductPriceFromGenerator(gen))
 	return r
 }
 
@@ -69,25 +93,37 @@ func (r ProductRecipe) InStock(v bool) ProductRecipe {
 	return r
 }
 
+// InStockFromGenerator sets the InStock field using a Generator.
+func (r ProductRecipe) InStockFromGenerator(gen specta.Generator[bool]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductInStockFromGenerator(gen))
+	return r
+}
+
 // CreatedAt sets the CreatedAt field.
 func (r ProductRecipe) CreatedAt(v time.Time) ProductRecipe {
 	r.opts = append(r.opts, spec.WithProductCreatedAt(v))
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r ProductRecipe) Provider() specta.Provider[showcase.Product] {
-	return specta.FromSpec(spec.BuildProduct, spec.NewProductSpec, r.opts...)
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r ProductRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) ProductRecipe {
+	r.opts = append(r.opts, spec.WithProductCreatedAtFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r ProductRecipe) Gen() specta.Gen[showcase.Product] {
+	return specta.FromSpecGen(spec.BuildProduct, spec.NewProductSpec, r.opts...)
 }
 
 // Build creates a single Product instance.
-func (r ProductRecipe) Build(p specta.Primitives) showcase.Product {
-	return spec.NewProductFactory(p).Make(r.opts...)
+func (r ProductRecipe) Build(s specta.Source) showcase.Product {
+	return spec.NewProductFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Product instances with unique generated values.
-func (r ProductRecipe) Many(n int, p specta.Primitives) []showcase.Product {
-	return spec.NewProductFactory(p).Many(n, r.opts...)
+func (r ProductRecipe) Many(n int, s specta.Source) []showcase.Product {
+	return spec.NewProductFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -101,30 +137,30 @@ func (r ProductRecipe) AsEqualMatcher() specta.Matcher[showcase.Product] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := ProductMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Description.IsSet() {
-		m = m.Description(specta.DeepEqual(s.Description.Value(p)))
+		m = m.Description(specta.DeepEqual(s.Description.GetValue(p, "Description")))
 	}
 	if s.Price.IsSet() {
-		m = m.Price(specta.DeepEqual(s.Price.Value(p)))
+		m = m.Price(specta.DeepEqual(s.Price.GetValue(p, "Price")))
 	}
 	if s.InStock.IsSet() {
-		m = m.InStock(specta.DeepEqual(s.InStock.Value(p)))
+		m = m.InStock(specta.DeepEqual(s.InStock.GetValue(p, "InStock")))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

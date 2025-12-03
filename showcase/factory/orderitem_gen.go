@@ -42,11 +42,18 @@ func (r OrderItemRecipe) Product(v showcase.Product) OrderItemRecipe {
 	return r
 }
 
+// ProductFromGenerator sets the Product field using a Generator.
+func (r OrderItemRecipe) ProductFromGenerator(gen specta.Generator[showcase.Product]) OrderItemRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemProductFromGenerator(gen))
+	r.productRecipe = nil
+	return r
+}
+
 // ProductFromRecipe sets the Product field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrderItemRecipe) ProductFromRecipe(v ProductRecipe) OrderItemRecipe {
-	r.opts = append(r.opts, spec.WithOrderItemProductFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithOrderItemProductFromGenerator(v.Gen()))
 	r.productRecipe = &v
 	return r
 }
@@ -57,25 +64,37 @@ func (r OrderItemRecipe) Quantity(v int) OrderItemRecipe {
 	return r
 }
 
+// QuantityFromGenerator sets the Quantity field using a Generator.
+func (r OrderItemRecipe) QuantityFromGenerator(gen specta.Generator[int]) OrderItemRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemQuantityFromGenerator(gen))
+	return r
+}
+
 // Price sets the Price field.
 func (r OrderItemRecipe) Price(v float64) OrderItemRecipe {
 	r.opts = append(r.opts, spec.WithOrderItemPrice(v))
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r OrderItemRecipe) Provider() specta.Provider[showcase.OrderItem] {
-	return specta.FromSpec(spec.BuildOrderItem, spec.NewOrderItemSpec, r.opts...)
+// PriceFromGenerator sets the Price field using a Generator.
+func (r OrderItemRecipe) PriceFromGenerator(gen specta.Generator[float64]) OrderItemRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemPriceFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r OrderItemRecipe) Gen() specta.Gen[showcase.OrderItem] {
+	return specta.FromSpecGen(spec.BuildOrderItem, spec.NewOrderItemSpec, r.opts...)
 }
 
 // Build creates a single OrderItem instance.
-func (r OrderItemRecipe) Build(p specta.Primitives) showcase.OrderItem {
-	return spec.NewOrderItemFactory(p).Make(r.opts...)
+func (r OrderItemRecipe) Build(s specta.Source) showcase.OrderItem {
+	return spec.NewOrderItemFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple OrderItem instances with unique generated values.
-func (r OrderItemRecipe) Many(n int, p specta.Primitives) []showcase.OrderItem {
-	return spec.NewOrderItemFactory(p).Many(n, r.opts...)
+func (r OrderItemRecipe) Many(n int, s specta.Source) []showcase.OrderItem {
+	return spec.NewOrderItemFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -89,7 +108,7 @@ func (r OrderItemRecipe) AsEqualMatcher() specta.Matcher[showcase.OrderItem] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
@@ -100,15 +119,15 @@ func (r OrderItemRecipe) AsEqualMatcher() specta.Matcher[showcase.OrderItem] {
 		if r.productRecipe != nil {
 			m = m.Product(r.productRecipe.AsEqualMatcher())
 		} else {
-			m = m.Product(specta.DeepEqual(s.Product.Value(p)))
+			m = m.Product(specta.DeepEqual(s.Product.GetValue(p, "Product")))
 		}
 	}
 	if s.Quantity.IsSet() {
-		m = m.Quantity(specta.DeepEqual(s.Quantity.Value(p)))
+		m = m.Quantity(specta.DeepEqual(s.Quantity.GetValue(p, "Quantity")))
 	}
 	if s.Price.IsSet() {
-		m = m.Price(specta.DeepEqual(s.Price.Value(p)))
+		m = m.Price(specta.DeepEqual(s.Price.GetValue(p, "Price")))
 	}
 
-	return m.Matcher()
+	return m
 }

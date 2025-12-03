@@ -46,9 +46,22 @@ func (r CommentRecipe) ID(v string) CommentRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r CommentRecipe) IDFromGenerator(gen specta.Generator[string]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentIDFromGenerator(gen))
+	return r
+}
+
 // Post sets the Post field.
 func (r CommentRecipe) Post(v showcase.BlogPost) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentPost(v))
+	r.postRecipe = nil
+	return r
+}
+
+// PostFromGenerator sets the Post field using a Generator.
+func (r CommentRecipe) PostFromGenerator(gen specta.Generator[showcase.BlogPost]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentPostFromGenerator(gen))
 	r.postRecipe = nil
 	return r
 }
@@ -57,7 +70,7 @@ func (r CommentRecipe) Post(v showcase.BlogPost) CommentRecipe {
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r CommentRecipe) PostFromRecipe(v BlogPostRecipe) CommentRecipe {
-	r.opts = append(r.opts, spec.WithCommentPostFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithCommentPostFromGenerator(v.Gen()))
 	r.postRecipe = &v
 	return r
 }
@@ -69,11 +82,18 @@ func (r CommentRecipe) Author(v showcase.User) CommentRecipe {
 	return r
 }
 
+// AuthorFromGenerator sets the Author field using a Generator.
+func (r CommentRecipe) AuthorFromGenerator(gen specta.Generator[showcase.User]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentAuthorFromGenerator(gen))
+	r.authorRecipe = nil
+	return r
+}
+
 // AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r CommentRecipe) AuthorFromRecipe(v UserRecipe) CommentRecipe {
-	r.opts = append(r.opts, spec.WithCommentAuthorFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithCommentAuthorFromGenerator(v.Gen()))
 	r.authorRecipe = &v
 	return r
 }
@@ -84,25 +104,37 @@ func (r CommentRecipe) Content(v string) CommentRecipe {
 	return r
 }
 
+// ContentFromGenerator sets the Content field using a Generator.
+func (r CommentRecipe) ContentFromGenerator(gen specta.Generator[string]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentContentFromGenerator(gen))
+	return r
+}
+
 // CreatedAt sets the CreatedAt field.
 func (r CommentRecipe) CreatedAt(v time.Time) CommentRecipe {
 	r.opts = append(r.opts, spec.WithCommentCreatedAt(v))
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r CommentRecipe) Provider() specta.Provider[showcase.Comment] {
-	return specta.FromSpec(spec.BuildComment, spec.NewCommentSpec, r.opts...)
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r CommentRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) CommentRecipe {
+	r.opts = append(r.opts, spec.WithCommentCreatedAtFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r CommentRecipe) Gen() specta.Gen[showcase.Comment] {
+	return specta.FromSpecGen(spec.BuildComment, spec.NewCommentSpec, r.opts...)
 }
 
 // Build creates a single Comment instance.
-func (r CommentRecipe) Build(p specta.Primitives) showcase.Comment {
-	return spec.NewCommentFactory(p).Make(r.opts...)
+func (r CommentRecipe) Build(s specta.Source) showcase.Comment {
+	return spec.NewCommentFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Comment instances with unique generated values.
-func (r CommentRecipe) Many(n int, p specta.Primitives) []showcase.Comment {
-	return spec.NewCommentFactory(p).Many(n, r.opts...)
+func (r CommentRecipe) Many(n int, s specta.Source) []showcase.Comment {
+	return spec.NewCommentFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -116,21 +148,21 @@ func (r CommentRecipe) AsEqualMatcher() specta.Matcher[showcase.Comment] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := CommentMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Post.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.postRecipe != nil {
 			m = m.Post(r.postRecipe.AsEqualMatcher())
 		} else {
-			m = m.Post(specta.DeepEqual(s.Post.Value(p)))
+			m = m.Post(specta.DeepEqual(s.Post.GetValue(p, "Post")))
 		}
 	}
 	if s.Author.IsSet() {
@@ -138,15 +170,15 @@ func (r CommentRecipe) AsEqualMatcher() specta.Matcher[showcase.Comment] {
 		if r.authorRecipe != nil {
 			m = m.Author(r.authorRecipe.AsEqualMatcher())
 		} else {
-			m = m.Author(specta.DeepEqual(s.Author.Value(p)))
+			m = m.Author(specta.DeepEqual(s.Author.GetValue(p, "Author")))
 		}
 	}
 	if s.Content.IsSet() {
-		m = m.Content(specta.DeepEqual(s.Content.Value(p)))
+		m = m.Content(specta.DeepEqual(s.Content.GetValue(p, "Content")))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

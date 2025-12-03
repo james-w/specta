@@ -53,32 +53,32 @@ type UserSpec struct {
 func NewUserSpec() UserSpec { return UserSpec{} }
 
 // NewUserFactory creates a new SpecFactory for User.
-func NewUserFactory(p specta.Primitives) *specta.SpecFactory[showcase.User, UserSpec] {
-	return specta.NewSpecFactory(p, NewUserSpec, BuildUser)
+func NewUserFactory(s specta.Source) *specta.SpecFactory[showcase.User, UserSpec] {
+	return specta.NewSpecFactory(s, NewUserSpec, BuildUser)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	UserDefaultID        = func(p specta.Primitives) string { return p.ID() }
-	UserDefaultEmail     = func(p specta.Primitives) string { return p.StringWith("email_") }
-	UserDefaultFirstName = func(p specta.Primitives) string { return p.StringWith("firstname_") }
-	UserDefaultLastName  = func(p specta.Primitives) string { return p.StringWith("lastname_") }
-	UserDefaultActive    = func(p specta.Primitives) bool { return p.Bool() }
-	UserDefaultAddress   = specta.FromSpec(BuildAddress, NewAddressSpec)
-	UserDefaultCreatedAt = func(p specta.Primitives) time.Time { return p.Time() }
-	UserDefaultUpdatedAt = func(p specta.Primitives) time.Time { return p.Time() }
+	UserIDGenerator        specta.Generator[string]           = specta.String().ExampleHint("id_").NonEmpty()
+	UserEmailGenerator     specta.Generator[string]           = specta.String().ExampleHint("email_").NonEmpty()
+	UserFirstNameGenerator specta.Generator[string]           = specta.String().ExampleHint("firstname_").NonEmpty()
+	UserLastNameGenerator  specta.Generator[string]           = specta.String().ExampleHint("lastname_").NonEmpty()
+	UserActiveGenerator    specta.Generator[bool]             = specta.Bool()
+	UserAddressGenerator   specta.Generator[showcase.Address] = specta.FromSpecGen(BuildAddress, NewAddressSpec)
+	UserCreatedAtGenerator specta.Generator[time.Time]        = specta.Time()
+	UserUpdatedAtGenerator specta.Generator[time.Time]        = specta.Time()
 )
 
 // BuildUser constructs a User from a UserSpec.
-func BuildUser(p specta.Primitives, s UserSpec) showcase.User {
-	iD := s.ID.Get(p, UserDefaultID)
-	email := s.Email.Get(p, UserDefaultEmail)
-	firstName := s.FirstName.Get(p, UserDefaultFirstName)
-	lastName := s.LastName.Get(p, UserDefaultLastName)
-	active := s.Active.Get(p, UserDefaultActive)
-	address := s.Address.Get(p, UserDefaultAddress)
-	createdAt := s.CreatedAt.Get(p, UserDefaultCreatedAt)
-	updatedAt := s.UpdatedAt.Get(p, UserDefaultUpdatedAt)
+func BuildUser(s specta.Source, spec UserSpec) showcase.User {
+	iD := spec.ID.GetWithGenerator(s, "ID", UserIDGenerator)
+	email := spec.Email.GetWithGenerator(s, "Email", UserEmailGenerator)
+	firstName := spec.FirstName.GetWithGenerator(s, "FirstName", UserFirstNameGenerator)
+	lastName := spec.LastName.GetWithGenerator(s, "LastName", UserLastNameGenerator)
+	active := spec.Active.GetWithGenerator(s, "Active", UserActiveGenerator)
+	address := spec.Address.GetWithGenerator(s, "Address", UserAddressGenerator)
+	createdAt := spec.CreatedAt.GetWithGenerator(s, "CreatedAt", UserCreatedAtGenerator)
+	updatedAt := spec.UpdatedAt.GetWithGenerator(s, "UpdatedAt", UserUpdatedAtGenerator)
 	return showcase.User{
 		ID:        iD,
 		Email:     email,
@@ -96,9 +96,23 @@ func WithUserID(v string) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
+// WithUserIDFromGenerator sets the ID field using a Generator.
+func WithUserIDFromGenerator(gen specta.Generator[string]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.ID = specta.Some(gen)
+	}
+}
+
 // WithUserEmail sets the Email field to a literal value.
 func WithUserEmail(v string) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.Email = m }, v)
+}
+
+// WithUserEmailFromGenerator sets the Email field using a Generator.
+func WithUserEmailFromGenerator(gen specta.Generator[string]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.Email = specta.Some(gen)
+	}
 }
 
 // WithUserFirstName sets the FirstName field to a literal value.
@@ -106,9 +120,23 @@ func WithUserFirstName(v string) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.FirstName = m }, v)
 }
 
+// WithUserFirstNameFromGenerator sets the FirstName field using a Generator.
+func WithUserFirstNameFromGenerator(gen specta.Generator[string]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.FirstName = specta.Some(gen)
+	}
+}
+
 // WithUserLastName sets the LastName field to a literal value.
 func WithUserLastName(v string) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[string]) { s.LastName = m }, v)
+}
+
+// WithUserLastNameFromGenerator sets the LastName field using a Generator.
+func WithUserLastNameFromGenerator(gen specta.Generator[string]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.LastName = specta.Some(gen)
+	}
 }
 
 // WithUserActive sets the Active field to a literal value.
@@ -116,17 +144,23 @@ func WithUserActive(v bool) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[bool]) { s.Active = m }, v)
 }
 
+// WithUserActiveFromGenerator sets the Active field using a Generator.
+func WithUserActiveFromGenerator(gen specta.Generator[bool]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.Active = specta.Some(gen)
+	}
+}
+
 // WithUserAddress sets the Address field to a literal value.
 func WithUserAddress(v showcase.Address) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[showcase.Address]) { s.Address = m }, v)
 }
 
-// WithUserAddressFromProvider sets the Address field using a Provider (evaluated lazily).
-func WithUserAddressFromProvider(prov specta.Provider[showcase.Address]) specta.Opt[UserSpec] {
-	return specta.SetWith(
-		func(s *UserSpec, m specta.Maybe[showcase.Address]) { s.Address = m },
-		prov,
-	)
+// WithUserAddressFromGenerator sets the Address field using a Generator.
+func WithUserAddressFromGenerator(gen specta.Generator[showcase.Address]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.Address = specta.Some(gen)
+	}
 }
 
 // WithUserCreatedAt sets the CreatedAt field to a literal value.
@@ -134,7 +168,21 @@ func WithUserCreatedAt(v time.Time) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m }, v)
 }
 
+// WithUserCreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func WithUserCreatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.CreatedAt = specta.Some(gen)
+	}
+}
+
 // WithUserUpdatedAt sets the UpdatedAt field to a literal value.
 func WithUserUpdatedAt(v time.Time) specta.Opt[UserSpec] {
 	return specta.SetLit(func(s *UserSpec, m specta.Maybe[time.Time]) { s.UpdatedAt = m }, v)
+}
+
+// WithUserUpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
+func WithUserUpdatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[UserSpec] {
+	return func(s *UserSpec) {
+		s.UpdatedAt = specta.Some(gen)
+	}
 }

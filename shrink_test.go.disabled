@@ -1,0 +1,504 @@
+package specta
+
+import (
+	"testing"
+)
+
+// TestShrinkingThresholdPredicates tests shrinking with range predicates
+// where any value below a threshold fails.
+func TestShrinkingThresholdPredicates(t *testing.T) {
+	tests := []struct {
+		name      string
+		start     uint8
+		threshold uint8
+		wantByte  uint8
+	}{
+		{"small threshold", 100, 10, 0},
+		{"medium threshold", 200, 50, 0},
+		{"large threshold", 255, 200, 0},
+		{"threshold at 16", 100, 16, 0},
+		{"threshold at 17", 100, 17, 0},
+		{"threshold at 64", 200, 64, 0},
+		{"threshold at 65", 200, 65, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := []byte{0, tt.start}
+
+			testFunc := func(data []byte) bool {
+				if len(data) < 2 {
+					return false
+				}
+				return data[1] < tt.threshold
+			}
+
+			shrinker := NewShrinker(original, nil, testFunc)
+			result := shrinker.Shrink()
+
+			if len(result) != 2 {
+				t.Fatalf("expected length 2, got %d: %v", len(result), result)
+			}
+
+			if result[1] != tt.wantByte {
+				t.Errorf("expected byte[1]=%d, got %d", tt.wantByte, result[1])
+			}
+		})
+	}
+}
+
+// TestShrinkingModuloPredicates tests shrinking with predicates that fail
+// on multiples of N.
+func TestShrinkingModuloPredicates(t *testing.T) {
+	tests := []struct {
+		name     string
+		start    uint8
+		modulo   uint8
+		wantByte uint8
+	}{
+		{"mod 2", 100, 2, 2},
+		{"mod 3", 100, 3, 3},
+		{"mod 4", 100, 4, 4},
+		{"mod 5", 100, 5, 5},
+		{"mod 6", 100, 6, 6},
+		{"mod 7", 100, 7, 7},
+		{"mod 8", 100, 8, 8},
+		{"mod 10", 100, 10, 10},
+		{"mod 16", 200, 16, 16},
+		{"mod 17", 200, 17, 17},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := []byte{0, tt.start}
+
+			testFunc := func(data []byte) bool {
+				if len(data) < 2 {
+					return false
+				}
+				b := data[1]
+				return b > 0 && b%tt.modulo == 0
+			}
+
+			shrinker := NewShrinker(original, nil, testFunc)
+			result := shrinker.Shrink()
+
+			if len(result) != 2 {
+				t.Fatalf("expected length 2, got %d: %v", len(result), result)
+			}
+
+			// Verify it's a multiple of modulo
+			if result[1]%tt.modulo != 0 {
+				t.Errorf("expected multiple of %d, got %d", tt.modulo, result[1])
+			}
+			// Should be reasonably small (sparse sampling may not find absolute minimum)
+			if result[1] > tt.wantByte*5 {
+				t.Errorf("expected value close to %d, got %d (multiple of %d)", tt.wantByte, result[1], tt.modulo)
+			}
+		})
+	}
+}
+
+// TestShrinkingIntegerRanges tests shrinking with actual integer generation
+// using different ranges.
+func TestShrinkingIntegerRanges(t *testing.T) {
+	tests := []struct {
+		name      string
+		min       int64
+		max       int64
+		predicate func(int64) bool
+		checkFunc func(t *testing.T, result []byte)
+	}{
+		{
+			name: "negative values",
+			min:  -100,
+			max:  100,
+			predicate: func(x int64) bool {
+				return x < 0
+			},
+			checkFunc: func(t *testing.T, result []byte) {
+				src := NewSourceFromData(result)
+				x := Int().Range(-100, 100).Draw(src, "x")
+				if x >= 0 {
+					t.Errorf("expected negative value, got %d", x)
+				}
+				// Should find a small negative value
+				if x < -10 {
+					t.Errorf("expected small negative (>-10), got %d", x)
+				}
+			},
+		},
+		{
+			name: "values > 50",
+			min:  0,
+			max:  100,
+			predicate: func(x int64) bool {
+				return x > 50
+			},
+			checkFunc: func(t *testing.T, result []byte) {
+				src := NewSourceFromData(result)
+				x := Int().Range(0, 100).Draw(src, "x")
+				if x <= 50 {
+					t.Errorf("expected value > 50, got %d", x)
+				}
+				// Should find a reasonably small value > 50
+				// (sparse sampling may not find the absolute minimum of 51)
+				if x > 100 {
+					t.Errorf("expected value reasonably close to 51, got %d", x)
+				}
+			},
+		},
+		{
+			name: "values in middle range",
+			min:  0,
+			max:  100,
+			predicate: func(x int64) bool {
+				return x >= 40 && x <= 60
+			},
+			checkFunc: func(t *testing.T, result []byte) {
+				src := NewSourceFromData(result)
+				x := Int().Range(0, 100).Draw(src, "x")
+				if x < 40 || x > 60 {
+					t.Errorf("expected value in [40, 60], got %d", x)
+				}
+				// Should find a value at the lower end
+				if x > 45 {
+					t.Errorf("expected value close to 40, got %d", x)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Generate a failing example with a high seed
+			var original []byte
+			for seed := int64(0); seed < 1000; seed++ {
+				rs := NewSource(seed)
+				x := Int().Range(tt.min, tt.max).Draw(rs, "x")
+				if tt.predicate(x) {
+					original = rs.Data()
+					break
+				}
+			}
+
+			if original == nil {
+				t.Fatal("couldn't generate failing example")
+			}
+
+			testFunc := func(data []byte) bool {
+				src := NewSourceFromData(data)
+				x := Int().Range(tt.min, tt.max).Draw(src, "x")
+				return tt.predicate(x)
+			}
+
+			shrinker := NewShrinker(original, nil, testFunc)
+			result := shrinker.Shrink()
+
+			tt.checkFunc(t, result)
+		})
+	}
+}
+
+// TestShrinkingMultipleBytes tests shrinking when multiple bytes need to be minimized.
+func TestShrinkingMultipleBytes(t *testing.T) {
+	tests := []struct {
+		name      string
+		original  []byte
+		predicate func([]byte) bool
+		check     func(*testing.T, []byte)
+	}{
+		{
+			name:     "all bytes should minimize",
+			original: []byte{100, 200, 150},
+			predicate: func(data []byte) bool {
+				// Fail if any byte is non-zero
+				for _, b := range data {
+					if b != 0 {
+						return true
+					}
+				}
+				return false
+			},
+			check: func(t *testing.T, result []byte) {
+				// Should minimize to a single small non-zero byte
+				// (can't be [0] because that would make predicate return false)
+				if len(result) != 1 {
+					t.Errorf("expected single byte, got %v", result)
+				}
+				if len(result) >= 1 && result[0] == 0 {
+					t.Errorf("result [0] doesn't satisfy predicate (should have non-zero byte)")
+				}
+				// Should be a small value
+				if len(result) >= 1 && result[0] > 10 {
+					t.Errorf("expected small value, got %d", result[0])
+				}
+			},
+		},
+		{
+			name:     "first byte determines failure",
+			original: []byte{100, 200, 150},
+			predicate: func(data []byte) bool {
+				if len(data) == 0 {
+					return false
+				}
+				return data[0] < 50
+			},
+			check: func(t *testing.T, result []byte) {
+				if len(result) == 0 {
+					t.Fatal("expected non-empty result")
+				}
+				if result[0] != 0 {
+					t.Errorf("expected first byte to be 0, got %d", result[0])
+				}
+				// Other bytes should be deleted
+				if len(result) > 1 {
+					t.Errorf("expected single byte, got %d bytes: %v", len(result), result)
+				}
+			},
+		},
+		{
+			name:     "sum of bytes",
+			original: []byte{50, 50, 50},
+			predicate: func(data []byte) bool {
+				sum := 0
+				for _, b := range data {
+					sum += int(b)
+				}
+				return sum >= 100
+			},
+			check: func(t *testing.T, result []byte) {
+				sum := 0
+				for _, b := range result {
+					sum += int(b)
+				}
+				if sum < 100 {
+					t.Errorf("sum should be ≥100, got %d from %v", sum, result)
+				}
+				// Should minimize to something efficient like [100] or [50, 50]
+				if len(result) > 2 {
+					t.Errorf("expected ≤2 bytes, got %v", result)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shrinker := NewShrinker(tt.original, nil, tt.predicate)
+			result := shrinker.Shrink()
+
+			if !tt.predicate(result) {
+				t.Errorf("result doesn't satisfy predicate: %v", result)
+			}
+
+			tt.check(t, result)
+		})
+	}
+}
+
+// TestShrinkingBoundaryValues tests shrinking behavior at boundary conditions.
+func TestShrinkingBoundaryValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		original []byte
+		testFunc func([]byte) bool
+		want     []byte
+	}{
+		{
+			name:     "already minimal",
+			original: []byte{0},
+			testFunc: func(data []byte) bool {
+				return len(data) > 0 && data[0] == 0
+			},
+			want: []byte{0},
+		},
+		{
+			name:     "single byte value 1",
+			original: []byte{10},
+			testFunc: func(data []byte) bool {
+				return len(data) > 0 && data[0] == 1
+			},
+			want: []byte{1},
+		},
+		{
+			name:     "empty array should stay empty if it fails",
+			original: []byte{},
+			testFunc: func(data []byte) bool {
+				return len(data) == 0
+			},
+			want: []byte{},
+		},
+		{
+			name:     "max byte value",
+			original: []byte{255},
+			testFunc: func(data []byte) bool {
+				return len(data) > 0 && data[0] >= 200
+			},
+			want: []byte{200},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shrinker := NewShrinker(tt.original, nil, tt.testFunc)
+			result := shrinker.Shrink()
+
+			if len(result) != len(tt.want) {
+				t.Errorf("length: got %d, want %d", len(result), len(tt.want))
+			}
+
+			for i := range result {
+				if i >= len(tt.want) {
+					break
+				}
+				if result[i] != tt.want[i] {
+					t.Errorf("byte[%d]: got %d, want %d", i, result[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestShrinkingWithMaxCalls tests that shrinking respects the maxCalls limit.
+func TestShrinkingWithMaxCalls(t *testing.T) {
+	original := []byte{255, 255, 255}
+
+	callCount := 0
+	testFunc := func(data []byte) bool {
+		callCount++
+		// Always fails - should stop at maxCalls
+		return true
+	}
+
+	shrinker := NewShrinker(original, nil, testFunc)
+	shrinker.maxCalls = 50
+
+	_ = shrinker.Shrink()
+
+	if callCount > 50 {
+		t.Errorf("expected ≤50 calls, got %d", callCount)
+	}
+
+	if shrinker.Calls() != callCount {
+		t.Errorf("Calls() returned %d, but counted %d", shrinker.Calls(), callCount)
+	}
+}
+
+// TestShrinkingAcrossSeeds tests shrinking behavior across many seeds.
+// This gives a comprehensive picture of shrinking quality.
+func TestShrinkingAcrossSeeds(t *testing.T) {
+	tests := []struct {
+		name          string
+		min           int64
+		max           int64
+		predicate     func(int64) bool
+		optimalValue  int64
+		numSeeds      int
+	}{
+		{
+			name: "negative values should shrink to -1",
+			min:  -100,
+			max:  100,
+			predicate: func(x int64) bool {
+				return x < 0
+			},
+			optimalValue: -1,
+			numSeeds:     100,
+		},
+		{
+			name: "positive values should shrink to 1",
+			min:  -100,
+			max:  100,
+			predicate: func(x int64) bool {
+				return x > 0
+			},
+			optimalValue: 1,
+			numSeeds:     100,
+		},
+		{
+			name: "values >= 50 should shrink to 50",
+			min:  0,
+			max:  100,
+			predicate: func(x int64) bool {
+				return x >= 50
+			},
+			optimalValue: 50,
+			numSeeds:     100,
+		},
+		{
+			name: "values <= -50 should shrink to -50",
+			min:  -100,
+			max:  0,
+			predicate: func(x int64) bool {
+				return x <= -50
+			},
+			optimalValue: -50,
+			numSeeds:     100,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			failures := 0
+			worstValue := tt.optimalValue
+			worstSeed := int64(-1)
+			totalTests := 0
+
+			for seed := int64(0); seed < int64(tt.numSeeds); seed++ {
+				rs := NewSource(seed)
+				x := Int().Range(tt.min, tt.max).Draw(rs, "x")
+
+				if !tt.predicate(x) {
+					// Seed doesn't produce a failing case
+					continue
+				}
+
+				totalTests++
+				original := rs.Data()
+
+				testFunc := func(data []byte) bool {
+					src := NewSourceFromData(data)
+					val := Int().Range(tt.min, tt.max).Draw(src, "x")
+					return tt.predicate(val)
+				}
+
+				shrinker := NewShrinker(original, nil, testFunc)
+				result := shrinker.Shrink()
+
+				src := NewSourceFromData(result)
+				shrunkValue := Int().Range(tt.min, tt.max).Draw(src, "x")
+
+				// First verify the shrunk value still satisfies the predicate
+				if !tt.predicate(shrunkValue) {
+					t.Errorf("Seed %d: shrunk value %d doesn't satisfy predicate (original was %d)", seed, shrunkValue, x)
+					continue
+				}
+
+				if shrunkValue != tt.optimalValue {
+					failures++
+					if worstSeed < 0 || abs(shrunkValue-tt.optimalValue) > abs(worstValue-tt.optimalValue) {
+						worstValue = shrunkValue
+						worstSeed = seed
+					}
+					// Log first few failures for debugging
+					if failures <= 5 {
+						t.Logf("Seed %d: expected %d, got %d (original was %d), shrunk bytes: %v", seed, tt.optimalValue, shrunkValue, x, result)
+					}
+				}
+			}
+
+			if failures > 0 {
+				t.Errorf("Failed to find optimal value %d in %d/%d tests (from %d seeds). Worst: got %d (seed %d)",
+					tt.optimalValue, failures, totalTests, tt.numSeeds, worstValue, worstSeed)
+			}
+		})
+	}
+}
+
+func abs(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}

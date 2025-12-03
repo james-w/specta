@@ -47,24 +47,24 @@ type UserViewSpec struct {
 func NewUserViewSpec() UserViewSpec { return UserViewSpec{} }
 
 // NewUserViewFactory creates a new SpecFactory for UserView.
-func NewUserViewFactory(p specta.Primitives) *specta.SpecFactory[example.UserView, UserViewSpec] {
-	return specta.NewSpecFactory(p, NewUserViewSpec, BuildUserView)
+func NewUserViewFactory(s specta.Source) *specta.SpecFactory[example.UserView, UserViewSpec] {
+	return specta.NewSpecFactory(s, NewUserViewSpec, BuildUserView)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	UserViewDefaultID     = func(p specta.Primitives) string { return p.ID() }
-	UserViewDefaultName   = func(p specta.Primitives) string { return p.StringWith("name_") }
-	UserViewDefaultActive = func(p specta.Primitives) bool { return p.Bool() }
-	UserViewDefaultScore  = func(p specta.Primitives) int { return p.Int() }
+	UserViewIDGenerator     specta.Generator[string] = specta.String().ExampleHint("id_").NonEmpty()
+	UserViewNameGenerator   specta.Generator[string] = specta.String().ExampleHint("name_").NonEmpty()
+	UserViewActiveGenerator specta.Generator[bool]   = specta.Bool()
+	UserViewScoreGenerator  specta.Generator[int]    = specta.Map(specta.Int(), func(v int64) int { return int(v) })
 )
 
 // BuildUserView constructs a UserView from a UserViewSpec.
-func BuildUserView(p specta.Primitives, s UserViewSpec) example.UserView {
-	iD := s.ID.Get(p, UserViewDefaultID)
-	name := s.Name.Get(p, UserViewDefaultName)
-	active := s.Active.Get(p, UserViewDefaultActive)
-	score := s.Score.Get(p, UserViewDefaultScore)
+func BuildUserView(s specta.Source, spec UserViewSpec) example.UserView {
+	iD := spec.ID.GetWithGenerator(s, "ID", UserViewIDGenerator)
+	name := spec.Name.GetWithGenerator(s, "Name", UserViewNameGenerator)
+	active := spec.Active.GetWithGenerator(s, "Active", UserViewActiveGenerator)
+	score := spec.Score.GetWithGenerator(s, "Score", UserViewScoreGenerator)
 	return example.UserView{
 		ID:     iD,
 		Name:   name,
@@ -78,9 +78,23 @@ func WithUserViewID(v string) specta.Opt[UserViewSpec] {
 	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
+// WithUserViewIDFromGenerator sets the ID field using a Generator.
+func WithUserViewIDFromGenerator(gen specta.Generator[string]) specta.Opt[UserViewSpec] {
+	return func(s *UserViewSpec) {
+		s.ID = specta.Some(gen)
+	}
+}
+
 // WithUserViewName sets the Name field to a literal value.
 func WithUserViewName(v string) specta.Opt[UserViewSpec] {
 	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[string]) { s.Name = m }, v)
+}
+
+// WithUserViewNameFromGenerator sets the Name field using a Generator.
+func WithUserViewNameFromGenerator(gen specta.Generator[string]) specta.Opt[UserViewSpec] {
+	return func(s *UserViewSpec) {
+		s.Name = specta.Some(gen)
+	}
 }
 
 // WithUserViewActive sets the Active field to a literal value.
@@ -88,7 +102,21 @@ func WithUserViewActive(v bool) specta.Opt[UserViewSpec] {
 	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[bool]) { s.Active = m }, v)
 }
 
+// WithUserViewActiveFromGenerator sets the Active field using a Generator.
+func WithUserViewActiveFromGenerator(gen specta.Generator[bool]) specta.Opt[UserViewSpec] {
+	return func(s *UserViewSpec) {
+		s.Active = specta.Some(gen)
+	}
+}
+
 // WithUserViewScore sets the Score field to a literal value.
 func WithUserViewScore(v int) specta.Opt[UserViewSpec] {
 	return specta.SetLit(func(s *UserViewSpec, m specta.Maybe[int]) { s.Score = m }, v)
+}
+
+// WithUserViewScoreFromGenerator sets the Score field using a Generator.
+func WithUserViewScoreFromGenerator(gen specta.Generator[int]) specta.Opt[UserViewSpec] {
+	return func(s *UserViewSpec) {
+		s.Score = specta.Some(gen)
+	}
 }

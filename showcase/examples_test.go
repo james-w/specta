@@ -22,8 +22,7 @@ func TestIntegrationExamples(t *testing.T) {
 		specta.AssertThat(t, user,
 			factory.UserMatches().
 				Email(specta.Contains("@example.com")).
-				Active(specta.IsTrue()).
-				Matcher())
+				Active(specta.IsTrue()))
 	})
 
 	t.Run("nested matching with explicit matchers", func(t *testing.T) {
@@ -37,11 +36,10 @@ func TestIntegrationExamples(t *testing.T) {
 		specta.AssertThat(t, user,
 			factory.UserMatches().
 				FirstName(specta.Equal("Alice")).
-				AddressMatches(
+				Address(
 					factory.AddressMatches().
 						City(specta.Equal("Boston")),
-				).
-				Matcher())
+				))
 	})
 
 	t.Run("flexible constraint matchers", func(t *testing.T) {
@@ -51,8 +49,7 @@ func TestIntegrationExamples(t *testing.T) {
 
 		// Use explicit matcher to check only Active status
 		matcher := factory.UserMatches().
-			Active(specta.IsTrue()).
-			Matcher()
+			Active(specta.IsTrue())
 
 		specta.AssertThat(t, activeUser1, matcher)
 		specta.AssertThat(t, activeUser2, matcher)
@@ -71,11 +68,10 @@ func TestIntegrationExamples(t *testing.T) {
 			factory.OrderMatches().
 				Total(specta.GreaterThan(200.0)).
 				Status(specta.Equal("shipped")).
-				UserMatches(
+				User(
 					factory.UserMatches().
 						Email(specta.Contains("premium")),
-				).
-				Matcher())
+				))
 	})
 }
 
@@ -145,8 +141,7 @@ func TestAsEqualMatcher(t *testing.T) {
 		// Equivalent explicit matcher
 		explicitMatcher := factory.UserMatches().
 			FirstName(specta.Equal("Alice")).
-			Active(specta.Equal(true)).
-			Matcher()
+			Active(specta.IsTrue())
 
 		// Both should behave the same way
 		user := factory.User().FirstName("Alice").Active(true).Email("alice@example.com").Build(p)
@@ -157,8 +152,7 @@ func TestAsEqualMatcher(t *testing.T) {
 		// Use explicit matchers when you need different constraints (not just equality)
 		constraintMatcher := factory.UserMatches().
 			FirstName(specta.Contains("Ali")). // Substring match instead of exact
-			Active(specta.IsTrue()).           // Boolean check
-			Matcher()
+			Active(specta.IsTrue())            // Boolean check
 
 		specta.AssertThat(t, user, constraintMatcher)
 	})

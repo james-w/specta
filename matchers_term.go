@@ -3,7 +3,7 @@ package specta
 import "github.com/fatih/color"
 
 // Color functions for matcher output.
-// These respect NO_COLOR, FORCE_COLOR env vars and TTY detection automatically.
+// These respect NO_COLOR env var and TTY detection automatically via fatih/color.
 var (
 	colorizeGreen = color.New(color.FgGreen).SprintFunc()
 	colorizeRed   = color.New(color.FgRed).SprintFunc()

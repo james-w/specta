@@ -44,9 +44,21 @@ func (r OrganizationRecipe) ID(v string) OrganizationRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r OrganizationRecipe) IDFromGenerator(gen specta.Generator[string]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r OrganizationRecipe) Name(v string) OrganizationRecipe {
 	r.opts = append(r.opts, spec.WithOrganizationName(v))
+	return r
+}
+
+// NameFromGenerator sets the Name field using a Generator.
+func (r OrganizationRecipe) NameFromGenerator(gen specta.Generator[string]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationNameFromGenerator(gen))
 	return r
 }
 
@@ -57,11 +69,18 @@ func (r OrganizationRecipe) CEO(v *showcase.User) OrganizationRecipe {
 	return r
 }
 
+// CEOFromGenerator sets the CEO field using a Generator.
+func (r OrganizationRecipe) CEOFromGenerator(gen specta.Generator[*showcase.User]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationCEOFromGenerator(gen))
+	r.cEORecipe = nil
+	return r
+}
+
 // CEOFromRecipe sets the CEO field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrganizationRecipe) CEOFromRecipe(v UserRecipe) OrganizationRecipe {
-	r.opts = append(r.opts, spec.WithOrganizationCEOFromProvider(specta.PtrOf(v.Provider())))
+	r.opts = append(r.opts, spec.WithOrganizationCEOFromGenerator(specta.PtrOfGen(v.Gen())))
 	r.cEORecipe = &v
 	return r
 }
@@ -72,9 +91,21 @@ func (r OrganizationRecipe) Teams(v []showcase.Team) OrganizationRecipe {
 	return r
 }
 
+// TeamsFromGenerator sets the Teams field using a Generator.
+func (r OrganizationRecipe) TeamsFromGenerator(gen specta.Generator[[]showcase.Team]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationTeamsFromGenerator(gen))
+	return r
+}
+
 // Members sets the Members field.
 func (r OrganizationRecipe) Members(v []showcase.Member) OrganizationRecipe {
 	r.opts = append(r.opts, spec.WithOrganizationMembers(v))
+	return r
+}
+
+// MembersFromGenerator sets the Members field using a Generator.
+func (r OrganizationRecipe) MembersFromGenerator(gen specta.Generator[[]showcase.Member]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationMembersFromGenerator(gen))
 	return r
 }
 
@@ -84,19 +115,25 @@ func (r OrganizationRecipe) Metadata(v map[string]string) OrganizationRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r OrganizationRecipe) Provider() specta.Provider[showcase.Organization] {
-	return specta.FromSpec(spec.BuildOrganization, spec.NewOrganizationSpec, r.opts...)
+// MetadataFromGenerator sets the Metadata field using a Generator.
+func (r OrganizationRecipe) MetadataFromGenerator(gen specta.Generator[map[string]string]) OrganizationRecipe {
+	r.opts = append(r.opts, spec.WithOrganizationMetadataFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r OrganizationRecipe) Gen() specta.Gen[showcase.Organization] {
+	return specta.FromSpecGen(spec.BuildOrganization, spec.NewOrganizationSpec, r.opts...)
 }
 
 // Build creates a single Organization instance.
-func (r OrganizationRecipe) Build(p specta.Primitives) showcase.Organization {
-	return spec.NewOrganizationFactory(p).Make(r.opts...)
+func (r OrganizationRecipe) Build(s specta.Source) showcase.Organization {
+	return spec.NewOrganizationFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Organization instances with unique generated values.
-func (r OrganizationRecipe) Many(n int, p specta.Primitives) []showcase.Organization {
-	return spec.NewOrganizationFactory(p).Many(n, r.opts...)
+func (r OrganizationRecipe) Many(n int, s specta.Source) []showcase.Organization {
+	return spec.NewOrganizationFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -110,35 +147,35 @@ func (r OrganizationRecipe) AsEqualMatcher() specta.Matcher[showcase.Organizatio
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := OrganizationMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.CEO.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.cEORecipe != nil {
 			m = m.CEO(specta.PointsTo(r.cEORecipe.AsEqualMatcher()))
 		} else {
-			m = m.CEO(specta.DeepEqual(s.CEO.Value(p)))
+			m = m.CEO(specta.DeepEqual(s.CEO.GetValue(p, "CEO")))
 		}
 	}
 	if s.Teams.IsSet() {
-		m = m.Teams(specta.DeepEqual(s.Teams.Value(p)))
+		m = m.Teams(specta.DeepEqual(s.Teams.GetValue(p, "Teams")))
 	}
 	if s.Members.IsSet() {
-		m = m.Members(specta.DeepEqual(s.Members.Value(p)))
+		m = m.Members(specta.DeepEqual(s.Members.GetValue(p, "Members")))
 	}
 	if s.Metadata.IsSet() {
-		m = m.Metadata(specta.DeepEqual(s.Metadata.Value(p)))
+		m = m.Metadata(specta.DeepEqual(s.Metadata.GetValue(p, "Metadata")))
 	}
 
-	return m.Matcher()
+	return m
 }

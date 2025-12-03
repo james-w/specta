@@ -22,7 +22,7 @@
 // Assert with matchers:
 //
 //	matcher := AccountMatches().User(specta.Equal(value))
-//	specta.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher)
 //
 // Combine both with partial matching:
 //
@@ -80,7 +80,7 @@ func (r AccountRecipe) User(v showcase.User) AccountRecipe {
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r AccountRecipe) UserFromRecipe(v UserRecipe) AccountRecipe {
-	r.opts = append(r.opts, spec.WithAccountUserFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithAccountUserFromGenerator(v.Gen()))
 	r.userRecipe = &v
 	return r
 }
@@ -91,19 +91,19 @@ func (r AccountRecipe) Status(v string) AccountRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r AccountRecipe) Provider() specta.Provider[showcase.Account] {
-	return specta.FromSpec(spec.BuildAccount, spec.NewAccountSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r AccountRecipe) Gen() specta.Gen[showcase.Account] {
+	return specta.FromSpecGen(spec.BuildAccount, spec.NewAccountSpec, r.opts...)
 }
 
 // Build creates a single Account instance.
-func (r AccountRecipe) Build(p specta.Primitives) showcase.Account {
-	return spec.NewAccountFactory(p).Make(r.opts...)
+func (r AccountRecipe) Build(s specta.Source) showcase.Account {
+	return spec.NewAccountFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Account instances with unique generated values.
-func (r AccountRecipe) Many(n int, p specta.Primitives) []showcase.Account {
-	return spec.NewAccountFactory(p).Many(n, r.opts...)
+func (r AccountRecipe) Many(n int, s specta.Source) []showcase.Account {
+	return spec.NewAccountFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -124,11 +124,11 @@ func (r AccountRecipe) AsEqualMatcher() specta.Matcher[showcase.Account] {
 		if r.userRecipe != nil {
 			m = m.User(r.userRecipe.AsEqualMatcher())
 		} else {
-			m = m.User(specta.Equal(s.User.Value(p)))
+			m = m.User(specta.Equal(s.User.GetValue(p, "User")))
 		}
 	}
 	if s.Status.IsSet() {
-		m = m.Status(specta.Equal(s.Status.Value(p)))
+		m = m.Status(specta.Equal(s.Status.GetValue(p, "Status")))
 	}
-	return m.Matcher()
+	return m
 }

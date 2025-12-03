@@ -27,7 +27,7 @@ func TestProvider(t *testing.T) {
 	p := specta.New()
 
 	// Provider that uses primitives
-	provider := func(p specta.Primitives) int {
+	provider := func(s specta.Source) int {
 		return int(p.Next())
 	}
 
@@ -114,10 +114,10 @@ func TestSpecFactory_Make(t *testing.T) {
 		return PersonSpec{}
 	}
 
-	build := func(p specta.Primitives, s PersonSpec) Person {
+	build := func(src specta.Source, spec PersonSpec) Person {
 		return Person{
-			Name: s.Name.Get(p, func(p specta.Primitives) string { return p.String() }),
-			Age:  s.Age.Get(p, func(p specta.Primitives) int { return p.Int() }),
+			Name: spec.Name.Get(src, func(s specta.Source) string { return specta.String().Draw(src, "") }),
+			Age:  spec.Age.Get(src, func(s specta.Source) int { return int(specta.Int().Draw(src, "")) }),
 		}
 	}
 
@@ -126,7 +126,7 @@ func TestSpecFactory_Make(t *testing.T) {
 
 	// Test with defaults
 	person1 := factory.Make()
-	if person1.Name != "str_1" || person1.Age != 2 {
+	if person1.Name != "1" || person1.Age != 2 {
 		t.Errorf("Expected default values, got Name='%s', Age=%d", person1.Name, person1.Age)
 	}
 
@@ -153,9 +153,9 @@ func TestSpecFactory_Many(t *testing.T) {
 		return ItemSpec{}
 	}
 
-	build := func(p specta.Primitives, s ItemSpec) Item {
+	build := func(src specta.Source, spec ItemSpec) Item {
 		return Item{
-			ID: s.ID.Get(p, func(p specta.Primitives) int { return p.Int() }),
+			ID: spec.ID.Get(src, func(s specta.Source) int { return int(specta.Int().Draw(src, "")) }),
 		}
 	}
 
@@ -216,8 +216,8 @@ func TestSetWith(t *testing.T) {
 		s.Age = m
 	}
 
-	provider := func(p specta.Primitives) int {
-		return int(p.Next() * 10)
+	provider := func(s specta.Source) int {
+		return int(s.DrawBits(64) * 10)
 	}
 
 	opt := specta.SetWith(assign, provider)
@@ -274,9 +274,9 @@ func TestFromSpec(t *testing.T) {
 		return AddressSpec{}
 	}
 
-	build := func(p specta.Primitives, s AddressSpec) Address {
+	build := func(src specta.Source, spec AddressSpec) Address {
 		return Address{
-			Street: s.Street.Get(p, func(p specta.Primitives) string { return p.String() }),
+			Street: spec.Street.Get(src, func(s specta.Source) string { return specta.String().Draw(src, "") }),
 		}
 	}
 
@@ -307,9 +307,9 @@ func TestFromSpecN(t *testing.T) {
 		return ItemSpec{}
 	}
 
-	build := func(p specta.Primitives, s ItemSpec) Item {
+	build := func(src specta.Source, spec ItemSpec) Item {
 		return Item{
-			ID: s.ID.Get(p, func(p specta.Primitives) int { return p.Int() }),
+			ID: spec.ID.Get(src, func(s specta.Source) int { return int(specta.Int().Draw(src, "")) }),
 		}
 	}
 
@@ -348,10 +348,10 @@ func TestFromSpecEach(t *testing.T) {
 		return ItemSpec{}
 	}
 
-	build := func(p specta.Primitives, s ItemSpec) Item {
+	build := func(src specta.Source, spec ItemSpec) Item {
 		return Item{
-			ID:    s.ID.Get(p, func(p specta.Primitives) int { return p.Int() }),
-			Index: s.Index.Get(p, func(p specta.Primitives) int { return -1 }),
+			ID:    spec.ID.Get(src, func(s specta.Source) int { return int(specta.Int().Draw(src, "")) }),
+			Index: spec.Index.Get(src, func(s specta.Source) int { return -1 }),
 		}
 	}
 
@@ -413,8 +413,8 @@ func TestSliceOf(t *testing.T) {
 
 	// Test with dynamic providers
 	dynProvider := specta.SliceOf(
-		func(p specta.Primitives) int { return p.Int() },
-		func(p specta.Primitives) int { return p.Int() },
+		func(s specta.Source) int { return int(specta.Int().Draw(s, "")) },
+		func(s specta.Source) int { return int(specta.Int().Draw(s, "")) },
 	)
 	p2 := specta.New()
 	dynSlice := dynProvider(p2)

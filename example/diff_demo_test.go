@@ -38,8 +38,7 @@ func TestStructuredDiffDemo(t *testing.T) {
 		// Create a matcher that will fail on some fields
 		matcher := factory.UserViewMatches().
 			Name(specta.Equal("WrongName")).
-			Score(specta.GreaterThan(1000)).
-			Matcher()
+			Score(specta.GreaterThan(1000))
 
 		result := matcher.Matches(actual)
 
@@ -53,8 +52,7 @@ func TestStructuredDiffDemo(t *testing.T) {
 
 		matcher := factory.UserViewMatches().
 			Name(specta.Equal("Alice")).
-			Score(specta.Equal(100)).
-			Matcher()
+			Score(specta.Equal(100))
 
 		result := matcher.Matches(user)
 

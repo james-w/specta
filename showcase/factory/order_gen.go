@@ -47,9 +47,22 @@ func (r OrderRecipe) ID(v string) OrderRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r OrderRecipe) IDFromGenerator(gen specta.Generator[string]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderIDFromGenerator(gen))
+	return r
+}
+
 // User sets the User field.
 func (r OrderRecipe) User(v showcase.User) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderUser(v))
+	r.userRecipe = nil
+	return r
+}
+
+// UserFromGenerator sets the User field using a Generator.
+func (r OrderRecipe) UserFromGenerator(gen specta.Generator[showcase.User]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderUserFromGenerator(gen))
 	r.userRecipe = nil
 	return r
 }
@@ -58,7 +71,7 @@ func (r OrderRecipe) User(v showcase.User) OrderRecipe {
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r OrderRecipe) UserFromRecipe(v UserRecipe) OrderRecipe {
-	r.opts = append(r.opts, spec.WithOrderUserFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithOrderUserFromGenerator(v.Gen()))
 	r.userRecipe = &v
 	return r
 }
@@ -69,9 +82,21 @@ func (r OrderRecipe) Items(v []showcase.OrderItem) OrderRecipe {
 	return r
 }
 
+// ItemsFromGenerator sets the Items field using a Generator.
+func (r OrderRecipe) ItemsFromGenerator(gen specta.Generator[[]showcase.OrderItem]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderItemsFromGenerator(gen))
+	return r
+}
+
 // Total sets the Total field.
 func (r OrderRecipe) Total(v float64) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderTotal(v))
+	return r
+}
+
+// TotalFromGenerator sets the Total field using a Generator.
+func (r OrderRecipe) TotalFromGenerator(gen specta.Generator[float64]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderTotalFromGenerator(gen))
 	return r
 }
 
@@ -81,9 +106,21 @@ func (r OrderRecipe) Status(v string) OrderRecipe {
 	return r
 }
 
+// StatusFromGenerator sets the Status field using a Generator.
+func (r OrderRecipe) StatusFromGenerator(gen specta.Generator[string]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderStatusFromGenerator(gen))
+	return r
+}
+
 // CreatedAt sets the CreatedAt field.
 func (r OrderRecipe) CreatedAt(v time.Time) OrderRecipe {
 	r.opts = append(r.opts, spec.WithOrderCreatedAt(v))
+	return r
+}
+
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r OrderRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderCreatedAtFromGenerator(gen))
 	return r
 }
 
@@ -93,19 +130,25 @@ func (r OrderRecipe) UpdatedAt(v time.Time) OrderRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r OrderRecipe) Provider() specta.Provider[showcase.Order] {
-	return specta.FromSpec(spec.BuildOrder, spec.NewOrderSpec, r.opts...)
+// UpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
+func (r OrderRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) OrderRecipe {
+	r.opts = append(r.opts, spec.WithOrderUpdatedAtFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r OrderRecipe) Gen() specta.Gen[showcase.Order] {
+	return specta.FromSpecGen(spec.BuildOrder, spec.NewOrderSpec, r.opts...)
 }
 
 // Build creates a single Order instance.
-func (r OrderRecipe) Build(p specta.Primitives) showcase.Order {
-	return spec.NewOrderFactory(p).Make(r.opts...)
+func (r OrderRecipe) Build(s specta.Source) showcase.Order {
+	return spec.NewOrderFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Order instances with unique generated values.
-func (r OrderRecipe) Many(n int, p specta.Primitives) []showcase.Order {
-	return spec.NewOrderFactory(p).Many(n, r.opts...)
+func (r OrderRecipe) Many(n int, s specta.Source) []showcase.Order {
+	return spec.NewOrderFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -119,38 +162,38 @@ func (r OrderRecipe) AsEqualMatcher() specta.Matcher[showcase.Order] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := OrderMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.User.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.userRecipe != nil {
 			m = m.User(r.userRecipe.AsEqualMatcher())
 		} else {
-			m = m.User(specta.DeepEqual(s.User.Value(p)))
+			m = m.User(specta.DeepEqual(s.User.GetValue(p, "User")))
 		}
 	}
 	if s.Items.IsSet() {
-		m = m.Items(specta.DeepEqual(s.Items.Value(p)))
+		m = m.Items(specta.DeepEqual(s.Items.GetValue(p, "Items")))
 	}
 	if s.Total.IsSet() {
-		m = m.Total(specta.DeepEqual(s.Total.Value(p)))
+		m = m.Total(specta.DeepEqual(s.Total.GetValue(p, "Total")))
 	}
 	if s.Status.IsSet() {
-		m = m.Status(specta.DeepEqual(s.Status.Value(p)))
+		m = m.Status(specta.DeepEqual(s.Status.GetValue(p, "Status")))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 	if s.UpdatedAt.IsSet() {
-		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.Value(p)))
+		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

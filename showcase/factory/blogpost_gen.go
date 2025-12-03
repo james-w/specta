@@ -48,15 +48,33 @@ func (r BlogPostRecipe) ID(v string) BlogPostRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r BlogPostRecipe) IDFromGenerator(gen specta.Generator[string]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostIDFromGenerator(gen))
+	return r
+}
+
 // Title sets the Title field.
 func (r BlogPostRecipe) Title(v string) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostTitle(v))
 	return r
 }
 
+// TitleFromGenerator sets the Title field using a Generator.
+func (r BlogPostRecipe) TitleFromGenerator(gen specta.Generator[string]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostTitleFromGenerator(gen))
+	return r
+}
+
 // Content sets the Content field.
 func (r BlogPostRecipe) Content(v string) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostContent(v))
+	return r
+}
+
+// ContentFromGenerator sets the Content field using a Generator.
+func (r BlogPostRecipe) ContentFromGenerator(gen specta.Generator[string]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostContentFromGenerator(gen))
 	return r
 }
 
@@ -67,11 +85,18 @@ func (r BlogPostRecipe) Author(v showcase.User) BlogPostRecipe {
 	return r
 }
 
+// AuthorFromGenerator sets the Author field using a Generator.
+func (r BlogPostRecipe) AuthorFromGenerator(gen specta.Generator[showcase.User]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostAuthorFromGenerator(gen))
+	r.authorRecipe = nil
+	return r
+}
+
 // AuthorFromRecipe sets the Author field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r BlogPostRecipe) AuthorFromRecipe(v UserRecipe) BlogPostRecipe {
-	r.opts = append(r.opts, spec.WithBlogPostAuthorFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithBlogPostAuthorFromGenerator(v.Gen()))
 	r.authorRecipe = &v
 	return r
 }
@@ -82,9 +107,21 @@ func (r BlogPostRecipe) Published(v bool) BlogPostRecipe {
 	return r
 }
 
+// PublishedFromGenerator sets the Published field using a Generator.
+func (r BlogPostRecipe) PublishedFromGenerator(gen specta.Generator[bool]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostPublishedFromGenerator(gen))
+	return r
+}
+
 // PublishedAt sets the PublishedAt field.
 func (r BlogPostRecipe) PublishedAt(v time.Time) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostPublishedAt(v))
+	return r
+}
+
+// PublishedAtFromGenerator sets the PublishedAt field using a Generator.
+func (r BlogPostRecipe) PublishedAtFromGenerator(gen specta.Generator[time.Time]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostPublishedAtFromGenerator(gen))
 	return r
 }
 
@@ -94,25 +131,37 @@ func (r BlogPostRecipe) CreatedAt(v time.Time) BlogPostRecipe {
 	return r
 }
 
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r BlogPostRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostCreatedAtFromGenerator(gen))
+	return r
+}
+
 // UpdatedAt sets the UpdatedAt field.
 func (r BlogPostRecipe) UpdatedAt(v time.Time) BlogPostRecipe {
 	r.opts = append(r.opts, spec.WithBlogPostUpdatedAt(v))
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r BlogPostRecipe) Provider() specta.Provider[showcase.BlogPost] {
-	return specta.FromSpec(spec.BuildBlogPost, spec.NewBlogPostSpec, r.opts...)
+// UpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
+func (r BlogPostRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) BlogPostRecipe {
+	r.opts = append(r.opts, spec.WithBlogPostUpdatedAtFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r BlogPostRecipe) Gen() specta.Gen[showcase.BlogPost] {
+	return specta.FromSpecGen(spec.BuildBlogPost, spec.NewBlogPostSpec, r.opts...)
 }
 
 // Build creates a single BlogPost instance.
-func (r BlogPostRecipe) Build(p specta.Primitives) showcase.BlogPost {
-	return spec.NewBlogPostFactory(p).Make(r.opts...)
+func (r BlogPostRecipe) Build(s specta.Source) showcase.BlogPost {
+	return spec.NewBlogPostFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple BlogPost instances with unique generated values.
-func (r BlogPostRecipe) Many(n int, p specta.Primitives) []showcase.BlogPost {
-	return spec.NewBlogPostFactory(p).Many(n, r.opts...)
+func (r BlogPostRecipe) Many(n int, s specta.Source) []showcase.BlogPost {
+	return spec.NewBlogPostFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -126,41 +175,41 @@ func (r BlogPostRecipe) AsEqualMatcher() specta.Matcher[showcase.BlogPost] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := BlogPostMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Title.IsSet() {
-		m = m.Title(specta.DeepEqual(s.Title.Value(p)))
+		m = m.Title(specta.DeepEqual(s.Title.GetValue(p, "Title")))
 	}
 	if s.Content.IsSet() {
-		m = m.Content(specta.DeepEqual(s.Content.Value(p)))
+		m = m.Content(specta.DeepEqual(s.Content.GetValue(p, "Content")))
 	}
 	if s.Author.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.authorRecipe != nil {
 			m = m.Author(r.authorRecipe.AsEqualMatcher())
 		} else {
-			m = m.Author(specta.DeepEqual(s.Author.Value(p)))
+			m = m.Author(specta.DeepEqual(s.Author.GetValue(p, "Author")))
 		}
 	}
 	if s.Published.IsSet() {
-		m = m.Published(specta.DeepEqual(s.Published.Value(p)))
+		m = m.Published(specta.DeepEqual(s.Published.GetValue(p, "Published")))
 	}
 	if s.PublishedAt.IsSet() {
-		m = m.PublishedAt(specta.DeepEqual(s.PublishedAt.Value(p)))
+		m = m.PublishedAt(specta.DeepEqual(s.PublishedAt.GetValue(p, "PublishedAt")))
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 	if s.UpdatedAt.IsSet() {
-		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.Value(p)))
+		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

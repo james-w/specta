@@ -38,38 +38,34 @@ func (r EmailRecipe) Address(v string) EmailRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r EmailRecipe) Provider() specta.Provider[showcase.Email] {
-	// Wrap error-returning constructor - panic on error for test factories
-	return func(p specta.Primitives) showcase.Email {
-		s := spec.NewEmailSpec()
+// Gen returns a Gen[T] for use in nested custom types.
+func (r EmailRecipe) Gen() specta.Gen[showcase.Email] {
+	// Constructor returns multiple values - use Build directly
+	return specta.Build("Email", func(d specta.DataSource) (showcase.Email, error) {
+		sp := spec.NewEmailSpec()
 		for _, opt := range r.opts {
-			opt(&s)
+			opt(&sp)
 		}
-		result, err := spec.BuildEmail(p, s)
-		if err != nil {
-			panic("Provider failed: " + err.Error())
-		}
-		return result
-	}
+		return spec.BuildEmail(specta.AsSource(d), sp)
+	})
 }
 
 // Build creates a single Email instance.
-func (r EmailRecipe) Build(p specta.Primitives) (showcase.Email, error) {
+func (r EmailRecipe) Build(s specta.Source) (showcase.Email, error) {
 	// Constructor returns multiple values - apply opts and call Build directly
-	s := spec.NewEmailSpec()
+	sp := spec.NewEmailSpec()
 	for _, opt := range r.opts {
-		opt(&s)
+		opt(&sp)
 	}
-	return spec.BuildEmail(p, s)
+	return spec.BuildEmail(s, sp)
 }
 
 // Many creates multiple Email instances with unique generated values.
-func (r EmailRecipe) Many(n int, p specta.Primitives) []showcase.Email {
+func (r EmailRecipe) Many(n int, s specta.Source) []showcase.Email {
 	// Wrap error-returning constructor - panic on first error
 	var results []showcase.Email
 	for i := range n {
-		item, err := r.Build(p)
+		item, err := r.Build(s)
 		if err != nil {
 			panic("Many() failed on item " + fmt.Sprint(i) + ": " + err.Error())
 		}
@@ -92,7 +88,7 @@ func (r EmailRecipe) AsEqualMatcher() specta.Matcher[showcase.Email] {
 
 	m := EmailMatches()
 	if s.Address.IsSet() {
-		m = m.Address(specta.Equal(s.Address.Value(p)))
+		m = m.Address(specta.Equal(s.Address.GetValue(p, "Address")))
 	}
-	return m.Matcher()
+	return m
 }

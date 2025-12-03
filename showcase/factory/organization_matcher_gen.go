@@ -38,8 +38,7 @@ type OrganizationMatcher struct {
 //
 //	matcher := factory.OrganizationMatches().
 //	    ID(specta.Equal("expected_value")).
-//	    Name(specta.Contains("substring")).
-//	    Matcher()
+//	    Name(specta.Contains("substring"))
 //
 //	specta.AssertThat(t, actualOrganization, matcher)
 func OrganizationMatches() OrganizationMatcher {
@@ -82,87 +81,85 @@ func (m OrganizationMatcher) Metadata(matcher specta.Matcher[map[string]string])
 	return m
 }
 
-// Matcher returns the composed matcher for Organization.
-func (m OrganizationMatcher) Matcher() specta.Matcher[showcase.Organization] {
-	return specta.MatcherFunc[showcase.Organization](func(actual showcase.Organization) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		iDValue := actual.ID
-		nameValue := actual.Name
-		cEOValue := actual.CEO
-		teamsValue := actual.Teams
-		membersValue := actual.Members
-		metadataValue := actual.Metadata
+// Matches implements the Matcher[Organization] interface.
+func (m OrganizationMatcher) Matches(actual showcase.Organization) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	iDValue := actual.ID
+	nameValue := actual.Name
+	cEOValue := actual.CEO
+	teamsValue := actual.Teams
+	membersValue := actual.Members
+	metadataValue := actual.Metadata
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"ID":       iDValue,
-			"Name":     nameValue,
-			"CEO":      cEOValue,
-			"Teams":    teamsValue,
-			"Members":  membersValue,
-			"Metadata": metadataValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"ID":       iDValue,
+		"Name":     nameValue,
+		"CEO":      cEOValue,
+		"Teams":    teamsValue,
+		"Members":  membersValue,
+		"Metadata": metadataValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.iDMatcher != nil {
+		result := m.iDMatcher.Matches(iDValue)
+		fieldResults["ID"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(iDValue)
-			fieldResults["ID"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.nameMatcher != nil {
+		result := m.nameMatcher.Matches(nameValue)
+		fieldResults["Name"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.nameMatcher != nil {
-			result := m.nameMatcher.Matches(nameValue)
-			fieldResults["Name"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.cEOMatcher != nil {
+		result := m.cEOMatcher.Matches(cEOValue)
+		fieldResults["CEO"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.cEOMatcher != nil {
-			result := m.cEOMatcher.Matches(cEOValue)
-			fieldResults["CEO"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.teamsMatcher != nil {
+		result := m.teamsMatcher.Matches(teamsValue)
+		fieldResults["Teams"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.teamsMatcher != nil {
-			result := m.teamsMatcher.Matches(teamsValue)
-			fieldResults["Teams"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.membersMatcher != nil {
+		result := m.membersMatcher.Matches(membersValue)
+		fieldResults["Members"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.membersMatcher != nil {
-			result := m.membersMatcher.Matches(membersValue)
-			fieldResults["Members"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.metadataMatcher != nil {
+		result := m.metadataMatcher.Matches(metadataValue)
+		fieldResults["Metadata"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.metadataMatcher != nil {
-			result := m.metadataMatcher.Matches(metadataValue)
-			fieldResults["Metadata"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Organization", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Organization", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

@@ -48,9 +48,21 @@ func (r UserRecipe) ID(v string) UserRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r UserRecipe) IDFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserIDFromGenerator(gen))
+	return r
+}
+
 // Email sets the Email field.
 func (r UserRecipe) Email(v string) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserEmail(v))
+	return r
+}
+
+// EmailFromGenerator sets the Email field using a Generator.
+func (r UserRecipe) EmailFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserEmailFromGenerator(gen))
 	return r
 }
 
@@ -60,15 +72,33 @@ func (r UserRecipe) FirstName(v string) UserRecipe {
 	return r
 }
 
+// FirstNameFromGenerator sets the FirstName field using a Generator.
+func (r UserRecipe) FirstNameFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserFirstNameFromGenerator(gen))
+	return r
+}
+
 // LastName sets the LastName field.
 func (r UserRecipe) LastName(v string) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserLastName(v))
 	return r
 }
 
+// LastNameFromGenerator sets the LastName field using a Generator.
+func (r UserRecipe) LastNameFromGenerator(gen specta.Generator[string]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserLastNameFromGenerator(gen))
+	return r
+}
+
 // Active sets the Active field.
 func (r UserRecipe) Active(v bool) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserActive(v))
+	return r
+}
+
+// ActiveFromGenerator sets the Active field using a Generator.
+func (r UserRecipe) ActiveFromGenerator(gen specta.Generator[bool]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserActiveFromGenerator(gen))
 	return r
 }
 
@@ -79,11 +109,18 @@ func (r UserRecipe) Address(v showcase.Address) UserRecipe {
 	return r
 }
 
+// AddressFromGenerator sets the Address field using a Generator.
+func (r UserRecipe) AddressFromGenerator(gen specta.Generator[showcase.Address]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserAddressFromGenerator(gen))
+	r.addressRecipe = nil
+	return r
+}
+
 // AddressFromRecipe sets the Address field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r UserRecipe) AddressFromRecipe(v AddressRecipe) UserRecipe {
-	r.opts = append(r.opts, spec.WithUserAddressFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithUserAddressFromGenerator(v.Gen()))
 	r.addressRecipe = &v
 	return r
 }
@@ -94,25 +131,37 @@ func (r UserRecipe) CreatedAt(v time.Time) UserRecipe {
 	return r
 }
 
+// CreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func (r UserRecipe) CreatedAtFromGenerator(gen specta.Generator[time.Time]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserCreatedAtFromGenerator(gen))
+	return r
+}
+
 // UpdatedAt sets the UpdatedAt field.
 func (r UserRecipe) UpdatedAt(v time.Time) UserRecipe {
 	r.opts = append(r.opts, spec.WithUserUpdatedAt(v))
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r UserRecipe) Provider() specta.Provider[showcase.User] {
-	return specta.FromSpec(spec.BuildUser, spec.NewUserSpec, r.opts...)
+// UpdatedAtFromGenerator sets the UpdatedAt field using a Generator.
+func (r UserRecipe) UpdatedAtFromGenerator(gen specta.Generator[time.Time]) UserRecipe {
+	r.opts = append(r.opts, spec.WithUserUpdatedAtFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r UserRecipe) Gen() specta.Gen[showcase.User] {
+	return specta.FromSpecGen(spec.BuildUser, spec.NewUserSpec, r.opts...)
 }
 
 // Build creates a single User instance.
-func (r UserRecipe) Build(p specta.Primitives) showcase.User {
-	return spec.NewUserFactory(p).Make(r.opts...)
+func (r UserRecipe) Build(s specta.Source) showcase.User {
+	return spec.NewUserFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple User instances with unique generated values.
-func (r UserRecipe) Many(n int, p specta.Primitives) []showcase.User {
-	return spec.NewUserFactory(p).Many(n, r.opts...)
+func (r UserRecipe) Many(n int, s specta.Source) []showcase.User {
+	return spec.NewUserFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -126,41 +175,41 @@ func (r UserRecipe) AsEqualMatcher() specta.Matcher[showcase.User] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := UserMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Email.IsSet() {
-		m = m.Email(specta.DeepEqual(s.Email.Value(p)))
+		m = m.Email(specta.DeepEqual(s.Email.GetValue(p, "Email")))
 	}
 	if s.FirstName.IsSet() {
-		m = m.FirstName(specta.DeepEqual(s.FirstName.Value(p)))
+		m = m.FirstName(specta.DeepEqual(s.FirstName.GetValue(p, "FirstName")))
 	}
 	if s.LastName.IsSet() {
-		m = m.LastName(specta.DeepEqual(s.LastName.Value(p)))
+		m = m.LastName(specta.DeepEqual(s.LastName.GetValue(p, "LastName")))
 	}
 	if s.Active.IsSet() {
-		m = m.Active(specta.DeepEqual(s.Active.Value(p)))
+		m = m.Active(specta.DeepEqual(s.Active.GetValue(p, "Active")))
 	}
 	if s.Address.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.addressRecipe != nil {
 			m = m.Address(r.addressRecipe.AsEqualMatcher())
 		} else {
-			m = m.Address(specta.DeepEqual(s.Address.Value(p)))
+			m = m.Address(specta.DeepEqual(s.Address.GetValue(p, "Address")))
 		}
 	}
 	if s.CreatedAt.IsSet() {
-		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.Value(p)))
+		m = m.CreatedAt(specta.DeepEqual(s.CreatedAt.GetValue(p, "CreatedAt")))
 	}
 	if s.UpdatedAt.IsSet() {
-		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.Value(p)))
+		m = m.UpdatedAt(specta.DeepEqual(s.UpdatedAt.GetValue(p, "UpdatedAt")))
 	}
 
-	return m.Matcher()
+	return m
 }

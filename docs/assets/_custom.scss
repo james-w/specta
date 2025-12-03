@@ -1,0 +1,81 @@
+/* Custom header colors for specta docs */
+
+:root {
+  --header-color: #5b4a7a; /* muted violet */
+}
+
+[data-theme="dark"] {
+  --header-color: #b8b2c9; /* light violet-gray */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --header-color: #b8b2c9;
+  }
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  color: var(--header-color);
+}
+
+/* Copy code button */
+:root {
+  --copy-btn-bg: rgba(255, 255, 255, 0.9);
+  --copy-btn-bg-hover: rgba(255, 255, 255, 1);
+  --copy-btn-text: #555;
+  --copy-btn-text-hover: #333;
+}
+
+[data-theme="dark"] {
+  --copy-btn-bg: rgba(60, 60, 60, 0.9);
+  --copy-btn-bg-hover: rgba(80, 80, 80, 1);
+  --copy-btn-text: #aaa;
+  --copy-btn-text-hover: #ddd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --copy-btn-bg: rgba(60, 60, 60, 0.9);
+    --copy-btn-bg-hover: rgba(80, 80, 80, 1);
+    --copy-btn-text: #aaa;
+    --copy-btn-text-hover: #ddd;
+  }
+}
+
+.code-block-wrapper {
+  position: relative;
+}
+
+.copy-code-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  color: var(--copy-btn-text);
+  background-color: var(--copy-btn-bg);
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem;
+  line-height: 0;
+  opacity: 0;
+  transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.code-block-wrapper:hover .copy-code-button {
+  opacity: 1;
+}
+
+.copy-code-button:hover {
+  cursor: pointer;
+  background-color: var(--copy-btn-bg-hover);
+  color: var(--copy-btn-text-hover);
+}
+
+.copy-code-button:focus {
+  opacity: 1;
+  outline: none;
+}

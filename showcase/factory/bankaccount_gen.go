@@ -43,19 +43,19 @@ func (r BankAccountRecipe) Balance(v int) BankAccountRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r BankAccountRecipe) Provider() specta.Provider[showcase.BankAccount] {
-	return specta.FromSpec(spec.BuildBankAccount, spec.NewBankAccountSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r BankAccountRecipe) Gen() specta.Gen[showcase.BankAccount] {
+	return specta.FromSpecGen(spec.BuildBankAccount, spec.NewBankAccountSpec, r.opts...)
 }
 
 // Build creates a single BankAccount instance.
-func (r BankAccountRecipe) Build(p specta.Primitives) showcase.BankAccount {
-	return spec.NewBankAccountFactory(p).Make(r.opts...)
+func (r BankAccountRecipe) Build(s specta.Source) showcase.BankAccount {
+	return spec.NewBankAccountFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple BankAccount instances with unique generated values.
-func (r BankAccountRecipe) Many(n int, p specta.Primitives) []showcase.BankAccount {
-	return spec.NewBankAccountFactory(p).Many(n, r.opts...)
+func (r BankAccountRecipe) Many(n int, s specta.Source) []showcase.BankAccount {
+	return spec.NewBankAccountFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -72,10 +72,10 @@ func (r BankAccountRecipe) AsEqualMatcher() specta.Matcher[showcase.BankAccount]
 
 	m := BankAccountMatches()
 	if s.Name.IsSet() {
-		m = m.Name(specta.Equal(s.Name.Value(p)))
+		m = m.Name(specta.Equal(s.Name.GetValue(p, "Name")))
 	}
 	if s.Balance.IsSet() {
-		m = m.Balance(specta.Equal(s.Balance.Value(p)))
+		m = m.Balance(specta.Equal(s.Balance.GetValue(p, "Balance")))
 	}
-	return m.Matcher()
+	return m
 }

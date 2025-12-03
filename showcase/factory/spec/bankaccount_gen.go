@@ -45,20 +45,20 @@ type BankAccountSpec struct {
 func NewBankAccountSpec() BankAccountSpec { return BankAccountSpec{} }
 
 // NewBankAccountFactory creates a new SpecFactory for BankAccount.
-func NewBankAccountFactory(p specta.Primitives) *specta.SpecFactory[showcase.BankAccount, BankAccountSpec] {
-	return specta.NewSpecFactory(p, NewBankAccountSpec, BuildBankAccount)
+func NewBankAccountFactory(s specta.Source) *specta.SpecFactory[showcase.BankAccount, BankAccountSpec] {
+	return specta.NewSpecFactory(s, NewBankAccountSpec, BuildBankAccount)
 }
 
-// Default parameter providers.
+// Default parameter generators.
 var (
-	BankAccountDefaultName    = func(p specta.Primitives) string { return p.StringWith("name_") }
-	BankAccountDefaultBalance = func(p specta.Primitives) int { return int(p.Int()) }
+	BankAccountNameGenerator    = specta.String().ExampleHint("name_").NonEmpty()
+	BankAccountBalanceGenerator = specta.Map(specta.Int(), func(v int64) int { return int(v) })
 )
 
 // BuildBankAccount constructs a BankAccount from a BankAccountSpec.
-func BuildBankAccount(p specta.Primitives, s BankAccountSpec) showcase.BankAccount {
-	name := s.Name.Get(p, BankAccountDefaultName)
-	balance := s.Balance.Get(p, BankAccountDefaultBalance)
+func BuildBankAccount(s specta.Source, spec BankAccountSpec) showcase.BankAccount {
+	name := spec.Name.GetWithGenerator(s, "Name", BankAccountNameGenerator)
+	balance := spec.Balance.GetWithGenerator(s, "Balance", BankAccountBalanceGenerator)
 	return showcase.NewBankAccount(name, balance)
 }
 
@@ -67,7 +67,21 @@ func WithBankAccountName(v string) specta.Opt[BankAccountSpec] {
 	return specta.SetLit(func(s *BankAccountSpec, m specta.Maybe[string]) { s.Name = m }, v)
 }
 
+// WithBankAccountNameFromGenerator sets the Name parameter using a Generator.
+func WithBankAccountNameFromGenerator(gen specta.Generator[string]) specta.Opt[BankAccountSpec] {
+	return func(s *BankAccountSpec) {
+		s.Name = specta.Some(gen)
+	}
+}
+
 // WithBankAccountBalance sets the Balance parameter to a literal value.
 func WithBankAccountBalance(v int) specta.Opt[BankAccountSpec] {
 	return specta.SetLit(func(s *BankAccountSpec, m specta.Maybe[int]) { s.Balance = m }, v)
+}
+
+// WithBankAccountBalanceFromGenerator sets the Balance parameter using a Generator.
+func WithBankAccountBalanceFromGenerator(gen specta.Generator[int]) specta.Opt[BankAccountSpec] {
+	return func(s *BankAccountSpec) {
+		s.Balance = specta.Some(gen)
+	}
 }

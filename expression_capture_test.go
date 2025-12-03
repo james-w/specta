@@ -25,9 +25,9 @@ func TestAssertThat_ExpressionCapture(t *testing.T) {
 		errorMsg := spy.Errors[0]
 		t.Logf("Captured error message: %s", errorMsg)
 
-		// The error should contain "value", not "spy" or "t"
-		if !strings.Contains(errorMsg, "value") {
-			t.Errorf("Expected error message to contain 'value', got: %s", errorMsg)
+		// The error should start with "value: ", not "spy" or "t"
+		if !strings.HasPrefix(errorMsg, "value: ") {
+			t.Errorf("Expected error message to start with 'value: ', got: %s", errorMsg)
 		}
 
 		// Should NOT contain references to the testing parameter
@@ -52,9 +52,9 @@ func TestAssertThat_ExpressionCapture(t *testing.T) {
 		errorMsg := spy.Errors[0]
 		t.Logf("Captured error message: %s", errorMsg)
 
-		// Should contain the field expression
-		if !strings.Contains(errorMsg, "Name") && !strings.Contains(errorMsg, "user") {
-			t.Errorf("Expected error message to reference the field, got: %s", errorMsg)
+		// Should capture the complete field access expression
+		if !strings.HasPrefix(errorMsg, "user.Name: ") {
+			t.Errorf("Expected error message to start with 'user.Name: ', got: %s", errorMsg)
 		}
 	})
 
@@ -71,9 +71,9 @@ func TestAssertThat_ExpressionCapture(t *testing.T) {
 		errorMsg := spy.Errors[0]
 		t.Logf("Captured error message: %s", errorMsg)
 
-		// Should contain reference to the len function call
-		if !strings.Contains(errorMsg, "len") {
-			t.Errorf("Expected error message to reference 'len', got: %s", errorMsg)
+		// Should capture the complete function call expression
+		if !strings.HasPrefix(errorMsg, "len(s): ") {
+			t.Errorf("Expected error message to start with 'len(s): ', got: %s", errorMsg)
 		}
 	})
 

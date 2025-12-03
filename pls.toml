@@ -1,0 +1,116 @@
+# specta - Task Runner Configuration
+
+# Build the code generator binary
+[artifact.go.build]
+subcommand = "build"
+description = "Build the specta code generator"
+args = "-o specta ./cmd/main.go"
+if_files_changed = ["cmd/**/*.go", "*.go", "go.mod", "go.sum"]
+updates_paths = ["specta"]
+dir = "."
+
+# Code generation
+[artifact.exec.generate-example]
+description = "Generate code for example module"
+command = "../specta -config specta.yaml"
+dir = "example"
+requires = ["build"]
+if_files_changed = ["specta", "example/*.go"]
+updates_paths = ["example/factory/parent_gen.go", "example/factory/parent_matcher_gen.go", "example/factory/userview_gen.go", "example/factory/userview_matcher_gen.go", "example/factory/spec/parent_gen.go", "example/factory/spec/userview_gen.go"]
+
+[artifact.exec.generate-showcase]
+description = "Generate code for showcase module"
+command = "../specta -config specta.yaml"
+dir = "showcase"
+requires = ["build"]
+if_files_changed = ["specta", "showcase/*.go", "showcase/factory/user.go", "showcase/factory/user_matcher.go"]
+# Not exactly true as there can be overrides, but close enough
+updates_paths = ["showcase/factory/*.go", "showcase/factory/spec/*.go"]
+
+[group.generate]
+description = "Generate code for all modules"
+requires = ["generate-example", "generate-showcase"]
+
+# API documentation
+[artifact.exec.generate-api-docs]
+description = "Generate API reference documentation with gomarkdoc"
+command = "gomarkdoc .."
+dir = "docs"
+updates_paths = ["docs/content/docs/api-reference/_index.md"]
+if_files_changed = ["../**/*.go", "../go.mod"]
+
+[command.exec.check-api-docs]
+description = "Check if API docs are up to date"
+command = "gomarkdoc --check .."
+dir = "docs"
+
+# Testing
+[command.go.test]
+subcommand = "test"
+description = "Run tests in current dir"
+
+[command.go.test-main]
+subcommand = "test"
+description = "Run all tests in main module"
+args = "./..."
+dir = "."
+
+[command.go.test-docs]
+subcommand = "test"
+description = "Run all tests in docs"
+args = "./..."
+dir = "docs"
+
+[command.go.test-example]
+subcommand = "test"
+description = "Generate and test example module"
+args = "./..."
+dir = "example"
+requires = ["generate-example"]
+
+[command.go.test-showcase]
+subcommand = "test"
+description = "Generate and test showcase module"
+args = "./..."
+dir = "showcase"
+requires = ["generate-showcase"]
+
+[group.test-all]
+description = "Run tests for all modules"
+requires = ["test-main", "test-docs", "test-example", "test-showcase"]
+
+# Code quality
+[command.exec.format]
+command = "gofmt -s -w ."
+description = "Format all Go code"
+
+[command.exec.lint]
+description = "Run golangci-lint on main module"
+command = "golangci-lint run"
+
+[command.exec.lint-example]
+description = "Run golangci-lint on example module"
+command = "golangci-lint run"
+dir = "example"
+requires = ["generate-example"]
+
+[command.exec.lint-showcase]
+description = "Run golangci-lint on showcase module"
+command = "golangci-lint run"
+dir = "showcase"
+requires = ["generate-showcase"]
+
+[group.lint-all]
+description = "Run golangci-lint on all modules"
+requires = ["lint", "lint-example", "lint-showcase"]
+
+# Composite tasks
+[group.ci]
+description = "Full CI check (format, generate, test all, lint, check API docs)"
+requires = ["format", "generate", "test-all", "lint-all", "check-api-docs"]
+
+[command.exec.serve-docs]
+description = "Run a local docs server"
+command = "hugo serve"
+dir = "docs"
+daemon = true

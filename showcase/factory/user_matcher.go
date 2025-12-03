@@ -16,13 +16,12 @@ func IsAdmin() specta.Matcher[showcase.User] {
 		FirstName(specta.Equal("Admin")).
 		LastName(specta.Equal("User")).
 		Email(specta.Equal("admin@example.com")).
-		Active(specta.Equal(true)).
-		Matcher()
+		Active(specta.Equal(true))
 }
 
 // IsActive matches users where Active is true.
 func IsActive() specta.Matcher[showcase.User] {
-	return UserMatches().Active(specta.Equal(true)).Matcher()
+	return UserMatches().Active(specta.Equal(true))
 }
 
 // IsGuest matches users with guest privileges.
@@ -30,8 +29,7 @@ func IsGuest() specta.Matcher[showcase.User] {
 	return UserMatches().
 		FirstName(specta.Equal("Guest")).
 		LastName(specta.Equal("User")).
-		Active(specta.Equal(false)).
-		Matcher()
+		Active(specta.Equal(false))
 }
 
 // HasTestEmail matches users with @test.example.com emails.

@@ -47,24 +47,24 @@ type MemberSpec struct {
 func NewMemberSpec() MemberSpec { return MemberSpec{} }
 
 // NewMemberFactory creates a new SpecFactory for Member.
-func NewMemberFactory(p specta.Primitives) *specta.SpecFactory[showcase.Member, MemberSpec] {
-	return specta.NewSpecFactory(p, NewMemberSpec, BuildMember)
+func NewMemberFactory(s specta.Source) *specta.SpecFactory[showcase.Member, MemberSpec] {
+	return specta.NewSpecFactory(s, NewMemberSpec, BuildMember)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	MemberDefaultID     = func(p specta.Primitives) string { return p.ID() }
-	MemberDefaultName   = func(p specta.Primitives) string { return p.StringWith("name_") }
-	MemberDefaultTeamID = func(p specta.Primitives) string { return p.ID() }
-	MemberDefaultTeam   = specta.PtrOf(specta.FromSpec(BuildTeam, NewTeamSpec))
+	MemberIDGenerator     specta.Generator[string]         = specta.String().ExampleHint("id_").NonEmpty()
+	MemberNameGenerator   specta.Generator[string]         = specta.String().ExampleHint("name_").NonEmpty()
+	MemberTeamIDGenerator specta.Generator[string]         = specta.String().ExampleHint("id_").NonEmpty()
+	MemberTeamGenerator   specta.Generator[*showcase.Team] = specta.PtrOfGen(specta.FromSpecGen(BuildTeam, NewTeamSpec))
 )
 
 // BuildMember constructs a Member from a MemberSpec.
-func BuildMember(p specta.Primitives, s MemberSpec) showcase.Member {
-	iD := s.ID.Get(p, MemberDefaultID)
-	name := s.Name.Get(p, MemberDefaultName)
-	teamID := s.TeamID.Get(p, MemberDefaultTeamID)
-	team := s.Team.Get(p, MemberDefaultTeam)
+func BuildMember(s specta.Source, spec MemberSpec) showcase.Member {
+	iD := spec.ID.GetWithGenerator(s, "ID", MemberIDGenerator)
+	name := spec.Name.GetWithGenerator(s, "Name", MemberNameGenerator)
+	teamID := spec.TeamID.GetWithGenerator(s, "TeamID", MemberTeamIDGenerator)
+	team := spec.Team.GetWithGenerator(s, "Team", MemberTeamGenerator)
 	return showcase.Member{
 		ID:     iD,
 		Name:   name,
@@ -78,9 +78,23 @@ func WithMemberID(v string) specta.Opt[MemberSpec] {
 	return specta.SetLit(func(s *MemberSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
+// WithMemberIDFromGenerator sets the ID field using a Generator.
+func WithMemberIDFromGenerator(gen specta.Generator[string]) specta.Opt[MemberSpec] {
+	return func(s *MemberSpec) {
+		s.ID = specta.Some(gen)
+	}
+}
+
 // WithMemberName sets the Name field to a literal value.
 func WithMemberName(v string) specta.Opt[MemberSpec] {
 	return specta.SetLit(func(s *MemberSpec, m specta.Maybe[string]) { s.Name = m }, v)
+}
+
+// WithMemberNameFromGenerator sets the Name field using a Generator.
+func WithMemberNameFromGenerator(gen specta.Generator[string]) specta.Opt[MemberSpec] {
+	return func(s *MemberSpec) {
+		s.Name = specta.Some(gen)
+	}
 }
 
 // WithMemberTeamID sets the TeamID field to a literal value.
@@ -88,15 +102,21 @@ func WithMemberTeamID(v string) specta.Opt[MemberSpec] {
 	return specta.SetLit(func(s *MemberSpec, m specta.Maybe[string]) { s.TeamID = m }, v)
 }
 
+// WithMemberTeamIDFromGenerator sets the TeamID field using a Generator.
+func WithMemberTeamIDFromGenerator(gen specta.Generator[string]) specta.Opt[MemberSpec] {
+	return func(s *MemberSpec) {
+		s.TeamID = specta.Some(gen)
+	}
+}
+
 // WithMemberTeam sets the Team field to a literal value.
 func WithMemberTeam(v *showcase.Team) specta.Opt[MemberSpec] {
 	return specta.SetLit(func(s *MemberSpec, m specta.Maybe[*showcase.Team]) { s.Team = m }, v)
 }
 
-// WithMemberTeamFromProvider sets the Team field using a Provider (evaluated lazily).
-func WithMemberTeamFromProvider(prov specta.Provider[*showcase.Team]) specta.Opt[MemberSpec] {
-	return specta.SetWith(
-		func(s *MemberSpec, m specta.Maybe[*showcase.Team]) { s.Team = m },
-		prov,
-	)
+// WithMemberTeamFromGenerator sets the Team field using a Generator.
+func WithMemberTeamFromGenerator(gen specta.Generator[*showcase.Team]) specta.Opt[MemberSpec] {
+	return func(s *MemberSpec) {
+		s.Team = specta.Some(gen)
+	}
 }

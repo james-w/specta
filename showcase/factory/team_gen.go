@@ -40,9 +40,21 @@ func (r TeamRecipe) ID(v string) TeamRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r TeamRecipe) IDFromGenerator(gen specta.Generator[string]) TeamRecipe {
+	r.opts = append(r.opts, spec.WithTeamIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r TeamRecipe) Name(v string) TeamRecipe {
 	r.opts = append(r.opts, spec.WithTeamName(v))
+	return r
+}
+
+// NameFromGenerator sets the Name field using a Generator.
+func (r TeamRecipe) NameFromGenerator(gen specta.Generator[string]) TeamRecipe {
+	r.opts = append(r.opts, spec.WithTeamNameFromGenerator(gen))
 	return r
 }
 
@@ -52,19 +64,25 @@ func (r TeamRecipe) Members(v []showcase.Member) TeamRecipe {
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r TeamRecipe) Provider() specta.Provider[showcase.Team] {
-	return specta.FromSpec(spec.BuildTeam, spec.NewTeamSpec, r.opts...)
+// MembersFromGenerator sets the Members field using a Generator.
+func (r TeamRecipe) MembersFromGenerator(gen specta.Generator[[]showcase.Member]) TeamRecipe {
+	r.opts = append(r.opts, spec.WithTeamMembersFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r TeamRecipe) Gen() specta.Gen[showcase.Team] {
+	return specta.FromSpecGen(spec.BuildTeam, spec.NewTeamSpec, r.opts...)
 }
 
 // Build creates a single Team instance.
-func (r TeamRecipe) Build(p specta.Primitives) showcase.Team {
-	return spec.NewTeamFactory(p).Make(r.opts...)
+func (r TeamRecipe) Build(s specta.Source) showcase.Team {
+	return spec.NewTeamFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Team instances with unique generated values.
-func (r TeamRecipe) Many(n int, p specta.Primitives) []showcase.Team {
-	return spec.NewTeamFactory(p).Many(n, r.opts...)
+func (r TeamRecipe) Many(n int, s specta.Source) []showcase.Team {
+	return spec.NewTeamFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -78,21 +96,21 @@ func (r TeamRecipe) AsEqualMatcher() specta.Matcher[showcase.Team] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := TeamMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Members.IsSet() {
-		m = m.Members(specta.DeepEqual(s.Members.Value(p)))
+		m = m.Members(specta.DeepEqual(s.Members.GetValue(p, "Members")))
 	}
 
-	return m.Matcher()
+	return m
 }

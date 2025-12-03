@@ -35,6 +35,7 @@ func (f MatcherFunc[T]) Matches(actual T) MatchResult {
 type TestingT interface {
 	Helper()
 	Errorf(format string, args ...interface{})
+	Logf(format string, args ...interface{})
 }
 
 // AssertThat checks if actual matches the given matcher, failing the test if not.
@@ -212,6 +213,25 @@ func GreaterThanOrEqual[T interface {
 			Matched:  false,
 			Message:  fmt.Sprintf("expected value >= %v but got %v", threshold, actual),
 			Expected: fmt.Sprintf(">= %v", threshold),
+			Actual:   actual,
+		}
+	})
+}
+
+// LessThanOrEqual creates a matcher for numeric types.
+func LessThanOrEqual[T interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
+		~float32 | ~float64
+}](threshold T) Matcher[T] {
+	return MatcherFunc[T](func(actual T) MatchResult {
+		if actual <= threshold {
+			return MatchResult{Matched: true}
+		}
+		return MatchResult{
+			Matched:  false,
+			Message:  fmt.Sprintf("expected value <= %v but got %v", threshold, actual),
+			Expected: fmt.Sprintf("<= %v", threshold),
 			Actual:   actual,
 		}
 	})

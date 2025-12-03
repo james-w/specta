@@ -50,26 +50,26 @@ type CommentSpec struct {
 func NewCommentSpec() CommentSpec { return CommentSpec{} }
 
 // NewCommentFactory creates a new SpecFactory for Comment.
-func NewCommentFactory(p specta.Primitives) *specta.SpecFactory[showcase.Comment, CommentSpec] {
-	return specta.NewSpecFactory(p, NewCommentSpec, BuildComment)
+func NewCommentFactory(s specta.Source) *specta.SpecFactory[showcase.Comment, CommentSpec] {
+	return specta.NewSpecFactory(s, NewCommentSpec, BuildComment)
 }
 
-// Default field providers.
+// Default field generators.
 var (
-	CommentDefaultID        = func(p specta.Primitives) string { return p.ID() }
-	CommentDefaultPost      = specta.FromSpec(BuildBlogPost, NewBlogPostSpec)
-	CommentDefaultAuthor    = specta.FromSpec(BuildUser, NewUserSpec)
-	CommentDefaultContent   = func(p specta.Primitives) string { return p.StringWith("content_") }
-	CommentDefaultCreatedAt = func(p specta.Primitives) time.Time { return p.Time() }
+	CommentIDGenerator        specta.Generator[string]            = specta.String().ExampleHint("id_").NonEmpty()
+	CommentPostGenerator      specta.Generator[showcase.BlogPost] = specta.FromSpecGen(BuildBlogPost, NewBlogPostSpec)
+	CommentAuthorGenerator    specta.Generator[showcase.User]     = specta.FromSpecGen(BuildUser, NewUserSpec)
+	CommentContentGenerator   specta.Generator[string]            = specta.String().ExampleHint("content_").NonEmpty()
+	CommentCreatedAtGenerator specta.Generator[time.Time]         = specta.Time()
 )
 
 // BuildComment constructs a Comment from a CommentSpec.
-func BuildComment(p specta.Primitives, s CommentSpec) showcase.Comment {
-	iD := s.ID.Get(p, CommentDefaultID)
-	post := s.Post.Get(p, CommentDefaultPost)
-	author := s.Author.Get(p, CommentDefaultAuthor)
-	content := s.Content.Get(p, CommentDefaultContent)
-	createdAt := s.CreatedAt.Get(p, CommentDefaultCreatedAt)
+func BuildComment(s specta.Source, spec CommentSpec) showcase.Comment {
+	iD := spec.ID.GetWithGenerator(s, "ID", CommentIDGenerator)
+	post := spec.Post.GetWithGenerator(s, "Post", CommentPostGenerator)
+	author := spec.Author.GetWithGenerator(s, "Author", CommentAuthorGenerator)
+	content := spec.Content.GetWithGenerator(s, "Content", CommentContentGenerator)
+	createdAt := spec.CreatedAt.GetWithGenerator(s, "CreatedAt", CommentCreatedAtGenerator)
 	return showcase.Comment{
 		ID:        iD,
 		Post:      post,
@@ -84,17 +84,23 @@ func WithCommentID(v string) specta.Opt[CommentSpec] {
 	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[string]) { s.ID = m }, v)
 }
 
+// WithCommentIDFromGenerator sets the ID field using a Generator.
+func WithCommentIDFromGenerator(gen specta.Generator[string]) specta.Opt[CommentSpec] {
+	return func(s *CommentSpec) {
+		s.ID = specta.Some(gen)
+	}
+}
+
 // WithCommentPost sets the Post field to a literal value.
 func WithCommentPost(v showcase.BlogPost) specta.Opt[CommentSpec] {
 	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[showcase.BlogPost]) { s.Post = m }, v)
 }
 
-// WithCommentPostFromProvider sets the Post field using a Provider (evaluated lazily).
-func WithCommentPostFromProvider(prov specta.Provider[showcase.BlogPost]) specta.Opt[CommentSpec] {
-	return specta.SetWith(
-		func(s *CommentSpec, m specta.Maybe[showcase.BlogPost]) { s.Post = m },
-		prov,
-	)
+// WithCommentPostFromGenerator sets the Post field using a Generator.
+func WithCommentPostFromGenerator(gen specta.Generator[showcase.BlogPost]) specta.Opt[CommentSpec] {
+	return func(s *CommentSpec) {
+		s.Post = specta.Some(gen)
+	}
 }
 
 // WithCommentAuthor sets the Author field to a literal value.
@@ -102,12 +108,11 @@ func WithCommentAuthor(v showcase.User) specta.Opt[CommentSpec] {
 	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[showcase.User]) { s.Author = m }, v)
 }
 
-// WithCommentAuthorFromProvider sets the Author field using a Provider (evaluated lazily).
-func WithCommentAuthorFromProvider(prov specta.Provider[showcase.User]) specta.Opt[CommentSpec] {
-	return specta.SetWith(
-		func(s *CommentSpec, m specta.Maybe[showcase.User]) { s.Author = m },
-		prov,
-	)
+// WithCommentAuthorFromGenerator sets the Author field using a Generator.
+func WithCommentAuthorFromGenerator(gen specta.Generator[showcase.User]) specta.Opt[CommentSpec] {
+	return func(s *CommentSpec) {
+		s.Author = specta.Some(gen)
+	}
 }
 
 // WithCommentContent sets the Content field to a literal value.
@@ -115,7 +120,21 @@ func WithCommentContent(v string) specta.Opt[CommentSpec] {
 	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[string]) { s.Content = m }, v)
 }
 
+// WithCommentContentFromGenerator sets the Content field using a Generator.
+func WithCommentContentFromGenerator(gen specta.Generator[string]) specta.Opt[CommentSpec] {
+	return func(s *CommentSpec) {
+		s.Content = specta.Some(gen)
+	}
+}
+
 // WithCommentCreatedAt sets the CreatedAt field to a literal value.
 func WithCommentCreatedAt(v time.Time) specta.Opt[CommentSpec] {
 	return specta.SetLit(func(s *CommentSpec, m specta.Maybe[time.Time]) { s.CreatedAt = m }, v)
+}
+
+// WithCommentCreatedAtFromGenerator sets the CreatedAt field using a Generator.
+func WithCommentCreatedAtFromGenerator(gen specta.Generator[time.Time]) specta.Opt[CommentSpec] {
+	return func(s *CommentSpec) {
+		s.CreatedAt = specta.Some(gen)
+	}
 }

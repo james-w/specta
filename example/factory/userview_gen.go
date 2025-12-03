@@ -41,9 +41,21 @@ func (r UserViewRecipe) ID(v string) UserViewRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r UserViewRecipe) IDFromGenerator(gen specta.Generator[string]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r UserViewRecipe) Name(v string) UserViewRecipe {
 	r.opts = append(r.opts, spec.WithUserViewName(v))
+	return r
+}
+
+// NameFromGenerator sets the Name field using a Generator.
+func (r UserViewRecipe) NameFromGenerator(gen specta.Generator[string]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewNameFromGenerator(gen))
 	return r
 }
 
@@ -53,25 +65,37 @@ func (r UserViewRecipe) Active(v bool) UserViewRecipe {
 	return r
 }
 
+// ActiveFromGenerator sets the Active field using a Generator.
+func (r UserViewRecipe) ActiveFromGenerator(gen specta.Generator[bool]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewActiveFromGenerator(gen))
+	return r
+}
+
 // Score sets the Score field.
 func (r UserViewRecipe) Score(v int) UserViewRecipe {
 	r.opts = append(r.opts, spec.WithUserViewScore(v))
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r UserViewRecipe) Provider() specta.Provider[example.UserView] {
-	return specta.FromSpec(spec.BuildUserView, spec.NewUserViewSpec, r.opts...)
+// ScoreFromGenerator sets the Score field using a Generator.
+func (r UserViewRecipe) ScoreFromGenerator(gen specta.Generator[int]) UserViewRecipe {
+	r.opts = append(r.opts, spec.WithUserViewScoreFromGenerator(gen))
+	return r
+}
+
+// Gen returns a Gen[T] for use in nested custom types.
+func (r UserViewRecipe) Gen() specta.Gen[example.UserView] {
+	return specta.FromSpecGen(spec.BuildUserView, spec.NewUserViewSpec, r.opts...)
 }
 
 // Build creates a single UserView instance.
-func (r UserViewRecipe) Build(p specta.Primitives) example.UserView {
-	return spec.NewUserViewFactory(p).Make(r.opts...)
+func (r UserViewRecipe) Build(s specta.Source) example.UserView {
+	return spec.NewUserViewFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple UserView instances with unique generated values.
-func (r UserViewRecipe) Many(n int, p specta.Primitives) []example.UserView {
-	return spec.NewUserViewFactory(p).Many(n, r.opts...)
+func (r UserViewRecipe) Many(n int, s specta.Source) []example.UserView {
+	return spec.NewUserViewFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -85,24 +109,24 @@ func (r UserViewRecipe) AsEqualMatcher() specta.Matcher[example.UserView] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := UserViewMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.Active.IsSet() {
-		m = m.Active(specta.DeepEqual(s.Active.Value(p)))
+		m = m.Active(specta.DeepEqual(s.Active.GetValue(p, "Active")))
 	}
 	if s.Score.IsSet() {
-		m = m.Score(specta.DeepEqual(s.Score.Value(p)))
+		m = m.Score(specta.DeepEqual(s.Score.GetValue(p, "Score")))
 	}
 
-	return m.Matcher()
+	return m
 }

@@ -42,8 +42,7 @@ type OrderMatcher struct {
 //
 //	matcher := factory.OrderMatches().
 //	    ID(specta.Equal("expected_value")).
-//	    User(specta.Equal(expectedValue)).
-//	    Matcher()
+//	    User(specta.Equal(expectedValue))
 //
 //	specta.AssertThat(t, actualOrder, matcher)
 func OrderMatches() OrderMatcher {
@@ -59,12 +58,6 @@ func (m OrderMatcher) ID(matcher specta.Matcher[string]) OrderMatcher {
 // User adds a matcher for the User field.
 func (m OrderMatcher) User(matcher specta.Matcher[showcase.User]) OrderMatcher {
 	m.userMatcher = matcher
-	return m
-}
-
-// UserMatches is a convenience method that accepts a UserMatcher.
-func (m OrderMatcher) UserMatches(matcher UserMatcher) OrderMatcher {
-	m.userMatcher = matcher.Matcher()
 	return m
 }
 
@@ -98,97 +91,95 @@ func (m OrderMatcher) UpdatedAt(matcher specta.Matcher[time.Time]) OrderMatcher 
 	return m
 }
 
-// Matcher returns the composed matcher for Order.
-func (m OrderMatcher) Matcher() specta.Matcher[showcase.Order] {
-	return specta.MatcherFunc[showcase.Order](func(actual showcase.Order) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		iDValue := actual.ID
-		userValue := actual.User
-		itemsValue := actual.Items
-		totalValue := actual.Total
-		statusValue := actual.Status
-		createdAtValue := actual.CreatedAt
-		updatedAtValue := actual.UpdatedAt
+// Matches implements the Matcher[Order] interface.
+func (m OrderMatcher) Matches(actual showcase.Order) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	iDValue := actual.ID
+	userValue := actual.User
+	itemsValue := actual.Items
+	totalValue := actual.Total
+	statusValue := actual.Status
+	createdAtValue := actual.CreatedAt
+	updatedAtValue := actual.UpdatedAt
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"ID":        iDValue,
-			"User":      userValue,
-			"Items":     itemsValue,
-			"Total":     totalValue,
-			"Status":    statusValue,
-			"CreatedAt": createdAtValue,
-			"UpdatedAt": updatedAtValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"ID":        iDValue,
+		"User":      userValue,
+		"Items":     itemsValue,
+		"Total":     totalValue,
+		"Status":    statusValue,
+		"CreatedAt": createdAtValue,
+		"UpdatedAt": updatedAtValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.iDMatcher != nil {
+		result := m.iDMatcher.Matches(iDValue)
+		fieldResults["ID"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(iDValue)
-			fieldResults["ID"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.userMatcher != nil {
+		result := m.userMatcher.Matches(userValue)
+		fieldResults["User"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.userMatcher != nil {
-			result := m.userMatcher.Matches(userValue)
-			fieldResults["User"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.itemsMatcher != nil {
+		result := m.itemsMatcher.Matches(itemsValue)
+		fieldResults["Items"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.itemsMatcher != nil {
-			result := m.itemsMatcher.Matches(itemsValue)
-			fieldResults["Items"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.totalMatcher != nil {
+		result := m.totalMatcher.Matches(totalValue)
+		fieldResults["Total"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.totalMatcher != nil {
-			result := m.totalMatcher.Matches(totalValue)
-			fieldResults["Total"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.statusMatcher != nil {
+		result := m.statusMatcher.Matches(statusValue)
+		fieldResults["Status"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.statusMatcher != nil {
-			result := m.statusMatcher.Matches(statusValue)
-			fieldResults["Status"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.createdAtMatcher != nil {
+		result := m.createdAtMatcher.Matches(createdAtValue)
+		fieldResults["CreatedAt"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(createdAtValue)
-			fieldResults["CreatedAt"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.updatedAtMatcher != nil {
+		result := m.updatedAtMatcher.Matches(updatedAtValue)
+		fieldResults["UpdatedAt"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.updatedAtMatcher != nil {
-			result := m.updatedAtMatcher.Matches(updatedAtValue)
-			fieldResults["UpdatedAt"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Order", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Order", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

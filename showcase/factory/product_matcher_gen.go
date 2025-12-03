@@ -40,8 +40,7 @@ type ProductMatcher struct {
 //
 //	matcher := factory.ProductMatches().
 //	    ID(specta.Equal("expected_value")).
-//	    Name(specta.Contains("substring")).
-//	    Matcher()
+//	    Name(specta.Contains("substring"))
 //
 //	specta.AssertThat(t, actualProduct, matcher)
 func ProductMatches() ProductMatcher {
@@ -84,87 +83,85 @@ func (m ProductMatcher) CreatedAt(matcher specta.Matcher[time.Time]) ProductMatc
 	return m
 }
 
-// Matcher returns the composed matcher for Product.
-func (m ProductMatcher) Matcher() specta.Matcher[showcase.Product] {
-	return specta.MatcherFunc[showcase.Product](func(actual showcase.Product) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		iDValue := actual.ID
-		nameValue := actual.Name
-		descriptionValue := actual.Description
-		priceValue := actual.Price
-		inStockValue := actual.InStock
-		createdAtValue := actual.CreatedAt
+// Matches implements the Matcher[Product] interface.
+func (m ProductMatcher) Matches(actual showcase.Product) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	iDValue := actual.ID
+	nameValue := actual.Name
+	descriptionValue := actual.Description
+	priceValue := actual.Price
+	inStockValue := actual.InStock
+	createdAtValue := actual.CreatedAt
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"ID":          iDValue,
-			"Name":        nameValue,
-			"Description": descriptionValue,
-			"Price":       priceValue,
-			"InStock":     inStockValue,
-			"CreatedAt":   createdAtValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"ID":          iDValue,
+		"Name":        nameValue,
+		"Description": descriptionValue,
+		"Price":       priceValue,
+		"InStock":     inStockValue,
+		"CreatedAt":   createdAtValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.iDMatcher != nil {
+		result := m.iDMatcher.Matches(iDValue)
+		fieldResults["ID"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(iDValue)
-			fieldResults["ID"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.nameMatcher != nil {
+		result := m.nameMatcher.Matches(nameValue)
+		fieldResults["Name"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.nameMatcher != nil {
-			result := m.nameMatcher.Matches(nameValue)
-			fieldResults["Name"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.descriptionMatcher != nil {
+		result := m.descriptionMatcher.Matches(descriptionValue)
+		fieldResults["Description"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.descriptionMatcher != nil {
-			result := m.descriptionMatcher.Matches(descriptionValue)
-			fieldResults["Description"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.priceMatcher != nil {
+		result := m.priceMatcher.Matches(priceValue)
+		fieldResults["Price"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.priceMatcher != nil {
-			result := m.priceMatcher.Matches(priceValue)
-			fieldResults["Price"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.inStockMatcher != nil {
+		result := m.inStockMatcher.Matches(inStockValue)
+		fieldResults["InStock"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.inStockMatcher != nil {
-			result := m.inStockMatcher.Matches(inStockValue)
-			fieldResults["InStock"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.createdAtMatcher != nil {
+		result := m.createdAtMatcher.Matches(createdAtValue)
+		fieldResults["CreatedAt"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(createdAtValue)
-			fieldResults["CreatedAt"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Product", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Product", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }

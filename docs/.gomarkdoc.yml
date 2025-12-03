@@ -1,0 +1,6 @@
+# gomarkdoc configuration for specta API documentation
+output: content/docs/api-reference/_index.md
+header-file: .gomarkdoc-header.md
+repository:
+  url: https://github.com/james-w/specta
+  default-branch: main

@@ -42,15 +42,33 @@ func (r MemberRecipe) ID(v string) MemberRecipe {
 	return r
 }
 
+// IDFromGenerator sets the ID field using a Generator.
+func (r MemberRecipe) IDFromGenerator(gen specta.Generator[string]) MemberRecipe {
+	r.opts = append(r.opts, spec.WithMemberIDFromGenerator(gen))
+	return r
+}
+
 // Name sets the Name field.
 func (r MemberRecipe) Name(v string) MemberRecipe {
 	r.opts = append(r.opts, spec.WithMemberName(v))
 	return r
 }
 
+// NameFromGenerator sets the Name field using a Generator.
+func (r MemberRecipe) NameFromGenerator(gen specta.Generator[string]) MemberRecipe {
+	r.opts = append(r.opts, spec.WithMemberNameFromGenerator(gen))
+	return r
+}
+
 // TeamID sets the TeamID field.
 func (r MemberRecipe) TeamID(v string) MemberRecipe {
 	r.opts = append(r.opts, spec.WithMemberTeamID(v))
+	return r
+}
+
+// TeamIDFromGenerator sets the TeamID field using a Generator.
+func (r MemberRecipe) TeamIDFromGenerator(gen specta.Generator[string]) MemberRecipe {
+	r.opts = append(r.opts, spec.WithMemberTeamIDFromGenerator(gen))
 	return r
 }
 
@@ -61,28 +79,35 @@ func (r MemberRecipe) Team(v *showcase.Team) MemberRecipe {
 	return r
 }
 
+// TeamFromGenerator sets the Team field using a Generator.
+func (r MemberRecipe) TeamFromGenerator(gen specta.Generator[*showcase.Team]) MemberRecipe {
+	r.opts = append(r.opts, spec.WithMemberTeamFromGenerator(gen))
+	r.teamRecipe = nil
+	return r
+}
+
 // TeamFromRecipe sets the Team field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r MemberRecipe) TeamFromRecipe(v TeamRecipe) MemberRecipe {
-	r.opts = append(r.opts, spec.WithMemberTeamFromProvider(specta.PtrOf(v.Provider())))
+	r.opts = append(r.opts, spec.WithMemberTeamFromGenerator(specta.PtrOfGen(v.Gen())))
 	r.teamRecipe = &v
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r MemberRecipe) Provider() specta.Provider[showcase.Member] {
-	return specta.FromSpec(spec.BuildMember, spec.NewMemberSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r MemberRecipe) Gen() specta.Gen[showcase.Member] {
+	return specta.FromSpecGen(spec.BuildMember, spec.NewMemberSpec, r.opts...)
 }
 
 // Build creates a single Member instance.
-func (r MemberRecipe) Build(p specta.Primitives) showcase.Member {
-	return spec.NewMemberFactory(p).Make(r.opts...)
+func (r MemberRecipe) Build(s specta.Source) showcase.Member {
+	return spec.NewMemberFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Member instances with unique generated values.
-func (r MemberRecipe) Many(n int, p specta.Primitives) []showcase.Member {
-	return spec.NewMemberFactory(p).Many(n, r.opts...)
+func (r MemberRecipe) Many(n int, s specta.Source) []showcase.Member {
+	return spec.NewMemberFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -96,29 +121,29 @@ func (r MemberRecipe) AsEqualMatcher() specta.Matcher[showcase.Member] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
 	// Build matcher only for set fields
 	m := MemberMatches()
 	if s.ID.IsSet() {
-		m = m.ID(specta.DeepEqual(s.ID.Value(p)))
+		m = m.ID(specta.DeepEqual(s.ID.GetValue(p, "ID")))
 	}
 	if s.Name.IsSet() {
-		m = m.Name(specta.DeepEqual(s.Name.Value(p)))
+		m = m.Name(specta.DeepEqual(s.Name.GetValue(p, "Name")))
 	}
 	if s.TeamID.IsSet() {
-		m = m.TeamID(specta.DeepEqual(s.TeamID.Value(p)))
+		m = m.TeamID(specta.DeepEqual(s.TeamID.GetValue(p, "TeamID")))
 	}
 	if s.Team.IsSet() {
 		// Check if we have a nested recipe for partial matching
 		if r.teamRecipe != nil {
 			m = m.Team(specta.PointsTo(r.teamRecipe.AsEqualMatcher()))
 		} else {
-			m = m.Team(specta.DeepEqual(s.Team.Value(p)))
+			m = m.Team(specta.DeepEqual(s.Team.GetValue(p, "Team")))
 		}
 	}
 
-	return m.Matcher()
+	return m
 }

@@ -22,7 +22,7 @@
 // Assert with matchers:
 //
 //	matcher := ParentMatches().Child(specta.Equal(value))
-//	specta.AssertThat(t, actual, matcher.Matcher())
+//	specta.AssertThat(t, actual, matcher)
 //
 // Combine both with partial matching:
 //
@@ -76,28 +76,35 @@ func (r ParentRecipe) Child(v example.UserView) ParentRecipe {
 	return r
 }
 
+// ChildFromGenerator sets the Child field using a Generator.
+func (r ParentRecipe) ChildFromGenerator(gen specta.Generator[example.UserView]) ParentRecipe {
+	r.opts = append(r.opts, spec.WithParentChildFromGenerator(gen))
+	r.childRecipe = nil
+	return r
+}
+
 // ChildFromRecipe sets the Child field using another Recipe (creates unique instances).
 // The recipe is captured at call time (value semantics) - subsequent changes to v won't affect this recipe.
 // The nested recipe is used for partial matching in AsEqualMatcher.
 func (r ParentRecipe) ChildFromRecipe(v UserViewRecipe) ParentRecipe {
-	r.opts = append(r.opts, spec.WithParentChildFromProvider(v.Provider()))
+	r.opts = append(r.opts, spec.WithParentChildFromGenerator(v.Gen()))
 	r.childRecipe = &v
 	return r
 }
 
-// Provider returns a Provider for lazy evaluation in parent factories.
-func (r ParentRecipe) Provider() specta.Provider[example.Parent] {
-	return specta.FromSpec(spec.BuildParent, spec.NewParentSpec, r.opts...)
+// Gen returns a Gen[T] for use in nested custom types.
+func (r ParentRecipe) Gen() specta.Gen[example.Parent] {
+	return specta.FromSpecGen(spec.BuildParent, spec.NewParentSpec, r.opts...)
 }
 
 // Build creates a single Parent instance.
-func (r ParentRecipe) Build(p specta.Primitives) example.Parent {
-	return spec.NewParentFactory(p).Make(r.opts...)
+func (r ParentRecipe) Build(s specta.Source) example.Parent {
+	return spec.NewParentFactory(s).Make(r.opts...)
 }
 
 // Many creates multiple Parent instances with unique generated values.
-func (r ParentRecipe) Many(n int, p specta.Primitives) []example.Parent {
-	return spec.NewParentFactory(p).Many(n, r.opts...)
+func (r ParentRecipe) Many(n int, s specta.Source) []example.Parent {
+	return spec.NewParentFactory(s).Many(n, r.opts...)
 }
 
 // AsEqualMatcher converts this Recipe into a Matcher that checks for equality on all set fields.
@@ -111,7 +118,7 @@ func (r ParentRecipe) AsEqualMatcher() specta.Matcher[example.Parent] {
 		opt(&s)
 	}
 
-	// Use a dummy Primitives to evaluate literal values
+	// Use a dummy Source to evaluate literal values
 	// This works for SetLit values; SetWith/Provider values will be evaluated too
 	p := specta.New()
 
@@ -122,9 +129,9 @@ func (r ParentRecipe) AsEqualMatcher() specta.Matcher[example.Parent] {
 		if r.childRecipe != nil {
 			m = m.Child(r.childRecipe.AsEqualMatcher())
 		} else {
-			m = m.Child(specta.DeepEqual(s.Child.Value(p)))
+			m = m.Child(specta.DeepEqual(s.Child.GetValue(p, "Child")))
 		}
 	}
 
-	return m.Matcher()
+	return m
 }

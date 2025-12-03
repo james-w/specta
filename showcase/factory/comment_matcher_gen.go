@@ -38,8 +38,7 @@ type CommentMatcher struct {
 //
 //	matcher := factory.CommentMatches().
 //	    ID(specta.Equal("expected_value")).
-//	    Post(specta.Equal(expectedValue)).
-//	    Matcher()
+//	    Post(specta.Equal(expectedValue))
 //
 //	specta.AssertThat(t, actualComment, matcher)
 func CommentMatches() CommentMatcher {
@@ -58,21 +57,9 @@ func (m CommentMatcher) Post(matcher specta.Matcher[showcase.BlogPost]) CommentM
 	return m
 }
 
-// PostMatches is a convenience method that accepts a BlogPostMatcher.
-func (m CommentMatcher) PostMatches(matcher BlogPostMatcher) CommentMatcher {
-	m.postMatcher = matcher.Matcher()
-	return m
-}
-
 // Author adds a matcher for the Author field.
 func (m CommentMatcher) Author(matcher specta.Matcher[showcase.User]) CommentMatcher {
 	m.authorMatcher = matcher
-	return m
-}
-
-// AuthorMatches is a convenience method that accepts a UserMatcher.
-func (m CommentMatcher) AuthorMatches(matcher UserMatcher) CommentMatcher {
-	m.authorMatcher = matcher.Matcher()
 	return m
 }
 
@@ -88,77 +75,75 @@ func (m CommentMatcher) CreatedAt(matcher specta.Matcher[time.Time]) CommentMatc
 	return m
 }
 
-// Matcher returns the composed matcher for Comment.
-func (m CommentMatcher) Matcher() specta.Matcher[showcase.Comment] {
-	return specta.MatcherFunc[showcase.Comment](func(actual showcase.Comment) specta.MatchResult {
-		// Extract all field values upfront (call each getter exactly once)
-		iDValue := actual.ID
-		postValue := actual.Post
-		authorValue := actual.Author
-		contentValue := actual.Content
-		createdAtValue := actual.CreatedAt
+// Matches implements the Matcher[Comment] interface.
+func (m CommentMatcher) Matches(actual showcase.Comment) specta.MatchResult {
+	// Extract all field values upfront (call each getter exactly once)
+	iDValue := actual.ID
+	postValue := actual.Post
+	authorValue := actual.Author
+	contentValue := actual.Content
+	createdAtValue := actual.CreatedAt
 
-		// Build fieldValues map for structured diff
-		fieldValues := map[string]any{
-			"ID":        iDValue,
-			"Post":      postValue,
-			"Author":    authorValue,
-			"Content":   contentValue,
-			"CreatedAt": createdAtValue,
+	// Build fieldValues map for structured diff
+	fieldValues := map[string]any{
+		"ID":        iDValue,
+		"Post":      postValue,
+		"Author":    authorValue,
+		"Content":   contentValue,
+		"CreatedAt": createdAtValue,
+	}
+
+	// Check matchers using cached values and store results
+	fieldResults := make(map[string]*specta.MatchResult)
+	hasFailures := false
+
+	if m.iDMatcher != nil {
+		result := m.iDMatcher.Matches(iDValue)
+		fieldResults["ID"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		// Check matchers using cached values and store results
-		fieldResults := make(map[string]*specta.MatchResult)
-		hasFailures := false
-
-		if m.iDMatcher != nil {
-			result := m.iDMatcher.Matches(iDValue)
-			fieldResults["ID"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.postMatcher != nil {
+		result := m.postMatcher.Matches(postValue)
+		fieldResults["Post"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.postMatcher != nil {
-			result := m.postMatcher.Matches(postValue)
-			fieldResults["Post"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.authorMatcher != nil {
+		result := m.authorMatcher.Matches(authorValue)
+		fieldResults["Author"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.authorMatcher != nil {
-			result := m.authorMatcher.Matches(authorValue)
-			fieldResults["Author"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.contentMatcher != nil {
+		result := m.contentMatcher.Matches(contentValue)
+		fieldResults["Content"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.contentMatcher != nil {
-			result := m.contentMatcher.Matches(contentValue)
-			fieldResults["Content"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if m.createdAtMatcher != nil {
+		result := m.createdAtMatcher.Matches(createdAtValue)
+		fieldResults["CreatedAt"] = &result
+		if !result.Matched {
+			hasFailures = true
 		}
+	}
 
-		if m.createdAtMatcher != nil {
-			result := m.createdAtMatcher.Matches(createdAtValue)
-			fieldResults["CreatedAt"] = &result
-			if !result.Matched {
-				hasFailures = true
-			}
+	if hasFailures {
+		// Use structured diff for struct types
+		structDiff := specta.BuildMatcherStructDiff("Comment", fieldValues, fieldResults)
+		return specta.MatchResult{
+			Matched: false,
+			Message: structDiff,
 		}
-
-		if hasFailures {
-			// Use structured diff for struct types
-			structDiff := specta.BuildMatcherStructDiff("Comment", fieldValues, fieldResults)
-			return specta.MatchResult{
-				Matched: false,
-				Message: structDiff,
-			}
-		}
-		return specta.MatchResult{Matched: true}
-	})
+	}
+	return specta.MatchResult{Matched: true}
 }
