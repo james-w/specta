@@ -188,6 +188,33 @@ jobs:
             exit 1
           fi
 
+  verify-docs-build:
+    name: Verify Docs Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.146.0'
+          extended: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+          cache-dependency-path: docs/go.sum
+
+      - name: Build Hugo site
+        working-directory: docs
+        run: hugo --gc --minify
+
   integration-tests:
     name: Integration Tests (${{ matrix.platform }} / Go ${{ matrix.go-version }})
     needs: build

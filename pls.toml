@@ -106,8 +106,13 @@ requires = ["lint", "lint-example", "lint-showcase"]
 
 # Composite tasks
 [group.ci]
-description = "Full CI check (format, generate, test all, lint, check API docs)"
-requires = ["format", "generate", "test-all", "lint-all", "check-api-docs"]
+description = "Full CI check (format, generate, test all, lint, check API docs, build docs)"
+requires = ["format", "generate", "test-all", "lint-all", "check-api-docs", "build-docs"]
+
+[command.exec.build-docs]
+description = "Build Hugo documentation site"
+command = "hugo --gc --minify"
+dir = "docs"
 
 [command.exec.serve-docs]
 description = "Run a local docs server"
