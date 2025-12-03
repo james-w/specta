@@ -55,9 +55,10 @@ This project uses `pls` (github.com/james-w/pls) as a task runner. **Always use 
 - `pls run generate` - Regenerate code for all modules
 - `pls run generate-api-docs` - Generate API reference documentation with gomarkdoc
 - `pls run check-api-docs` - Check if API docs are up to date
+- `pls run build-docs` - Build Hugo documentation site
 - `pls run format` - Format all code with gofmt
 - `pls run lint` - Run golangci-lint
-- `pls run ci` - Full CI check (format + generate + API docs + test-all + lint)
+- `pls run ci` - Full CI check (format + generate + API docs + test-all + lint + build docs)
 
 **Passing extra arguments:**
 You can pass additional flags to test commands:
@@ -163,10 +164,11 @@ This single command will:
 3. Run all tests (main + example + showcase with `-v -race`)
 4. Run linter (`golangci-lint run`)
 5. Check API docs are up to date (verify only, doesn't regenerate)
+6. Build Hugo documentation site
 
 **Then ask yourself:**
-5. Should README.md be updated?
-6. Does the change include anything important enough to update CLAUDE.md?
+1. Should README.md be updated?
+2. Does the change include anything important enough to update CLAUDE.md?
 
 **Manual workflow (if needed):**
 - Regenerate code: `pls run generate` (builds generator first, runs in all modules)
