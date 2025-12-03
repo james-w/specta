@@ -14,10 +14,12 @@ import (
 // Unlike testing.T, calling Fatalf does not immediately terminate the test process,
 // but instead panics with a sentinel value to stop the current property iteration.
 type T struct {
-	failed bool
-	errors []string
-	Data   *conjecture.ConjectureData // ConjectureData for drawing values
-	Source Source                     // Deprecated: kept for backward compatibility, will panic if used
+	testingT TestingT                   // Reference to outer testing.T for forwarding logs on failure
+	failed   bool
+	errors   []string
+	logs     []string                   // Captured log messages from this iteration
+	Data     *conjecture.ConjectureData // ConjectureData for drawing values
+	Source   Source                     // Deprecated: kept for backward compatibility, will panic if used
 
 	// Track generated values for error reporting
 	generatedValues      map[string]string // label -> formatted value
@@ -50,8 +52,11 @@ func (t *T) Fatalf(format string, args ...any) {
 func (t *T) Helper() {}
 
 // Logf logs a message.
-// This is a no-op for property testing but satisfies the TestingT interface.
-func (t *T) Logf(format string, args ...any) {}
+// Messages are captured and forwarded to the underlying testing.T only when the property test fails.
+// This avoids log spam from successful iterations while preserving debugging output for failures.
+func (t *T) Logf(format string, args ...any) {
+	t.logs = append(t.logs, fmt.Sprintf(format, args...))
+}
 
 // Assume skips the current property test iteration if the condition is false.
 // This is useful for filtering generated values that don't meet preconditions.
@@ -139,6 +144,7 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 		data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(cfg.seed + int64(i))))
 
 		pt := &T{
+			testingT:        t,
 			Data:            data,
 			Source:          nil, // Don't set Source - it's deprecated
 			generatedValues: make(map[string]string),
@@ -167,6 +173,7 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 			// Shrink the failing example
 			shrinkTest := func(d *conjecture.ConjectureData) bool {
 				testT := &T{
+					testingT:        t,
 					Data:            d,
 					Source:          nil,
 					generatedValues: make(map[string]string),
@@ -243,6 +250,7 @@ func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(
 	// Replay the shrunk sequence to get the actual failure and capture generated values
 	data := conjecture.ForReplay(shrunkSeq)
 	finalT := &T{
+		testingT:        t,
 		Data:            data,
 		Source:          nil,
 		generatedValues: make(map[string]string),
@@ -265,6 +273,14 @@ func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(
 		// Use draw order for intuitive output
 		for _, label := range finalT.generatedValuesOrder {
 			msg.WriteString(fmt.Sprintf("  %s = %s\n", label, finalT.generatedValues[label]))
+		}
+	}
+
+	// Forward captured logs from the failing iteration to the outer testing.T
+	if len(finalT.logs) > 0 {
+		msg.WriteString("\nLogs:\n")
+		for _, log := range finalT.logs {
+			msg.WriteString(fmt.Sprintf("  %s\n", log))
 		}
 	}
 
