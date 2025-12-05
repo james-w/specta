@@ -14,12 +14,13 @@ import (
 // Unlike testing.T, calling Fatalf does not immediately terminate the test process,
 // but instead panics with a sentinel value to stop the current property iteration.
 type T struct {
-	testingT TestingT                   // Reference to outer testing.T for forwarding logs on failure
-	failed   bool
-	errors   []string
-	logs     []string                   // Captured log messages from this iteration
-	Data     *conjecture.ConjectureData // ConjectureData for drawing values
-	Source   Source                     // Deprecated: kept for backward compatibility, will panic if used
+	testingT       TestingT                   // Reference to outer testing.T for forwarding logs on failure
+	failed         bool
+	errors         []string
+	logs           []string                   // Captured log messages (unused when logPassthrough is true)
+	logPassthrough bool                       // If true, forward Logf calls directly to testingT
+	Data           *conjecture.ConjectureData // ConjectureData for drawing values
+	Source         Source                     // Deprecated: kept for backward compatibility, will panic if used
 
 	// Track generated values for error reporting
 	generatedValues      map[string]string // label -> formatted value
@@ -52,10 +53,20 @@ func (t *T) Fatalf(format string, args ...any) {
 func (t *T) Helper() {}
 
 // Logf logs a message.
-// Messages are captured and forwarded to the underlying testing.T only when the property test fails.
-// This avoids log spam from successful iterations while preserving debugging output for failures.
+// During normal test execution, logs are discarded to avoid spam from multiple iterations.
+// During the final replay of a failing test, logs are forwarded directly to testing.T.Logf
+// with correct line attribution using the Helper() mechanism.
 func (t *T) Logf(format string, args ...any) {
-	t.logs = append(t.logs, fmt.Sprintf(format, args...))
+	if t.logPassthrough && t.testingT != nil {
+		// Forward directly to underlying testing.T for the final failing iteration
+		// Call Helper() to mark our function as a helper, so stack traces skip us
+		// and attribute the log to the user's code
+		if helper, ok := t.testingT.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		t.testingT.Logf(format, args...)
+	}
+	// Otherwise, discard logs (don't capture them - we don't need them anymore)
 }
 
 // Assume skips the current property test iteration if the condition is false.
@@ -248,14 +259,21 @@ func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(
 	}
 
 	// Replay the shrunk sequence to get the actual failure and capture generated values
+	// Enable log passthrough so pt.Logf() calls forward directly to t.Logf() with correct line attribution
 	data := conjecture.ForReplay(shrunkSeq)
 	finalT := &T{
 		testingT:        t,
+		logPassthrough:  true, // Forward logs directly during final replay
 		Data:            data,
 		Source:          nil,
 		generatedValues: make(map[string]string),
 	}
-	runCheck(check, finalT)
+	failed, _ := runCheck(check, finalT)
+
+	// Sanity check: the replay should have failed
+	if !failed {
+		t.Logf("Warning: Property test failed during initial run but passed during replay. This may indicate non-deterministic behavior.")
+	}
 
 	// Build error message
 	var msg strings.Builder
@@ -276,13 +294,8 @@ func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(
 		}
 	}
 
-	// Forward captured logs from the failing iteration to the outer testing.T
-	if len(finalT.logs) > 0 {
-		msg.WriteString("\nLogs:\n")
-		for _, log := range finalT.logs {
-			msg.WriteString(fmt.Sprintf("  %s\n", log))
-		}
-	}
+	// Note: Logs from pt.Logf() are forwarded directly to t.Logf() during the final replay
+	// via the logPassthrough mechanism, so they appear as regular log lines with correct attribution
 
 	// Show failure messages
 	if len(finalT.errors) > 0 {

@@ -30,11 +30,13 @@ func TestPropertyLogForwarding(t *testing.T) {
 		// Verify that the test failed
 		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(0))
 
-		// Check that logs were forwarded in the error message
-		errorMsg := spy.Errors[0]
-		specta.AssertThat(t, errorMsg, specta.Contains("Logs:"))
-		specta.AssertThat(t, errorMsg, specta.Contains("Testing with x"))
-		specta.AssertThat(t, errorMsg, specta.Contains("This is a debug message"))
+		// Check that logs were forwarded via t.Logf() (appear in spy.Logs)
+		specta.AssertThat(t, len(spy.Logs), specta.GreaterThan(0))
+
+		// Logs should contain our debug messages
+		allLogs := strings.Join(spy.Logs, "\n")
+		specta.AssertThat(t, allLogs, specta.Contains("Testing with x"))
+		specta.AssertThat(t, allLogs, specta.Contains("This is a debug message"))
 	})
 
 	t.Run("logs are not shown on success", func(t *testing.T) {
@@ -50,8 +52,9 @@ func TestPropertyLogForwarding(t *testing.T) {
 			specta.AssertThat(pt, x, specta.GreaterThanOrEqual(int64(0)))
 		}, specta.Seed(99), specta.MaxTests(10))
 
-		// Verify no errors
+		// Verify no errors and no logs (logs only forwarded on failure)
 		specta.AssertThat(t, len(spy.Errors), specta.Equal(0))
+		specta.AssertThat(t, len(spy.Logs), specta.Equal(0))
 	})
 
 	t.Run("logs are from shrunk iteration", func(t *testing.T) {
@@ -72,13 +75,12 @@ func TestPropertyLogForwarding(t *testing.T) {
 		// Verify that the test failed
 		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(0))
 
-		// The error should contain logs from the shrunk (minimal) failing case
-		errorMsg := spy.Errors[0]
-		specta.AssertThat(t, errorMsg, specta.Contains("Logs:"))
-		specta.AssertThat(t, errorMsg, specta.Contains("Current x value:"))
+		// Logs should have been forwarded via t.Logf()
+		specta.AssertThat(t, len(spy.Logs), specta.GreaterThan(0))
 
-		// The shrunk value should be -1 or close to 0 (shrinking minimizes negative values)
-		// We just verify that logs are present
+		// The logs should be from the shrunk (minimal) failing case
+		allLogs := strings.Join(spy.Logs, "\n")
+		specta.AssertThat(t, allLogs, specta.Contains("Current x value:"))
 	})
 
 	t.Run("multiple log calls are all captured", func(t *testing.T) {
@@ -93,10 +95,12 @@ func TestPropertyLogForwarding(t *testing.T) {
 			pt.Fatalf("forced failure")
 		}, specta.MaxTests(1))
 
-		// Verify all three logs appear
-		errorMsg := spy.Errors[0]
-		specta.AssertThat(t, strings.Count(errorMsg, "Log 1"), specta.Equal(1))
-		specta.AssertThat(t, strings.Count(errorMsg, "Log 2"), specta.Equal(1))
-		specta.AssertThat(t, strings.Count(errorMsg, "Log 3"), specta.Equal(1))
+		// Verify all three logs appear in spy.Logs
+		specta.AssertThat(t, len(spy.Logs), specta.Equal(3))
+
+		allLogs := strings.Join(spy.Logs, "\n")
+		specta.AssertThat(t, allLogs, specta.Contains("Log 1"))
+		specta.AssertThat(t, allLogs, specta.Contains("Log 2"))
+		specta.AssertThat(t, allLogs, specta.Contains("Log 3"))
 	})
 }
