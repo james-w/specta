@@ -135,7 +135,7 @@ command = "govulncheck ./..."
 
 # Composite tasks
 [group.ci]
-description = "Full CI check (generate, test all, lint, check API docs, build docs)"
+description = "Quick CI check (generate, test all, lint, check API docs, build docs)"
 requires = ["generate", "test-all", "lint-all", "check-api-docs", "build-docs"]
 
 [group.ci-full]
