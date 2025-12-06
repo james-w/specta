@@ -80,10 +80,6 @@ description = "Run tests for all modules"
 requires = ["test-main", "test-docs", "test-example", "test-showcase"]
 
 # Code quality
-[command.exec.format]
-command = "gofmt -s -w ."
-description = "Format all Go code"
-
 [command.exec.lint]
 description = "Run golangci-lint on main module"
 command = "golangci-lint run"
@@ -104,10 +100,47 @@ requires = ["generate-showcase"]
 description = "Run golangci-lint on all modules"
 requires = ["lint", "lint-example", "lint-showcase"]
 
+[command.exec.lint-fix]
+description = "Run golangci-lint with auto-fix on main module"
+command = "golangci-lint run --fix"
+
+[command.exec.lint-fix-example]
+description = "Run golangci-lint with auto-fix on example module"
+command = "golangci-lint run --fix"
+dir = "example"
+requires = ["generate-example"]
+
+[command.exec.lint-fix-showcase]
+description = "Run golangci-lint with auto-fix on showcase module"
+command = "golangci-lint run --fix"
+dir = "showcase"
+requires = ["generate-showcase"]
+
+[group.lint-fix-all]
+description = "Run golangci-lint with auto-fix on all modules"
+requires = ["lint-fix", "lint-fix-example", "lint-fix-showcase"]
+
+# Security and release checks
+[command.exec.goreleaser-check]
+description = "Verify goreleaser configuration builds correctly"
+command = "goreleaser release --snapshot --clean --skip=publish"
+
+[command.exec.security]
+description = "Run gosec security scanner"
+command = "gosec -quiet ./..."
+
+[command.exec.vuln-check]
+description = "Check for known vulnerabilities in dependencies"
+command = "govulncheck ./..."
+
 # Composite tasks
 [group.ci]
-description = "Full CI check (format, generate, test all, lint, check API docs, build docs)"
-requires = ["format", "generate", "test-all", "lint-all", "check-api-docs", "build-docs"]
+description = "Quick CI check (generate, test all, lint, check API docs, build docs)"
+requires = ["generate", "test-all", "lint-all", "check-api-docs", "build-docs"]
+
+[group.ci-full]
+description = "Full CI check including security scans and release verification"
+requires = ["ci", "goreleaser-check", "security", "vuln-check"]
 
 [command.exec.build-docs]
 description = "Build Hugo documentation site"
