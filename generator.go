@@ -26,6 +26,8 @@ type Gen[T any] = conjecture.Gen[T]
 // - Programming errors (invalid constraints, frozen data) panic with clear messages
 // - Filtering errors (overrun during replay, assumption failures) trigger skipTest to skip the iteration
 func Draw[V any](t *T, gen Gen[V], label string) V {
+	t.Helper() // Mark as test helper for better error reporting
+
 	// Create a span for labeled draws
 	var spanID int
 	if label != "" {

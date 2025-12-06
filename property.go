@@ -14,10 +14,12 @@ import (
 // Unlike testing.T, calling Fatalf does not immediately terminate the test process,
 // but instead panics with a sentinel value to stop the current property iteration.
 type T struct {
-	failed bool
-	errors []string
-	Data   *conjecture.ConjectureData // ConjectureData for drawing values
-	Source Source                     // Deprecated: kept for backward compatibility, will panic if used
+	testingT       TestingT                   // Reference to outer testing.T for forwarding logs on failure
+	failed         bool
+	errors         []string
+	logPassthrough bool                       // If true, forward Logf calls directly to testingT
+	Data           *conjecture.ConjectureData // ConjectureData for drawing values
+	Source         Source                     // Deprecated: kept for backward compatibility, will panic if used
 
 	// Track generated values for error reporting
 	generatedValues      map[string]string // label -> formatted value
@@ -50,8 +52,19 @@ func (t *T) Fatalf(format string, args ...any) {
 func (t *T) Helper() {}
 
 // Logf logs a message.
-// This is a no-op for property testing but satisfies the TestingT interface.
-func (t *T) Logf(format string, args ...any) {}
+// During normal test execution, logs are discarded to avoid spam from multiple iterations.
+// During the final replay of a failing test, logs are forwarded directly to testing.T.Logf
+// with correct line attribution using the Helper() mechanism.
+func (t *T) Logf(format string, args ...any) {
+	if t.logPassthrough && t.testingT != nil {
+		// Forward directly to underlying testing.T for the final failing iteration
+		// Call Helper() to mark our function as a helper, so stack traces skip us
+		// and attribute the log to the user's code
+		t.testingT.Helper()
+		t.testingT.Logf(format, args...)
+	}
+	// Otherwise, discard logs (don't capture them - we don't need them anymore)
+}
 
 // Assume skips the current property test iteration if the condition is false.
 // This is useful for filtering generated values that don't meet preconditions.
@@ -116,10 +129,7 @@ func MaxShrinks(n int) PropertyOption {
 //	    AssertThat(t, x+y, Equal(y+x))
 //	})
 func Property(t TestingT, check func(*T), opts ...PropertyOption) {
-	// Only call Helper() if t is a real *testing.T
-	if helper, ok := t.(interface{ Helper() }); ok {
-		helper.Helper()
-	}
+	t.Helper()
 
 	// Apply configuration
 	cfg := propertyConfig{
@@ -139,6 +149,7 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 		data := conjecture.NewConjectureData(conjecture.WithSeed(uint64(cfg.seed + int64(i))))
 
 		pt := &T{
+			testingT:        t,
 			Data:            data,
 			Source:          nil, // Don't set Source - it's deprecated
 			generatedValues: make(map[string]string),
@@ -167,6 +178,7 @@ func Property(t TestingT, check func(*T), opts ...PropertyOption) {
 			// Shrink the failing example
 			shrinkTest := func(d *conjecture.ConjectureData) bool {
 				testT := &T{
+					testingT:        t,
 					Data:            d,
 					Source:          nil,
 					generatedValues: make(map[string]string),
@@ -235,19 +247,24 @@ func runCheck(check func(*T), pt *T) (failed bool, skipped bool) {
 
 // reportFailure creates a detailed error message and fails the test.
 func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(*T), attempts, maxTests int, seed int64, tested, skipped int, shrinkCalls int) {
-	// Only call Helper() if t is a real *testing.T
-	if helper, ok := t.(interface{ Helper() }); ok {
-		helper.Helper()
-	}
+	t.Helper()
 
 	// Replay the shrunk sequence to get the actual failure and capture generated values
+	// Enable log passthrough so pt.Logf() calls forward directly to t.Logf() with correct line attribution
 	data := conjecture.ForReplay(shrunkSeq)
 	finalT := &T{
+		testingT:        t,
+		logPassthrough:  true, // Forward logs directly during final replay
 		Data:            data,
 		Source:          nil,
 		generatedValues: make(map[string]string),
 	}
-	runCheck(check, finalT)
+	failed, _ := runCheck(check, finalT)
+
+	// Sanity check: the replay should have failed
+	if !failed {
+		t.Logf("Warning: Property test failed during initial run but passed during replay. This may indicate non-deterministic behavior.")
+	}
 
 	// Build error message
 	var msg strings.Builder
@@ -267,6 +284,9 @@ func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(
 			msg.WriteString(fmt.Sprintf("  %s = %s\n", label, finalT.generatedValues[label]))
 		}
 	}
+
+	// Note: Logs from pt.Logf() are forwarded directly to t.Logf() during the final replay
+	// via the logPassthrough mechanism, so they appear as regular log lines with correct attribution
 
 	// Show failure messages
 	if len(finalT.errors) > 0 {
