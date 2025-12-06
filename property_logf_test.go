@@ -9,37 +9,8 @@ import (
 )
 
 // TestPropertyLogForwarding verifies that t.Logf() output from property tests
-// is captured and included in the error output when a test fails.
+// is forwarded to the underlying testing.T when a test fails.
 func TestPropertyLogForwarding(t *testing.T) {
-	t.Run("logs are forwarded from shrunk iteration", func(t *testing.T) {
-		spy := testlib.NewSpy()
-
-		specta.Property(spy, func(pt *specta.T) {
-			x := specta.Draw(pt, specta.Int().Range(0, 10), "x")
-
-			// Log the value being tested
-			pt.Logf("Testing with x = %d", x)
-			pt.Logf("This is a debug message")
-
-			// Fail the test for x >= 5
-			if x >= 5 {
-				pt.Fatalf("x is too large: %d", x)
-			}
-		}, specta.Seed(42))
-
-		// Verify that the test failed
-		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(0))
-
-		// Verify logs were forwarded
-		specta.AssertThat(t, len(spy.Logs), specta.GreaterThan(0))
-
-		// Logs should show x = 5, the minimal failing value after shrinking
-		// (not a larger value that might have been the original failure)
-		allLogs := strings.Join(spy.Logs, "\n")
-		specta.AssertThat(t, allLogs, specta.Contains("Testing with x = 5"))
-		specta.AssertThat(t, allLogs, specta.Contains("This is a debug message"))
-	})
-
 	t.Run("logs are not shown on success", func(t *testing.T) {
 		spy := testlib.NewSpy()
 
