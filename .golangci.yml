@@ -23,7 +23,8 @@ formatters:
     gofmt:
       simplify: true
     goimports:
-      local-prefixes: github.com/james-w/specta
+      local-prefixes:
+        - github.com/james-w/specta
 
 run:
   timeout: 5m
