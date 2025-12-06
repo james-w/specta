@@ -11,17 +11,17 @@ import (
 // TestPropertyLogForwarding verifies that t.Logf() output from property tests
 // is captured and included in the error output when a test fails.
 func TestPropertyLogForwarding(t *testing.T) {
-	t.Run("logs are forwarded on failure", func(t *testing.T) {
+	t.Run("logs are forwarded from shrunk iteration", func(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(pt *specta.T) {
 			x := specta.Draw(pt, specta.Int().Range(0, 10), "x")
 
-			// Log some debug info
+			// Log the value being tested
 			pt.Logf("Testing with x = %d", x)
 			pt.Logf("This is a debug message")
 
-			// Fail the test
+			// Fail the test for x >= 5
 			if x >= 5 {
 				pt.Fatalf("x is too large: %d", x)
 			}
@@ -30,12 +30,13 @@ func TestPropertyLogForwarding(t *testing.T) {
 		// Verify that the test failed
 		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(0))
 
-		// Check that logs were forwarded via t.Logf() (appear in spy.Logs)
+		// Verify logs were forwarded
 		specta.AssertThat(t, len(spy.Logs), specta.GreaterThan(0))
 
-		// Logs should contain our debug messages
+		// Logs should show x = 5, the minimal failing value after shrinking
+		// (not a larger value that might have been the original failure)
 		allLogs := strings.Join(spy.Logs, "\n")
-		specta.AssertThat(t, allLogs, specta.Contains("Testing with x"))
+		specta.AssertThat(t, allLogs, specta.Contains("Testing with x = 5"))
 		specta.AssertThat(t, allLogs, specta.Contains("This is a debug message"))
 	})
 
@@ -57,11 +58,11 @@ func TestPropertyLogForwarding(t *testing.T) {
 		specta.AssertThat(t, len(spy.Logs), specta.Equal(0))
 	})
 
-	t.Run("logs are from shrunk iteration", func(t *testing.T) {
+	t.Run("logs show shrunk values not original failures", func(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(pt *specta.T) {
-			x := specta.Draw(pt, specta.Int(), "x")
+			x := specta.Draw(pt, specta.Int().Range(-1000, 1000), "x")
 
 			// Log the value being tested
 			pt.Logf("Current x value: %d", x)
@@ -75,12 +76,11 @@ func TestPropertyLogForwarding(t *testing.T) {
 		// Verify that the test failed
 		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(0))
 
-		// Logs should have been forwarded via t.Logf()
+		// Logs should show x = -1, the minimal negative value after shrinking
+		// (not a larger negative number like -500 that might have been the original failure)
 		specta.AssertThat(t, len(spy.Logs), specta.GreaterThan(0))
-
-		// The logs should be from the shrunk (minimal) failing case
 		allLogs := strings.Join(spy.Logs, "\n")
-		specta.AssertThat(t, allLogs, specta.Contains("Current x value:"))
+		specta.AssertThat(t, allLogs, specta.Contains("Current x value: -1"))
 	})
 
 	t.Run("multiple log calls are all captured in order", func(t *testing.T) {
