@@ -2150,7 +2150,7 @@ Helper marks the calling function as a test helper. This is a no\-op for propert
 func (t *T) Logf(format string, args ...any)
 ```
 
-Logf logs a message. This is a no\-op for property testing but satisfies the TestingT interface.
+Logf logs a message. During normal test execution, logs are discarded to avoid spam from multiple iterations. During the final replay of a failing test, logs are forwarded directly to testing.T.Logf with correct line attribution using the Helper\(\) mechanism.
 
 <a name="TestingT"></a>
 ## type TestingT

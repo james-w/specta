@@ -17,7 +17,6 @@ type T struct {
 	testingT       TestingT                   // Reference to outer testing.T for forwarding logs on failure
 	failed         bool
 	errors         []string
-	logs           []string                   // Captured log messages (unused when logPassthrough is true)
 	logPassthrough bool                       // If true, forward Logf calls directly to testingT
 	Data           *conjecture.ConjectureData // ConjectureData for drawing values
 	Source         Source                     // Deprecated: kept for backward compatibility, will panic if used
