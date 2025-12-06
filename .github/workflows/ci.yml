@@ -326,45 +326,6 @@ jobs:
           # Automatically adds annotations to the PR
           args: --timeout=5m
 
-  format:
-    name: Format Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-          cache: true
-          cache-dependency-path: |
-            go.sum
-            example/go.sum
-            showcase/go.sum
-
-      - name: Check formatting
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "The following files are not formatted correctly:"
-            gofmt -s -l .
-            echo ""
-            echo "Please run 'gofmt -s -w .' to format your code"
-            exit 1
-          fi
-
-      - name: Run go vet on root module
-        run: go vet ./...
-
-      - name: Run go vet on example module
-        working-directory: example
-        run: go vet ./...
-
-      - name: Run go vet on showcase module
-        working-directory: showcase
-        run: go vet ./...
-
   security:
     name: Security Scan
     runs-on: ubuntu-latest

@@ -14,5 +14,16 @@ linters:
     - depguard
     - dupl  # Disabled because test files naturally have similar structure
 
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes: github.com/james-w/specta
+
 run:
   timeout: 5m

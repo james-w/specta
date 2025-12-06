@@ -56,9 +56,10 @@ This project uses `pls` (github.com/james-w/pls) as a task runner. **Always use 
 - `pls run generate-api-docs` - Generate API reference documentation with gomarkdoc
 - `pls run check-api-docs` - Check if API docs are up to date
 - `pls run build-docs` - Build Hugo documentation site
-- `pls run format` - Format all code with gofmt
-- `pls run lint` - Run golangci-lint
-- `pls run ci` - Full CI check (format + generate + API docs + test-all + lint + build docs)
+- `pls run lint` - Run golangci-lint (includes format and import checks)
+- `pls run lint-fix` - Run golangci-lint with auto-fix
+- `pls run lint-fix-all` - Run golangci-lint with auto-fix on all modules
+- `pls run ci` - Full CI check (generate + test-all + lint + API docs + build docs)
 
 **Passing extra arguments:**
 You can pass additional flags to test commands:
@@ -138,11 +139,9 @@ See `bd help` for complete command reference or https://github.com/steveyegge/be
 
 ## Linting & Testing
 
-**.golangci.yml**: errcheck, govet, ineffassign, staticcheck, unused, misspell, gocyclo, dupl, unconvert. Test files and generated files excluded.
+**.golangci.yml**: errcheck, gofmt, goimports, govet, ineffassign, staticcheck, unused, misspell, unconvert. Test files and generated files excluded. Format and import ordering are checked by golangci-lint.
 
 **Testing**: 70% coverage threshold (warns in CI). Run: `go test -v -race ./...` after running code generation.
-
-**Format**: `gofmt -s` required, verified in CI. `go vet` also required.
 
 ## Development Guidelines
 
@@ -159,12 +158,11 @@ See `bd help` for complete command reference or https://github.com/steveyegge/be
 **Quick check:** Run `pls run ci`
 
 This single command will:
-1. Format code (`gofmt -s -w .`)
-2. Regenerate code for all modules (if needed)
-3. Run all tests (main + example + showcase with `-v -race`)
-4. Run linter (`golangci-lint run`)
-5. Check API docs are up to date (verify only, doesn't regenerate)
-6. Build Hugo documentation site
+1. Regenerate code for all modules (if needed)
+2. Run all tests (main + example + showcase with `-v -race`)
+3. Run linter (`golangci-lint run` - includes format and import checks)
+4. Check API docs are up to date (verify only, doesn't regenerate)
+5. Build Hugo documentation site
 
 **Then ask yourself:**
 1. Should README.md be updated?
@@ -173,7 +171,7 @@ This single command will:
 **Manual workflow (if needed):**
 - Regenerate code: `pls run generate` (builds generator first, runs in all modules)
 - Regenerate API docs: `pls run generate-api-docs` (after changing godoc comments)
-- Format: `pls run format`
+- Fix formatting/imports: `pls run lint-fix-all`
 - Test: `pls run test-all` (generates code automatically before testing)
 - Lint: `pls run lint`
 
