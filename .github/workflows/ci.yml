@@ -116,6 +116,25 @@ jobs:
             echo "::warning::Coverage is below 70% (current: $coverage%)"
           fi
 
+  test-docs:
+    name: Test Docs Module
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+          cache-dependency-path: docs/go.sum
+
+      - name: Run docs tests
+        working-directory: docs
+        run: go test -v -race ./...
+
   verify-generated:
     name: Verify Generated Files
     needs: build

@@ -120,10 +120,27 @@ requires = ["generate-showcase"]
 description = "Run golangci-lint with auto-fix on all modules"
 requires = ["lint-fix", "lint-fix-example", "lint-fix-showcase"]
 
+# Security and release checks
+[command.exec.goreleaser-check]
+description = "Verify goreleaser configuration builds correctly"
+command = "goreleaser release --snapshot --clean --skip=publish"
+
+[command.exec.security]
+description = "Run gosec security scanner"
+command = "gosec -quiet ./..."
+
+[command.exec.vuln-check]
+description = "Check for known vulnerabilities in dependencies"
+command = "govulncheck ./..."
+
 # Composite tasks
 [group.ci]
 description = "Full CI check (generate, test all, lint, check API docs, build docs)"
 requires = ["generate", "test-all", "lint-all", "check-api-docs", "build-docs"]
+
+[group.ci-full]
+description = "Full CI check including security scans and release verification"
+requires = ["ci", "goreleaser-check", "security", "vuln-check"]
 
 [command.exec.build-docs]
 description = "Build Hugo documentation site"

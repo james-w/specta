@@ -59,7 +59,11 @@ This project uses `pls` (github.com/james-w/pls) as a task runner. **Always use 
 - `pls run lint` - Run golangci-lint (includes format and import checks)
 - `pls run lint-fix` - Run golangci-lint with auto-fix
 - `pls run lint-fix-all` - Run golangci-lint with auto-fix on all modules
-- `pls run ci` - Full CI check (generate + test-all + lint + API docs + build docs)
+- `pls run ci` - Quick CI check (generate + test-all + lint + API docs + build docs)
+- `pls run ci-full` - Full CI check including security scans and release verification
+- `pls run goreleaser-check` - Verify goreleaser configuration builds correctly
+- `pls run security` - Run gosec security scanner
+- `pls run vuln-check` - Check for known vulnerabilities with govulncheck
 
 **Passing extra arguments:**
 You can pass additional flags to test commands:
@@ -155,14 +159,21 @@ See `bd help` for complete command reference or https://github.com/steveyegge/be
 
 ## Before Committing
 
-**Quick check:** Run `pls run ci`
+**Quick check:** Run `pls run ci-full`
 
-This single command will:
+This runs the full CI suite matching what runs in GitHub Actions:
 1. Regenerate code for all modules (if needed)
-2. Run all tests (main + example + showcase with `-v -race`)
+2. Run all tests (main + docs + example + showcase with `-v -race`)
 3. Run linter (`golangci-lint run` - includes format and import checks)
 4. Check API docs are up to date (verify only, doesn't regenerate)
 5. Build Hugo documentation site
+6. Verify goreleaser configuration builds correctly
+7. Run gosec security scanner
+8. Check for known vulnerabilities with govulncheck
+
+**For faster feedback while working:** Run `pls run ci`
+
+This skips the slower security scans and release verification (goreleaser, gosec, govulncheck) but still runs generate, tests, lint, API docs check, and docs build.
 
 **Then ask yourself:**
 1. Should README.md be updated?
