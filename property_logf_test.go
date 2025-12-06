@@ -83,7 +83,7 @@ func TestPropertyLogForwarding(t *testing.T) {
 		specta.AssertThat(t, allLogs, specta.Contains("Current x value:"))
 	})
 
-	t.Run("multiple log calls are all captured", func(t *testing.T) {
+	t.Run("multiple log calls are all captured in order", func(t *testing.T) {
 		spy := testlib.NewSpy()
 
 		specta.Property(spy, func(pt *specta.T) {
@@ -95,12 +95,7 @@ func TestPropertyLogForwarding(t *testing.T) {
 			pt.Fatalf("forced failure")
 		}, specta.MaxTests(1))
 
-		// Verify all three logs appear in spy.Logs
-		specta.AssertThat(t, len(spy.Logs), specta.Equal(3))
-
-		allLogs := strings.Join(spy.Logs, "\n")
-		specta.AssertThat(t, allLogs, specta.Contains("Log 1"))
-		specta.AssertThat(t, allLogs, specta.Contains("Log 2"))
-		specta.AssertThat(t, allLogs, specta.Contains("Log 3"))
+		// Verify all three logs appear in correct order
+		specta.AssertThat(t, spy.Logs, specta.DeepEqual([]string{"Log 1", "Log 2", "Log 3"}))
 	})
 }
