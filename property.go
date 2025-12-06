@@ -61,9 +61,7 @@ func (t *T) Logf(format string, args ...any) {
 		// Forward directly to underlying testing.T for the final failing iteration
 		// Call Helper() to mark our function as a helper, so stack traces skip us
 		// and attribute the log to the user's code
-		if helper, ok := t.testingT.(interface{ Helper() }); ok {
-			helper.Helper()
-		}
+		t.testingT.Helper()
 		t.testingT.Logf(format, args...)
 	}
 	// Otherwise, discard logs (don't capture them - we don't need them anymore)
@@ -132,10 +130,7 @@ func MaxShrinks(n int) PropertyOption {
 //	    AssertThat(t, x+y, Equal(y+x))
 //	})
 func Property(t TestingT, check func(*T), opts ...PropertyOption) {
-	// Only call Helper() if t is a real *testing.T
-	if helper, ok := t.(interface{ Helper() }); ok {
-		helper.Helper()
-	}
+	t.Helper()
 
 	// Apply configuration
 	cfg := propertyConfig{
@@ -253,10 +248,7 @@ func runCheck(check func(*T), pt *T) (failed bool, skipped bool) {
 
 // reportFailure creates a detailed error message and fails the test.
 func reportFailure(t TestingT, shrunkSeq *conjecture.ChoiceSequence, check func(*T), attempts, maxTests int, seed int64, tested, skipped int, shrinkCalls int) {
-	// Only call Helper() if t is a real *testing.T
-	if helper, ok := t.(interface{ Helper() }); ok {
-		helper.Helper()
-	}
+	t.Helper()
 
 	// Replay the shrunk sequence to get the actual failure and capture generated values
 	// Enable log passthrough so pt.Logf() calls forward directly to t.Logf() with correct line attribution
