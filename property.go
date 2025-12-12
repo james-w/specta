@@ -14,7 +14,7 @@ import (
 // Unlike testing.T, calling Fatalf does not immediately terminate the test process,
 // but instead panics with a sentinel value to stop the current property iteration.
 type T struct {
-	testingT       TestingT                   // Reference to outer testing.T for forwarding logs on failure
+	testingT       TestingT // Reference to outer testing.T for forwarding logs on failure
 	failed         bool
 	errors         []string
 	logPassthrough bool                       // If true, forward Logf calls directly to testingT

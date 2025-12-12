@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/james-w/specta"
+	"github.com/james-w/specta/testlib"
 )
 
 func TestEqual(t *testing.T) {
@@ -321,6 +322,50 @@ func TestAssertThat(t *testing.T) {
 		specta.AssertThat(t, 42, specta.Equal(42))
 		specta.AssertThat(t, "hello", specta.Contains("ell"))
 		specta.AssertThat(t, true, specta.IsTrue())
+	})
+}
+
+func TestRequireThat(t *testing.T) {
+	t.Run("does not fail on match", func(t *testing.T) {
+		specta.RequireThat(t, 42, specta.Equal(42))
+		specta.RequireThat(t, "hello", specta.Contains("ell"))
+		specta.RequireThat(t, true, specta.IsTrue())
+		// Test continues - these lines execute
+	})
+
+	t.Run("calls Fatalf on failure", func(t *testing.T) {
+		spy := &testlib.Spy{}
+		specta.RequireThat(spy, 42, specta.Equal(99))
+
+		// Verify Fatalf was called
+		specta.AssertThat(t, spy.Fataled, specta.IsTrue())
+
+		// Verify error message was logged via Errorf first
+		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(0))
+	})
+
+	t.Run("reports error before calling Fatalf", func(t *testing.T) {
+		spy := &testlib.Spy{}
+		specta.RequireThat(spy, "hello", specta.Equal("world"))
+
+		// Should have both error message and Fatalf called
+		specta.AssertThat(t, spy.Fataled, specta.IsTrue())
+		specta.AssertThat(t, len(spy.Errors), specta.Equal(1))
+		specta.AssertThat(t, spy.Errors[0], specta.Contains("expected \"world\" but got \"hello\""))
+	})
+
+	t.Run("includes details in error output", func(t *testing.T) {
+		spy := &testlib.Spy{}
+
+		// Use a matcher that produces details (e.g., AllOf with multiple failures)
+		specta.RequireThat(spy, 15, specta.AllOf(
+			specta.LessThan(10),
+			specta.GreaterThan(20),
+		))
+
+		// Should have main error + detail errors
+		specta.AssertThat(t, spy.Fataled, specta.IsTrue())
+		specta.AssertThat(t, len(spy.Errors), specta.GreaterThan(1)) // Main error + details
 	})
 }
 

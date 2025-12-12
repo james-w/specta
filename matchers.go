@@ -30,11 +30,12 @@ func (f MatcherFunc[T]) Matches(actual T) MatchResult {
 	return f(actual)
 }
 
-// TestingT is the minimal interface required by AssertThat.
+// TestingT is the minimal interface required by AssertThat and RequireThat.
 // Both *testing.T and *testing.B satisfy this interface.
 type TestingT interface {
 	Helper()
 	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
 	Logf(format string, args ...interface{})
 }
 
@@ -72,6 +73,57 @@ func AssertThat[T any](t TestingT, actual T, matcher Matcher[T]) {
 		for _, detail := range result.Details {
 			t.Errorf("  %s", detail)
 		}
+	}
+}
+
+// RequireThat checks if actual matches the given matcher, stopping the test immediately if not.
+// Unlike AssertThat which continues after failures, RequireThat calls t.Fatalf() to halt execution.
+// This is useful for preconditions where subsequent code would panic or produce misleading errors.
+//
+// Example:
+//
+//	// Guard condition - user must not be nil for subsequent assertions
+//	RequireThat(t, user, NotNil())
+//	AssertThat(t, user.Name, Equal("Alice"))  // Safe - user is guaranteed non-nil
+func RequireThat[T any](t TestingT, actual T, matcher Matcher[T]) {
+	t.Helper()
+
+	// Capture the expression from AST for better error messages
+	args := ghostlib.ArgsFromAST(actual)
+	expr := ""
+	if len(args) > 1 {
+		expr = args[1]
+	}
+
+	result := matcher.Matches(actual)
+	if !result.Matched {
+		// Report main message first (consistent with AssertThat)
+		var msg string
+		if strings.Contains(result.Message, "\n") {
+			// Multi-line: add "didn't match:" header
+			if expr != "" {
+				msg = fmt.Sprintf("%s didn't match:\n%s", expr, result.Message)
+			} else {
+				msg = result.Message
+			}
+			t.Errorf("\n%s", msg)
+		} else {
+			// Single-line: prepend with colon
+			if expr != "" {
+				msg = fmt.Sprintf("%s: %s", expr, result.Message)
+			} else {
+				msg = result.Message
+			}
+			t.Errorf("%s", msg)
+		}
+
+		// Then report details
+		for _, detail := range result.Details {
+			t.Errorf("  %s", detail)
+		}
+
+		// Stop execution (empty message since we already reported the error)
+		t.Fatalf("")
 	}
 }
 

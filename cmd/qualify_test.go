@@ -8,8 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	testgen "github.com/james-w/specta"
 	"golang.org/x/tools/go/packages"
+
+	testgen "github.com/james-w/specta"
 )
 
 // TestQualifyTypeExpr tests the qualifyTypeExpr function with real Go code
