@@ -61,6 +61,7 @@ var (
 	list     = []string{"a", "b", "c"}
 	name     = "Alice"
 	user     = User{Name: "Alice", Email: "alice@example.com", Age: 30}
+	userPtr  = &User{Name: "Alice", Email: "alice@example.com", Age: 30}
 )
 
 func registerUser(email string, age int) User {
@@ -132,6 +133,36 @@ specta.AssertThat(t, age, specta.GreaterThanOrEqual(21))
 specta.AssertThat(t, active, specta.IsTrue())
 specta.AssertThat(t, name, specta.Not(specta.Equal("")))
 ```
+
+### AssertThat vs RequireThat
+
+specta provides two assertion functions:
+
+**`AssertThat`** - Reports failures but continues test execution:
+
+```go
+specta.AssertThat(t, user.Name, specta.Equal("Alice"))
+specta.AssertThat(t, user.Age, specta.GreaterThan(18))
+// Both assertions run, even if first fails
+```
+
+**`RequireThat`** - Stops test execution immediately on failure:
+
+```go
+specta.RequireThat(t, userPtr, specta.IsNotNil[User]())
+// Test stops here if userPtr is nil - prevents panic below
+specta.AssertThat(t, userPtr.Name, specta.Equal("Alice"))
+```
+
+**When to use RequireThat:**
+- **Guard conditions**: When nil values would cause panics
+- **Prerequisites**: When subsequent assertions depend on earlier conditions
+- **Fatal errors**: When continuing after failure would produce misleading errors
+
+**When to use AssertThat:**
+- **Independent checks**: When failures don't affect other assertions
+- **Multiple validations**: When you want to see all failures at once
+- **Most cases**: AssertThat is the default choice
 
 ### Composition
 

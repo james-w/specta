@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/james-w/specta/conjecture"
 	"github.com/sanity-io/litter"
+
+	"github.com/james-w/specta/conjecture"
 )
 
 // Gen is an alias for conjecture.Gen for convenience

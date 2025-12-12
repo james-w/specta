@@ -75,12 +75,145 @@ var (
 
 	// Compiled patterns
 	emailPattern = regexp.MustCompile(`^[a-z]+@[a-z]+\.[a-z]+$`)
+
+	// Illustrative examples - stubs for documentation
+	id       = 1
+	items    = []string{"first", "second", "third"}
+	response = Response{Status: 200, Body: "success"}
+	db       = DB{}
 )
+
+// createUser returns a sample user for examples
+func createUser() User {
+	return User{Name: "Alice", Email: "alice@example.com", Age: 30}
+}
+
+// findUser simulates finding a user by ID
+func findUser(id int) *User {
+	return &User{Name: "Alice", Email: "alice@example.com", Age: 30}
+}
+
+// Config represents application configuration
+type Config struct {
+	Setting string
+}
+
+var configPtr = &Config{Setting: "value"}
+
+// Response represents an HTTP response
+type Response struct {
+	Status int
+	Body   string
+}
+
+// DB represents a database connection
+type DB struct{}
+
+// Ping checks database connectivity
+func (DB) Ping() error {
+	return nil
+}
 -->
 
 # Core Matchers
 
 Matchers are the foundation of specta. They test values and provide detailed, structured failure messages.
+
+## Assertion Functions
+
+Before diving into specific matchers, it's important to understand the two assertion functions specta provides.
+
+### AssertThat - Continue on Failure
+
+`AssertThat` reports failures but allows the test to continue executing:
+
+```go
+func TestUserValidation(t *testing.T) {
+    user := createUser()
+
+    // All three assertions will run, even if the first fails
+    specta.AssertThat(t, user.Name, specta.Equal("Alice"))
+    specta.AssertThat(t, user.Email, specta.Contains("@"))
+    specta.AssertThat(t, user.Age, specta.GreaterThan(18))
+
+    // You'll see all failures in a single test run
+}
+```
+
+**Output when multiple assertions fail:**
+```
+user.Name: expected "Alice" but got "Bob"
+user.Email: expected string to contain "@" but got "invalid"
+```
+
+This is useful when you want to see **all** validation failures at once, making it faster to fix multiple issues.
+
+### RequireThat - Stop on Failure
+
+`RequireThat` stops test execution immediately if the assertion fails:
+
+```go
+func TestUserProcessing(t *testing.T) {
+    user := findUser(id)
+
+    // Guard: ensure user exists before accessing fields
+    specta.RequireThat(t, user, specta.IsNotNil[User]())
+
+    // Safe - test stopped above if user was nil
+    specta.AssertThat(t, user.Name, specta.Equal("Alice"))
+    specta.AssertThat(t, user.Email, specta.Contains("@"))
+}
+```
+
+Without `RequireThat`, if `user` is nil, the test would panic at `user.Name` with an unhelpful error. With `RequireThat`, you get a clear assertion failure and the test stops cleanly.
+
+### When to Use Each
+
+**Use `RequireThat` for:**
+
+1. **Nil checks before dereferencing:**
+   ```go
+   specta.RequireThat(t, configPtr, specta.IsNotNil[Config]())
+   _ = configPtr.Setting  // Safe - test stopped if nil
+   ```
+
+2. **Prerequisites for setup:**
+   ```go
+   specta.RequireThat(t, len(items), specta.GreaterThan(0))
+   _ = items[0]  // Safe - won't panic on empty slice
+   ```
+
+3. **Critical preconditions:**
+   ```go
+   specta.RequireThat(t, db.Ping(), specta.NoErr())
+   // Don't continue if database is unavailable
+   ```
+
+**Use `AssertThat` for:**
+
+1. **Independent field validations:**
+   ```go
+   specta.AssertThat(t, user.Name, specta.Equal("Alice"))
+   specta.AssertThat(t, user.Age, specta.GreaterThan(18))
+   // Want to see both failures if both are wrong
+   ```
+
+2. **Multiple unrelated checks:**
+   ```go
+   specta.AssertThat(t, response.Status, specta.Equal(200))
+   specta.AssertThat(t, response.Body, specta.Contains("success"))
+   ```
+
+3. **Default choice:** When in doubt, use `AssertThat`
+
+### Technical Details
+
+Both functions provide identical error messages. The only difference is whether `t.Fatalf()` is called after reporting the error:
+
+- `AssertThat` calls `t.Errorf()` - marks test as failed but continues
+- `RequireThat` calls `t.Errorf()` then `t.Fatalf("")` - marks failed and stops
+
+This follows the same pattern as testify's `assert` vs `require` packages.
 
 ## Value Matchers
 

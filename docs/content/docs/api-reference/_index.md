@@ -15,6 +15,7 @@ Package specta provides deterministic, concurrency\-safe generators of primitive
 - [func DeterministicUUIDFromInt\(i uint64\) uuid.UUID](<#DeterministicUUIDFromInt>)
 - [func Draw\[V any\]\(t \*T, gen Gen\[V\], label string\) V](<#Draw>)
 - [func Property\(t TestingT, check func\(\*T\), opts ...PropertyOption\)](<#Property>)
+- [func RequireThat\[T any\]\(t TestingT, actual T, matcher Matcher\[T\]\)](<#RequireThat>)
 - [type BuildWithSpec](<#BuildWithSpec>)
 - [type ChoiceGenerator](<#ChoiceGenerator>)
   - [func Choice\[T any\]\(gens ...Gen\[T\]\) \*ChoiceGenerator\[T\]](<#Choice>)
@@ -285,6 +286,23 @@ Property(t, func(t *specta.T) {
     y := Int().Draw(t, "y")
     AssertThat(t, x+y, Equal(y+x))
 })
+```
+
+<a name="RequireThat"></a>
+## func RequireThat
+
+```go
+func RequireThat[T any](t TestingT, actual T, matcher Matcher[T])
+```
+
+RequireThat checks if actual matches the given matcher, stopping the test immediately if not. Unlike AssertThat which continues after failures, RequireThat calls t.Fatalf\(\) to halt execution. This is useful for preconditions where subsequent code would panic or produce misleading errors.
+
+Example:
+
+```
+// Guard condition - user must not be nil for subsequent assertions
+RequireThat(t, user, NotNil())
+AssertThat(t, user.Name, Equal("Alice"))  // Safe - user is guaranteed non-nil
 ```
 
 <a name="BuildWithSpec"></a>
@@ -2155,12 +2173,13 @@ Logf logs a message. During normal test execution, logs are discarded to avoid s
 <a name="TestingT"></a>
 ## type TestingT
 
-TestingT is the minimal interface required by AssertThat. Both \*testing.T and \*testing.B satisfy this interface.
+TestingT is the minimal interface required by AssertThat and RequireThat. Both \*testing.T and \*testing.B satisfy this interface.
 
 ```go
 type TestingT interface {
     Helper()
     Errorf(format string, args ...interface{})
+    Fatalf(format string, args ...interface{})
     Logf(format string, args ...interface{})
 }
 ```
